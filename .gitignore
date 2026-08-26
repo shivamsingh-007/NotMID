@@ -1,0 +1,54 @@
+# Secrets and environment configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Dependencies and build outputs
+node_modules/
+dist/
+build/
+.next/
+coverage/
+.turbo/
+.cache/
+
+# Runtime and local data
+*.log
+*.pid
+*.sqlite
+*.sqlite3
+uploads/
+recordings/
+exports/
+patient-data/
+
+# Model and large generated assets
+models/
+checkpoints/
+*.onnx
+*.safetensors
+
+# IDE and operating-system files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# Infrastructure local state
+*.tfstate
+*.tfstate.*
+.terraform/
+

@@ -125,14 +125,6 @@ sequenceDiagram
   <img src="patient-case-taking-platform/assets/roadmap-timeline.svg" alt="Four-phase build roadmap timeline" width="900"/>
 </div>
 
-| Phase | Timeline | Focus |
-|-------|----------|-------|
-| **0 — Discovery & Governance** | 3–5 weeks | Clinical workflow observation, consent/retention policies, ABDM sandbox path, synthetic evaluation set |
-| **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Identity & RBAC, encounter state machine, Patient PWA / kiosk / clinician review, AI gateway (Hi/En ASR), clinician sign-off & immutable audit |
-| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Kafka event backbone, OCR/document worker, red-flag alerts, multilingual summaries + TTS, offline capture, ABDM sandbox integration |
-| **3 — Multi-Facility Scale** | 12–16 weeks | Facility-aware isolation, ABDM production (HIP/HIU), HIS/LIMS/PACS adapters, OpenSearch, autoscale, DR & failover |
-| **4 — Validated Advanced Assistance** | — | Specialty interviews, care-gap suggestions, retrieval-assisted summaries with citations, de-identified analytics |
-
 Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 
 ---

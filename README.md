@@ -141,7 +141,7 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 
 | Role | Name |
 |------|------|
-| **Team Lead** | Shivam |
+| **** | Shivam |
 | **Backend Architect** | Yash |
 | **Frontend Lead** | Aryan |
 | **AI/ML Engineer** | Anushka |

@@ -10,7 +10,7 @@ Build a multilingual patient case-taking platform that reduces clinical document
 - Never use ABHA as the internal database primary key.
 - Never place PHI, secrets or raw production records in prompts, fixtures, logs or event payloads.
 - Never write directly to another service's tables.
-- Never make OpenSearch, Redis or a vector index the clinical source of truth.
+- Never make Elasticsearch, Redis or a vector index the clinical source of truth.
 - Never send raw audio or PDFs through Kafka; send encrypted object references.
 - All critical alerts require deterministic rules, a documented clinical owner and an escalation path.
 
@@ -39,4 +39,3 @@ A change is incomplete until it has:
 - migration and rollback notes where applicable;
 - accessibility review for user-facing behavior;
 - clinical-safety review when medical meaning can change.
-

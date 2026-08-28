@@ -44,7 +44,7 @@ cd NotMID/patient-case-taking-platform
 # npm run dev
 ```
 
-> **Note**: This is a planning-first repository — no production application code exists yet. Build begins after Phase 0 exit gate approval. See [`docs/plans/BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
+> **Note**: This is a planning-first repository — no production application code exists yet. Build begins after Phase 0 exit gate approval. See [`BUILD-ROADMAP.md`](patient-case-taking-platform/docs/plans/BUILD-ROADMAP.md).
 
 ---
 
@@ -104,13 +104,13 @@ sequenceDiagram
 |-------|------------|
 | **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
 | **Backend APIs** | FastAPI + Pydantic + OpenAPI |
-| **Realtime & events** | WebSockets + Kafka-compatible events; Redpanda for local/pilot |
+| **Realtime & async** | WebSockets + Celery/Redis for MVP; Kafka/Redpanda at measured scale |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
 | **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
 | **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
 | **Documents & NLP** | OCR ensemble + specialist handwriting model + PyTorch clinical NLP |
 | **Rules** | Versioned Python rules service; Drools-style engine only if needed later |
-| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived OpenSearch |
+| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived Elasticsearch |
 | **Infrastructure** | Docker; Kubernetes for pilot/production; KServe/Ray Serve optional later |
 | **Standards** | FHIR R4, ABDM APIs, OpenAPI 3.1 |
 | **Observability** | OpenTelemetry, Prometheus, Grafana |
@@ -131,7 +131,7 @@ sequenceDiagram
   <img src="patient-case-taking-platform/assets/roadmap-timeline.svg" alt="Four-phase build roadmap timeline" width="900"/>
 </div>
 
-Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
+Full detail: [`BUILD-ROADMAP.md`](patient-case-taking-platform/docs/plans/BUILD-ROADMAP.md).
 
 ---
 
@@ -152,13 +152,16 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 
 | Document | Purpose |
 |----------|---------|
-| [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
-| [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
-| [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
-| [`DATA-OWNERSHIP.md`](docs/architecture/DATA-OWNERSHIP.md) | Sources of truth & storage rules |
-| [`EVENT-CATALOG.md`](docs/contracts/EVENT-CATALOG.md) | Async event conventions |
-| [`CLINICAL-AI-SAFETY.md`](docs/safety/CLINICAL-AI-SAFETY.md) | Clinical AI safety gates |
-| [`SECURITY-AND-PRIVACY.md`](docs/security/SECURITY-AND-PRIVACY.md) | Consent, access & PHI controls |
+| [`CONTEXT-GRAPH.md`](patient-case-taking-platform/CONTEXT-GRAPH.md) | Repository & system context |
+| [`BUILD-ROADMAP.md`](patient-case-taking-platform/docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
+| [`SYSTEM-ARCHITECTURE.md`](patient-case-taking-platform/docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
+| [`SERVICE-BOUNDARIES.md`](patient-case-taking-platform/docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |
+| [`DATA-OWNERSHIP.md`](patient-case-taking-platform/docs/architecture/DATA-OWNERSHIP.md) | Sources of truth & storage rules |
+| [`DATA-MODEL.md`](patient-case-taking-platform/docs/architecture/DATA-MODEL.md) | Conceptual Postgres, MongoDB, object & AYUSH model |
+| [`EVENT-CATALOG.md`](patient-case-taking-platform/docs/contracts/EVENT-CATALOG.md) | Async event conventions |
+| [`RESILIENCE-PATTERNS.md`](patient-case-taking-platform/docs/operations/RESILIENCE-PATTERNS.md) | Dependency fallbacks, retry, cache & rollout policy |
+| [`CLINICAL-AI-SAFETY.md`](patient-case-taking-platform/docs/safety/CLINICAL-AI-SAFETY.md) | Clinical AI safety gates |
+| [`SECURITY-AND-PRIVACY.md`](patient-case-taking-platform/docs/security/SECURITY-AND-PRIVACY.md) | Consent, access & PHI controls |
 
 ## 🔒 Safety & Compliance
 

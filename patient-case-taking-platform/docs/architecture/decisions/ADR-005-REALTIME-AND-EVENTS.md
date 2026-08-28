@@ -6,18 +6,19 @@ Accepted for planning.
 
 ## Decision
 
-Use authenticated WebSockets for partial transcripts, progress and time-sensitive UI updates. Use Kafka protocol events for durable asynchronous workflows. Redpanda is the default local and pilot implementation; production may use managed Kafka or Redpanda without changing event contracts.
+Use authenticated WebSockets for partial transcripts, progress and time-sensitive UI updates. Use Celery with Redis for MVP background work, while PostgreSQL retains durable workflow/job state and a transactional outbox. Adopt Kafka or Redpanda when measured replay, throughput, fan-out or independent-consumer requirements justify it. Both stages use the same versioned, reference-only job envelope.
 
 ## Consequences
 
 - WebSocket messages are disposable delivery hints and never the authoritative clinical state.
 - FastAPI/PostgreSQL commits durable workflow changes before the transactional outbox publishes events.
-- Kafka/Redpanda payloads carry metadata and object IDs, not raw audio or document bodies.
+- Queue/broker payloads carry metadata and internal artifact IDs, not raw audio, unrestricted transcripts, prompts, completions or document bodies.
 - Consumers are idempotent and use schema versions, bounded retries and dead-letter handling.
-- Interactive ASR uses the streaming path rather than waiting for Kafka round trips.
+- PostgreSQL unique constraints and a processed-event ledger provide correctness; Redis keys may accelerate checks but are not the idempotency source of truth.
+- Interactive ASR uses the streaming path rather than waiting for queue round trips.
 
 ## Exit criteria
 
 - Reconnect/resume behavior is tested without duplicating confirmed answers.
-- Event replay produces the same final projection.
+- Retried or replayed jobs produce the same final projection.
 - Broker outage does not prevent manual clinical note entry/signing.

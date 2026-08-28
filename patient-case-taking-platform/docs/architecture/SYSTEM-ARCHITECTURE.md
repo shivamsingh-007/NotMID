@@ -2,11 +2,19 @@
 
 ## Architectural style
 
-Use a modular clinical core plus isolated asynchronous and integration services.
+Use a microservice-light, domain-driven architecture: clear logical bounded contexts, but only a few deployables until scaling, security or team ownership requires extraction.
 
 The core is a FastAPI application that initially owns patient identity, consent, encounters and signed records in one deployable application with strict internal module boundaries. This avoids premature distributed transactions while workflows are still changing.
 
-Separate services are justified when they have materially different scaling, security or availability needs:
+The MVP deploys five coarse-grained units:
+
+- `clinical-platform`: identity/registration, consent/legal artifacts, patient sessions, encounters, questionnaire state, signed records and canonical audit writes;
+- `conversation-runtime`: WebSocket dialogue orchestration plus the ASR/TTS gateway;
+- `ai-processing-workers`: document ingestion, OCR/extraction, clinical NLP, summaries and model jobs;
+- `risk-and-notification-worker`: deterministic triage, alert lifecycle and token/SMS/WhatsApp routing;
+- `integration-adapter`: FHIR/ABDM and hospital-system integration.
+
+These deployables contain the logical bounded contexts defined in `SERVICE-BOUNDARIES.md`. Extract a context only when it has materially different scaling, security, availability or ownership needs, such as:
 
 - conversation orchestration: streaming and session state;
 - AI model gateway: vLLM/provider credentials, policy enforcement and GPU/model routing;
@@ -33,13 +41,13 @@ Separate services are justified when they have materially different scaling, sec
 | API layer | FastAPI with Pydantic/OpenAPI | Modular clinical core plus independently scalable workers/adapters |
 | Identity | Clerk for staff and patient web authentication; hospital SSO through supported OIDC/SAML integration | FastAPI verifies issuer, audience, signature and expiry, then applies internal facility/care/consent authorization |
 | Realtime | WebSockets | Interactive transcript/status updates only; reconnect and authorization are explicit |
-| Durable events | Kafka protocol; Redpanda default for local/pilot, managed Kafka or Redpanda for production | Transactional outbox, schema registry, idempotency, retries and dead letters |
+| Async jobs/events | Celery + Redis for MVP; Kafka-compatible backbone and worker pools at measured scale | PostgreSQL retains durable job state; contracts remain migration-compatible, idempotent and reference-based |
 | LLM | AI gateway to vLLM serving HiMed 8B as the initial candidate | Model is not approved until license, privacy, language, safety and hardware evaluations pass |
 | ASR/TTS | AI4Bharat/Bhashini-compatible ASR and Indic/Bhashini-compatible TTS | Stream through dedicated speech services; preserve confidence, timing and language metadata |
 | OCR | Routed ensemble of PaddleOCR/Tesseract plus TrOCR/Donut and a Hindi handwriting specialist | Original documents remain immutable; every extraction retains page/region provenance |
 | Clinical NLP | PyTorch inference services | Versioned entity, negation, temporality and classification outputs |
 | Rules | Versioned Python rules service first | Deterministic urgent-symptom and policy rules; consider Drools only for demonstrated authoring needs |
-| Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + OpenSearch | Store ownership is defined in `DATA-OWNERSHIP.md` |
+| Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + Elasticsearch | Elasticsearch holds rebuildable search/analytics projections, never transactional truth |
 | Runtime | Docker everywhere; Kubernetes for shared pilot/production environments | KServe/Ray Serve deferred until model count or traffic warrants another control plane |
 
 ## Authentication and authorization flow
@@ -69,7 +77,7 @@ Pipeline:
 
 `audio → voice activity detection → language identification → ASR → normalization → clinical entity extraction → workflow decision → safety validation → response text → TTS`
 
-WebSockets carry partial transcript and job-status updates. Durable workflow changes are written through FastAPI/PostgreSQL and emitted through the outbox to Kafka/Redpanda. Interactive audio is not routed through Kafka.
+WebSockets carry partial transcript and job-status updates. Durable workflow changes are written through FastAPI/PostgreSQL. During the MVP, the outbox dispatcher submits reference-only Celery jobs through Redis. At scale, the same versioned job envelope is published to Kafka/Redpanda. Interactive audio is never routed through the job broker.
 
 Each produced assertion stores:
 
@@ -85,7 +93,7 @@ Each produced assertion stores:
 | Capability | Target behavior |
 |---|---|
 | Registration and record view | Highly available; graceful degradation without AI |
-| Clinician note/signing | Must remain available during Kafka or model-provider outage |
+| Clinician note/signing | Must remain available during queue/broker or model-provider outage |
 | Live transcription | Degrade to manual text entry |
 | OCR and summary generation | Async, retryable, visible pending state |
 | Notifications | Async, at-least-once with deduplication |
@@ -100,8 +108,9 @@ Each produced assertion stores:
 - Managed MongoDB or an equivalently operated replica set for raw transcript/OCR/model artifacts, with PHI-aware retention and restore tests.
 - Versioned encrypted object storage with malware quarantine.
 - Redis for ephemeral session/cache/rate-limit state only.
-- Redpanda provides the Kafka-compatible local/pilot backbone; production may use managed Kafka or Redpanda without changing contracts.
-- OpenSearch introduced only when longitudinal search is required.
+- Celery with Redis provides the MVP queue. PostgreSQL owns job state and the transactional outbox; Redis loss must not lose an accepted clinical workflow.
+- Kafka or Redpanda is introduced when replay, independent consumer groups, sustained throughput or retention requirements exceed Celery operations.
+- Elasticsearch is introduced for derived clinical-document search, audit exploration and aggregate analytics. Optional vector search remains feature-gated and benchmarked on NotMID data.
 - vLLM and other GPU services run in independently scalable GPU pools; CPU workers scale from queue depth.
 - KServe or Ray Serve is an optional later control plane, not an MVP dependency.
 - Central OpenTelemetry-compatible metrics, logs and traces with PHI redaction.

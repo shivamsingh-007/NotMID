@@ -1,4 +1,6 @@
-# Services
+# Logical Services and MVP Deployables
+
+The folders describe bounded capabilities and future extraction seams; they do not require one Kubernetes deployment each. The MVP deployment map is authoritative in `../docs/architecture/SERVICE-BOUNDARIES.md`.
 
 - `clinical-platform`: modular transactional core.
 - `conversation-orchestrator`: structured multilingual interview sessions.
@@ -13,4 +15,4 @@
 - `notification-worker`: SMS/WhatsApp delivery with consent and deduplication.
 - `abdm-adapter`: ABHA/ABDM protocol isolation and reconciliation.
 
-Each service must document owned data, APIs, events, SLOs, privacy classification, failure behavior and operational runbook before implementation.
+Each logical service must document owned data, APIs/events, SLOs, privacy classification and failure behavior. A new physical service additionally requires a measured extraction trigger, operational owner, runbook and rollback plan.

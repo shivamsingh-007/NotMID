@@ -16,7 +16,9 @@ Final targets require pilot traffic measurements. Start by defining and measurin
 
 - Database restore and point-in-time recovery.
 - Object-store recovery and accidental access exposure.
-- Kafka lag, poison message and replay.
+- Celery/Redis job recovery and durable PostgreSQL re-dispatch.
+- Kafka lag, poison message, dead-letter remediation and replay after scale migration.
+- Elasticsearch outage, failed projection and full rebuild.
 - AI provider outage or unsafe-output spike.
 - ABDM credential/callback failure.
 - Notification provider outage.
@@ -32,3 +34,4 @@ Final targets require pilot traffic measurements. Start by defining and measurin
 - Security audit is separate from debugging logs.
 - Alert on user-visible symptoms and safety risks, not only CPU utilization.
 
+Detailed dependency fallbacks, cache behavior, rollout controls and fault-injection cases are defined in `RESILIENCE-PATTERNS.md`.

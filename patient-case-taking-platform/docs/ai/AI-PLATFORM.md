@@ -39,7 +39,7 @@ Retrieval is restricted by the same patient, facility, care relationship, purpos
 
 ## Async execution
 
-Kafka-compatible events announce jobs; Redpanda is the local/pilot default. Object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. PostgreSQL retains durable job/workflow state and stable artifact references. Workers persist idempotent job status and publish completion events. Interactive ASR and WebSocket updates use a streaming path and do not wait on Kafka round trips.
+For the MVP, Celery workers consume Redis-queued jobs while PostgreSQL retains durable job/workflow state, the transactional outbox and stable artifact references. Object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. At measured scale, Kafka/Redpanda consumer groups replace the queue transport without changing the reference-only envelope. Workers persist idempotent status and result references before announcing completion. Interactive ASR and WebSocket updates use a streaming path and do not wait on async queue round trips.
 
 ## Model operations progression
 

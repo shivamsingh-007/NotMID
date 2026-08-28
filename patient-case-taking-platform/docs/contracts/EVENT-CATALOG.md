@@ -15,9 +15,12 @@ Every event contains:
 - `aggregate_type`
 - `aggregate_id`
 - `data_classification`
+- `idempotency_key`
+- `attempt`
+- `artifact_refs`
 - `payload`
 
-Do not include raw audio, images, PDFs, unrestricted transcripts, access tokens or secrets. Use short-lived authorized object references or internal object IDs.
+Do not include raw audio, images, PDFs, unrestricted transcripts, prompts, completions, access tokens or secrets. Use opaque internal artifact IDs; consumers obtain short-lived authorized object access after authorization.
 
 ## Initial events
 
@@ -38,13 +41,40 @@ Do not include raw audio, images, PDFs, unrestricted transcripts, access tokens 
 
 ## Event backbone
 
-Use Kafka protocol contracts. Redpanda is the default local and pilot implementation; production may use managed Kafka or Redpanda after residency, support, cost and operational review. No producer or consumer may depend on vendor-specific behavior without an ADR.
+MVP workers use Celery with Redis while PostgreSQL stores durable job state and the transactional outbox. Kafka-compatible topics are introduced at scale without changing the semantic envelope. Production may use managed Kafka or Redpanda after residency, support, cost and operational review. No producer or consumer may depend on vendor-specific behavior without an ADR.
+
+## Scale-stage topic plan
+
+| Topic | Purpose | Transport retention |
+|---|---|---|
+| `ai.asr.requested.v1` | Submit asynchronous transcription jobs | 24 hours |
+| `ai.asr.completed.v1` | Announce persisted transcript artifact | 7 days |
+| `ai.ocr.requested.v1` | Submit document OCR jobs | 24 hours |
+| `ai.ocr.completed.v1` | Announce persisted extraction artifact | 7 days |
+| `ai.llm.requested.v1` | Submit policy-approved inference job | 24 hours |
+| `ai.llm.completed.v1` | Announce persisted completion artifact | 7 days |
+| `clinical.summary.requested.v1` | Submit summary job | 24 hours |
+| `clinical.summary.completed.v1` | Announce versioned summary draft | 30 days |
+| `clinical.triage.alert-raised.v1` | Announce deterministic red-flag escalation | 90 days, subject to volume and policy |
+| `audit.event-recorded.v1` | Transport an audit projection event | 7–30 days; never the compliance archive |
+
+Topic payloads contain metadata and artifact references only. Retention values are planning defaults and require privacy, volume and recovery validation.
+
+## Consumer groups
+
+- `asr-workers` consume ASR requests and publish completed artifact references.
+- `ocr-workers` consume OCR requests and publish completed artifact references.
+- `llm-workers` consume approved inference requests and publish persisted result references.
+- `summary-workers` consume summary requests and fetch authorized OCR/ASR/record inputs by reference.
+- `triage-engine` evaluates confirmed structured facts and raises deterministic alerts; an LLM is never the sole red-flag detector.
+- `audit-projector` writes the immutable audit sink and a time-bounded Elasticsearch projection.
 
 ## Delivery rules
 
 - Producers use a transactional outbox.
-- Consumers are idempotent by `event_id`.
+- Consumers are idempotent using a PostgreSQL processed-event ledger and uniqueness constraints such as `(job_id, stage, model_version)`. Redis may accelerate the check but is not authoritative.
 - Schemas are backward compatible within a major version.
-- Retries use bounded exponential backoff.
-- Poison messages move to a dead-letter topic with a remediation runbook.
+- Retries use a maximum of three attempts with exponential backoff and full jitter. Kafka implementations use explicit retry topics or a delayed scheduler rather than blocking partitions.
+- Messages that still fail move to a stage-specific dead-letter topic with error class, attempt count and a PHI-safe remediation reference.
+- Bloom filters are not used for correctness-sensitive deduplication because false positives could suppress clinical work.
 - Events are not used as an undocumented substitute for synchronous authorization checks.

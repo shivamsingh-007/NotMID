@@ -8,7 +8,7 @@ This document answers two questions: what each folder owns, and how information 
 flowchart TD
     ROOT["patient-case-taking-platform"]
     ROOT --> APPS["apps: user-facing channels"]
-    ROOT --> SERVICES["services: deployable business capabilities"]
+    ROOT --> SERVICES["services: logical capabilities and extraction seams"]
     ROOT --> PACKAGES["packages: versioned shared contracts"]
     ROOT --> MODELS["model-assets: prompts, cards and evaluations"]
     ROOT --> INFRA["infrastructure: environments and operations"]
@@ -68,13 +68,14 @@ flowchart LR
     SPEECH["AI4Bharat/Bhashini ASR + Indic TTS"]
     OCR["OCR ensemble + clinical NLP"]
     RULES["Deterministic Rules Service"]
-    BUS["Kafka API / Redpanda Event Backbone"]
+    JOBS["Celery / Redis MVP Job Transport"]
+    BUS["Kafka / Redpanda Scale Backbone"]
     WORKERS["Async Workers"]
     PG[("PostgreSQL")]
     MONGO[("MongoDB")]
     OBJ[("Object Storage")]
     REDIS[("Redis")]
-    SEARCH[("OpenSearch")]
+    SEARCH[("Elasticsearch")]
     AUDIT[("Immutable Audit")]
     ABDM["ABDM / ABHA / HIE-CM"]
     HOSP["HIS / LIMS / PACS"]
@@ -100,7 +101,9 @@ flowchart LR
     WORKERS --> MONGO
     CORE --> REDIS
     CORE --> OBJ
-    CORE --> BUS
+    CORE --> JOBS
+    CORE -. scale migration .-> BUS
+    JOBS --> WORKERS
     BUS --> WORKERS
     WORKERS --> OBJ
     WORKERS --> PG

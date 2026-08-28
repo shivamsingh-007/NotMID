@@ -104,13 +104,13 @@ sequenceDiagram
 |-------|------------|
 | **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
 | **Backend APIs** | FastAPI + Pydantic + OpenAPI |
-| **Realtime & events** | WebSockets + Kafka-compatible events; Redpanda for local/pilot |
+| **Realtime & async** | WebSockets + Celery/Redis for MVP; Kafka/Redpanda at measured scale |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
 | **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
 | **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
 | **Documents & NLP** | PaddleOCR/Tesseract/TrOCR/Donut ensemble + specialist handwriting model + PyTorch clinical NLP |
 | **Rules** | Versioned Python rules service; Drools-style engine only if authoring complexity justifies it |
-| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived OpenSearch |
+| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived Elasticsearch |
 | **Infrastructure** | Docker; Kubernetes for pilot/production; KServe/Ray Serve optional later |
 | **Standards** | FHIR R4, ABDM APIs, OpenAPI 3.1 |
 | **Observability** | OpenTelemetry, Prometheus, Grafana |
@@ -135,8 +135,8 @@ sequenceDiagram
 |-------|----------|-------|
 | **0 — Discovery & Governance** | 3–5 weeks | Clinical workflow observation, consent/retention policies, ABDM sandbox path, synthetic evaluation set |
 | **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Clerk identity boundary, FastAPI core, encounter state machine, Patient PWA / kiosk / clinician review, vLLM gateway and Hi/En ASR, clinician sign-off |
-| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Kafka/Redpanda event backbone, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
-| **3 — Multi-Facility Scale** | 12–16 weeks | Facility-aware isolation, ABDM production (HIP/HIU), HIS/LIMS/PACS adapters, OpenSearch, autoscale, DR & failover |
+| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Hardened Celery/Redis jobs, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
+| **3 — Multi-Facility Scale** | 12–16 weeks | Kafka/Redpanda when triggered, Elasticsearch, facility isolation, ABDM production, adapters, autoscale, DR & failover |
 | **4 — Validated Advanced Assistance** | — | Specialty interviews, care-gap suggestions, retrieval-assisted summaries with citations, de-identified analytics |
 
 Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
@@ -163,8 +163,11 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
+| [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |
 | [`DATA-OWNERSHIP.md`](docs/architecture/DATA-OWNERSHIP.md) | Sources of truth & storage rules |
+| [`DATA-MODEL.md`](docs/architecture/DATA-MODEL.md) | Conceptual Postgres, MongoDB, object & AYUSH model |
 | [`EVENT-CATALOG.md`](docs/contracts/EVENT-CATALOG.md) | Async event conventions |
+| [`RESILIENCE-PATTERNS.md`](docs/operations/RESILIENCE-PATTERNS.md) | Dependency fallbacks, retry, cache & rollout policy |
 | [`CLINICAL-AI-SAFETY.md`](docs/safety/CLINICAL-AI-SAFETY.md) | Clinical AI safety gates |
 | [`SECURITY-AND-PRIVACY.md`](docs/security/SECURITY-AND-PRIVACY.md) | Consent, access & PHI controls |
 

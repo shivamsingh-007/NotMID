@@ -1,3 +1,3 @@
 # Messaging Module
 
-Kafka-protocol messaging with Redpanda as the local/pilot default, plus schema registry, transactional outbox, retry/dead-letter topics, replay tooling and operational lag monitoring.
+MVP: Celery with Redis transport, PostgreSQL durable job state/outbox, bounded retries and dead-letter inspection. Scale stage: Kafka-compatible messaging through managed Kafka or Redpanda, schema registry, retry/dead-letter topics, replay tooling and lag monitoring. Both use the versioned reference-only envelope in `docs/contracts/EVENT-CATALOG.md`.

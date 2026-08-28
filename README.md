@@ -104,9 +104,9 @@ sequenceDiagram
 |-------|------------|
 | **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
 | **Backend APIs** | FastAPI + Pydantic + OpenAPI |
-| **Realtime & async** | WebSockets + Celery/Redis for MVP; Kafka/Redpanda at measured scale |
+| **Realtime & async** | WebSockets + Kafka from MVP; Redis remains cache/session state |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
-| **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
+| **LLM serving** | Unified router → HiMed 8B/vLLM → smaller local summarizer → approved OpenAI/Claude fallback |
 | **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
 | **Documents & NLP** | OCR ensemble + specialist handwriting model + PyTorch clinical NLP |
 | **Rules** | Versioned Python rules service; Drools-style engine only if needed later |

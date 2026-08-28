@@ -6,7 +6,7 @@ Accepted for planning.
 
 ## Decision
 
-Use authenticated WebSockets for partial transcripts, progress and time-sensitive UI updates. Use Celery with Redis for MVP background work, while PostgreSQL retains durable workflow/job state and a transactional outbox. Adopt Kafka or Redpanda when measured replay, throughput, fan-out or independent-consumer requirements justify it. Both stages use the same versioned, reference-only job envelope.
+Use authenticated WebSockets for partial transcripts, progress and time-sensitive UI updates. Use Kafka from MVP for asynchronous workflows, isolated consumer groups, replay and dead-letter handling. PostgreSQL retains durable workflow/job state and the transactional outbox. Redis remains cache/session/rate-limit and optional idempotency acceleration, not the queue source of truth.
 
 ## Consequences
 

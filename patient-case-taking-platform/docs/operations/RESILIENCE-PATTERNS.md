@@ -7,7 +7,8 @@ All thresholds below are initial hypotheses. Load tests and pilot telemetry must
 | Dependency | Initial signal | Fallback | Safety boundary |
 |---|---|---|---|
 | LLM/vLLM | 5-second time-to-first-token target; bounded async deadline by task | Controlled ontology questions, touch entry, queue draft work | Never block signing or deterministic triage; never present an unfinished draft as final |
-| External LLM provider | timeout, rate limit, budget exhaustion or policy denial | Stay local if capacity permits; otherwise delayed/manual workflow | Never fail over externally unless task, facility, consent/purpose, residency and provider policy explicitly permit it |
+| Smaller local summarizer | quality gate failure, timeout or saturation | Primary HiMed if available; otherwise structured/manual summary | Summary-only route; never silently broaden its task scope |
+| OpenAI or Claude adapter | timeout, rate limit, budget exhaustion or policy denial | Try another eligible approved route or delayed/manual workflow | Never fail over externally unless task, facility, consent/purpose, residency and provider policy explicitly permit it |
 | Streaming ASR | 3-second chunk-stall signal | Retry a smaller chunk once, then type/tap mode or async transcription | Preserve audio/session reference and explicit pending state |
 | PostgreSQL | sustained high latency or connection saturation | Read-only safe cache for eligible views; encrypted local draft for approved kiosk flows | Stop or clearly hold writes when commit status is uncertain; never sign against an unconfirmed write |
 | Redis | miss, timeout or restart | Rebuild cache; re-dispatch durable pending jobs from PostgreSQL | Redis loss cannot lose consent, encounter or job truth |
@@ -36,7 +37,7 @@ Use rolling-window circuit breakers, bulkheads for critical versus batch work, b
 
 ## Model-provider isolation
 
-- Local vLLM, every external provider and result normalization use independent worker pools, credentials, concurrency caps, retry budgets and circuit breakers.
+- HiMed/vLLM, the smaller local summarizer, OpenAI, Claude and result normalization use independent worker pools, credentials where applicable, concurrency caps, retry budgets and circuit breakers.
 - Provider token/cost policy is authoritative in controlled configuration/PostgreSQL; atomic Redis counters may enforce hot-path reservations and reconcile to durable usage records.
 - Never expose raw provider error bodies to users or ordinary logs. Normalize status/error classes and retain only PHI-safe operational metadata.
 - If both local and eligible external inference fail, show confirmed structured intake, document timeline and raw extraction review; keep physician edit/sign workflows available and enqueue at most one useful, deadline-bounded regeneration.

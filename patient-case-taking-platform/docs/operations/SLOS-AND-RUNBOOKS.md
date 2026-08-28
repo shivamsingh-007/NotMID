@@ -16,8 +16,8 @@ Final targets require pilot traffic measurements. Start by defining and measurin
 
 - Database restore and point-in-time recovery.
 - Object-store recovery and accidental access exposure.
-- Celery/Redis job recovery and durable PostgreSQL re-dispatch.
-- Kafka lag, poison message, dead-letter remediation and replay after scale migration.
+- Kafka outage/outbox recovery, lag, poison message, dead-letter remediation and replay.
+- HiMed/fast-local/OpenAI/Claude routing failure and provider-budget exhaustion.
 - Elasticsearch outage, failed projection and full rebuild.
 - AI provider outage or unsafe-output spike.
 - ABDM credential/callback failure.

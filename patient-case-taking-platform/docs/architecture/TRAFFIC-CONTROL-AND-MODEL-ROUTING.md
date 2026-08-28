@@ -24,7 +24,7 @@ The public API gateway and internal AI model router are separate trust boundarie
 | Public API gateway | Clerk token validation, API quotas, request shaping, correlation IDs, timeout budget propagation and route policy | Treat gateway auth as sufficient clinical authorization; hold large document bodies |
 | FastAPI/core | Authoritative facility/care/consent authorization, validation, database-backed idempotency and workflow commit | Call unapproved model endpoints directly |
 | Internal AI model router | Approved task/model/provider policy, local capacity admission, privacy classification, token/cost budgets and result contract | Accept client-selected providers or silently export PHI |
-| Async transport | Celery/Redis for MVP; Kafka/Redpanda at scale for bounded queued work, replay and DLQ | Become clinical truth or an unlimited overflow buffer |
+| Async transport | Kafka from MVP for bounded queued work, replay, isolated consumer groups and DLQ | Become clinical truth or an unlimited overflow buffer |
 | Worker pools | Isolated local inference, external-provider calls and normalization | Share provider credentials or concurrency pools across trust classes |
 
 Cloud deployments may terminate public TLS at the managed load balancer, then re-encrypt or use mTLS to NGINX. Single-site deployments may terminate at NGINX. The selected topology must document certificate ownership and hop-by-hop encryption.
@@ -46,11 +46,12 @@ The router evaluates, in order:
 1. task is approved for AI and the requested output is non-authoritative;
 2. data classification permits the candidate execution location;
 3. facility/provider contract, residency, consent and purpose permit external processing;
-4. local capacity, deadline and expected token demand;
-5. provider allowlist, health, concurrency, daily/monthly token and cost budgets;
-6. model/language quality policy and required normalized schema version.
+4. HiMed 8B capacity, deadline and expected token demand;
+5. suitability/capacity of the evaluated smaller local summarizer for summary-only degraded work;
+6. OpenAI/Claude provider allowlist, health, concurrency, daily/monthly token and cost budgets;
+7. model/language quality policy and required normalized schema version.
 
-If external processing is not explicitly permitted, local saturation produces a delayed/manual fallback—not automatic data export. Provider API keys remain in a secrets manager and are available only to that provider's isolated worker pool.
+If external processing is not explicitly permitted, local saturation produces a delayed/manual fallback—not automatic data export. OpenAI and Claude are separate adapters and worker pools behind the unified router, not direct application dependencies. Provider API keys remain in a secrets manager and are available only to that provider's isolated worker pool.
 
 ## Admission control and priority
 
@@ -118,13 +119,13 @@ If local and external inference both fail, show confirmed slot-filled intake, do
 
 **Dependencies:** T3 and secrets manager.
 
-### T5 — Add scale-stage Kafka routing
+### T5 — Implement Kafka routing and replay
 
-**Acceptance criteria:** Local/external request topics, normalized result/failure topics, retry tiers and DLQs use the common envelope; queue age/backlog admission limits are enforced; replay is idempotent.
+**Acceptance criteria:** Local and provider-specific OpenAI/Claude request topics, normalized result/failure topics, retry tiers and DLQs use the common envelope; queue age/backlog admission limits are enforced; replay is idempotent and invokes exactly one selected provider.
 
 **Verification:** Replay, duplicate, poison-message, saturated-GPU and external-rate-limit drills preserve one logical result per job.
 
-**Dependencies:** T3–T4 and recorded Kafka migration trigger.
+**Dependencies:** T3–T4 and Kafka platform baseline.
 
 ### Checkpoint
 

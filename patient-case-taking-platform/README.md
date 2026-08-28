@@ -104,9 +104,9 @@ sequenceDiagram
 |-------|------------|
 | **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
 | **Backend APIs** | FastAPI + Pydantic + OpenAPI |
-| **Realtime & async** | WebSockets + Celery/Redis for MVP; Kafka/Redpanda at measured scale |
+| **Realtime & async** | WebSockets + Kafka from MVP; Redis remains cache/session state |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
-| **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
+| **LLM serving** | Unified router → HiMed 8B/vLLM → smaller local summarizer → approved OpenAI/Claude fallback |
 | **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
 | **Documents & NLP** | PaddleOCR/Tesseract/TrOCR/Donut ensemble + specialist handwriting model + PyTorch clinical NLP |
 | **Rules** | Versioned Python rules service; Drools-style engine only if authoring complexity justifies it |
@@ -135,8 +135,8 @@ sequenceDiagram
 |-------|----------|-------|
 | **0 — Discovery & Governance** | 3–5 weeks | Clinical workflow observation, consent/retention policies, ABDM sandbox path, synthetic evaluation set |
 | **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Clerk identity boundary, FastAPI core, encounter state machine, Patient PWA / kiosk / clinician review, vLLM gateway and Hi/En ASR, clinician sign-off |
-| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Hardened Celery/Redis jobs, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
-| **3 — Multi-Facility Scale** | 12–16 weeks | Kafka/Redpanda when triggered, Elasticsearch, facility isolation, ABDM production, adapters, autoscale, DR & failover |
+| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Hardened Kafka workflows, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
+| **3 — Multi-Facility Scale** | 12–16 weeks | Kafka worker-pool scale, Elasticsearch, facility isolation, ABDM production, adapters, autoscale, DR & failover |
 | **4 — Validated Advanced Assistance** | — | Specialty interviews, care-gap suggestions, retrieval-assisted summaries with citations, de-identified analytics |
 
 Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).

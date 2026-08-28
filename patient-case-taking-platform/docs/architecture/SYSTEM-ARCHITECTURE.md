@@ -45,8 +45,8 @@ Detailed ownership, admission control and implementation slices are defined in `
 | API layer | FastAPI with Pydantic/OpenAPI | Modular clinical core plus independently scalable workers/adapters |
 | Identity | Clerk for staff and patient web authentication; hospital SSO through supported OIDC/SAML integration | FastAPI verifies issuer, audience, signature and expiry, then applies internal facility/care/consent authorization |
 | Realtime | WebSockets | Interactive transcript/status updates only; reconnect and authorization are explicit |
-| Async jobs/events | Celery + Redis for MVP; Kafka-compatible backbone and worker pools at measured scale | PostgreSQL retains durable job state; contracts remain migration-compatible, idempotent and reference-based |
-| LLM | AI gateway to vLLM serving HiMed 8B as the initial candidate | Model is not approved until license, privacy, language, safety and hardware evaluations pass |
+| Async jobs/events | Kafka from MVP with isolated consumer groups, retry topics and DLQs | PostgreSQL retains durable job state; Kafka is transport/replay, not clinical truth |
+| LLM | Unified internal router: HiMed 8B on vLLM, evaluated smaller local summarizer, then approved OpenAI/Claude adapters | Every model/provider requires task, privacy, language, safety, contract and hardware/cost approval |
 | ASR/TTS | AI4Bharat/Bhashini-compatible ASR and Indic/Bhashini-compatible TTS | Stream through dedicated speech services; preserve confidence, timing and language metadata |
 | OCR | Routed ensemble of PaddleOCR/Tesseract plus TrOCR/Donut and a Hindi handwriting specialist | Original documents remain immutable; every extraction retains page/region provenance |
 | Clinical NLP | PyTorch inference services | Versioned entity, negation, temporality and classification outputs |
@@ -81,7 +81,7 @@ Pipeline:
 
 `audio → voice activity detection → language identification → ASR → normalization → clinical entity extraction → workflow decision → safety validation → response text → TTS`
 
-WebSockets carry partial transcript and job-status updates. Durable workflow changes are written through FastAPI/PostgreSQL. During the MVP, the outbox dispatcher submits reference-only Celery jobs through Redis. At scale, the same versioned job envelope is published to Kafka/Redpanda. Interactive audio is never routed through the job broker.
+WebSockets carry partial transcript and job-status updates. Durable workflow changes are written through FastAPI/PostgreSQL, then a transactional outbox publishes reference-only jobs to Kafka. Interactive audio is never routed through Kafka.
 
 Each produced assertion stores:
 
@@ -112,8 +112,8 @@ Each produced assertion stores:
 - Managed MongoDB or an equivalently operated replica set for raw transcript/OCR/model artifacts, with PHI-aware retention and restore tests.
 - Versioned encrypted object storage with malware quarantine.
 - Redis for ephemeral session/cache/rate-limit state only.
-- Celery with Redis provides the MVP queue. PostgreSQL owns job state and the transactional outbox; Redis loss must not lose an accepted clinical workflow.
-- Kafka or Redpanda is introduced when replay, independent consumer groups, sustained throughput or retention requirements exceed Celery operations.
+- Kafka provides the MVP asynchronous backbone. PostgreSQL owns job state and the transactional outbox; a Kafka outage must not lose an accepted clinical workflow.
+- Redis is limited to cache, session, rate-limit and optional idempotency fast-path state; it is not the job or clinical source of truth.
 - Elasticsearch is introduced for derived clinical-document search, audit exploration and aggregate analytics. Optional vector search remains feature-gated and benchmarked on NotMID data.
 - vLLM and other GPU services run in independently scalable GPU pools; CPU workers scale from queue depth.
 - KServe or Ray Serve is an optional later control plane, not an MVP dependency.

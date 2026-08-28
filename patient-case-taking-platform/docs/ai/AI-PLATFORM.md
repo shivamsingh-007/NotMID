@@ -14,12 +14,14 @@
 - The conversation orchestrator and workers call the AI model gateway, never vLLM or external model providers directly.
 - The gateway exposes task-level APIs, enforces minimum-necessary context, attaches model/prompt versions and routes approved requests to vLLM.
 - vLLM exposes an internal OpenAI-compatible endpoint and initially serves HiMed 8B as a candidate model.
+- A smaller local summarizer is a distinct degraded-mode route for summary tasks only. Select it through Hindi/English factuality, omission, provenance, latency and memory evaluation rather than naming an unevaluated model in architecture.
+- OpenAI API and Claude API are external fallback adapters behind the same router. They remain disabled for PHI until provider contract, data use/retention, residency, security and facility policy are approved.
 - HiMed 8B is not a clinical endorsement: licensing, provenance, Hindi/English performance, hallucination, omission, red-flag recall, latency and GPU-memory results must pass the clinical release gate.
 - If the candidate fails, the gateway preserves the interface while another evaluated model replaces it.
 
 ## Routing
 
-The internal model router selects a vLLM-hosted or approved external model using task, language, deadline, local capacity, cost/token budget, residency, consent/purpose, privacy classification and approved-model policy. Model names supplied by clients are ignored. Provider API keys remain in the secrets manager and are exposed only to isolated provider worker pools. Local saturation never causes automatic external PHI transfer: the task must be explicitly eligible for that provider and facility.
+The internal model router selects HiMed 8B on vLLM, the evaluated smaller local summarizer, or approved OpenAI/Claude adapters using task, language, deadline, local capacity, cost/token budget, residency, consent/purpose, privacy classification and approved-model policy. Model names supplied by clients are ignored. Provider API keys remain in the secrets manager and are exposed only to isolated provider worker pools. Local saturation never causes automatic external PHI transfer: the task must be explicitly eligible for that provider and facility.
 
 Local workers, each external provider and response normalization use separate concurrency pools and circuit breakers. All paths emit the same versioned result envelope. Kafka/log/audit metadata records hashes, model/template/policy versions, redaction decision, token usage, latency and outcome; full prompts/responses are retained only as encrypted, access-audited artifacts when an approved retention policy requires them.
 
@@ -41,7 +43,7 @@ Retrieval is restricted by the same patient, facility, care relationship, purpos
 
 ## Async execution
 
-For the MVP, Celery workers consume Redis-queued jobs while PostgreSQL retains durable job/workflow state, the transactional outbox and stable artifact references. Object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. At measured scale, Kafka/Redpanda consumer groups replace the queue transport without changing the reference-only envelope. Workers persist idempotent status and result references before announcing completion. Interactive ASR and WebSocket updates use a streaming path and do not wait on async queue round trips.
+Kafka consumer groups handle non-blocking model work from the MVP. PostgreSQL retains durable job/workflow state, the transactional outbox and stable artifact references; object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. Workers persist idempotent status and result references before announcing completion. Interactive ASR and WebSocket updates use a streaming path and do not wait on Kafka round trips.
 
 ## Model operations progression
 

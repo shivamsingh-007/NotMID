@@ -64,14 +64,14 @@ flowchart LR
     CORE["FastAPI Clinical Platform"]
     CONV["Conversation Orchestrator"]
     AI["Internal AI Model Router"]
-    VLLM["vLLM / HiMed 8B candidate"]
-    EXT["Approved External Provider Pools"]
+    VLLM["vLLM / HiMed 8B primary"]
+    FAST["Evaluated Smaller Local Summarizer"]
+    EXT["OpenAI + Claude Isolated Provider Pools"]
     NORMALIZE["Result Normalization"]
     SPEECH["AI4Bharat/Bhashini ASR + Indic TTS"]
     OCR["OCR ensemble + clinical NLP"]
     RULES["Deterministic Rules Service"]
-    JOBS["Celery / Redis MVP Job Transport"]
-    BUS["Kafka / Redpanda Scale Backbone"]
+    BUS["Kafka Async Backbone"]
     WORKERS["Async Workers"]
     PG[("PostgreSQL")]
     MONGO[("MongoDB")]
@@ -96,8 +96,10 @@ flowchart LR
     CORE --> CONV
     CONV --> AI
     AI --> VLLM
+    AI --> FAST
     AI -. policy-eligible only .-> EXT
     VLLM --> NORMALIZE
+    FAST --> NORMALIZE
     EXT --> NORMALIZE
     CONV --> SPEECH
     WORKERS --> OCR
@@ -106,9 +108,7 @@ flowchart LR
     WORKERS --> MONGO
     CORE --> REDIS
     CORE --> OBJ
-    CORE --> JOBS
-    CORE -. scale migration .-> BUS
-    JOBS --> WORKERS
+    CORE --> BUS
     BUS --> WORKERS
     WORKERS --> OBJ
     WORKERS --> PG

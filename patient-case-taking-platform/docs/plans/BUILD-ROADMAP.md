@@ -16,7 +16,7 @@
 - AI4Bharat/Bhashini-compatible ASR, Indic/Bhashini-compatible TTS, an OCR ensemble and PyTorch clinical NLP services.
 - Versioned Python rules service for deterministic red flags and policies.
 - PostgreSQL for transactional/clinical truth; MongoDB for raw transcript/OCR/model artifacts; Redis for ephemeral state; S3-compatible object storage for binaries.
-- WebSockets for interactive updates; Celery + Redis for MVP jobs with durable PostgreSQL state; Kafka/Redpanda after measured scale triggers.
+- WebSockets for interactive updates; Kafka from MVP with durable PostgreSQL state/outbox, retries, DLQs and idempotent consumers.
 - Elasticsearch for rebuildable document search, audit exploration and operational analytics; optional vector search only after representative evaluation.
 - Docker for every deployable; Kubernetes for shared pilot/production. KServe/Ray Serve remain optional later.
 
@@ -38,7 +38,8 @@ Duration target: 3–5 weeks.
 - Define edge route classes, TLS ownership, direct-upload limits and the public-gateway/internal-model-router trust boundary.
 - Approve the external-model eligibility matrix by task, facility, purpose, data class, residency and provider contract.
 - Benchmark HiMed 8B through vLLM for license compatibility, GPU memory, throughput, Hindi/English quality and clinical-safety baselines.
-- Define the queue-to-Kafka migration envelope and measurable triggers: sustained backlog/throughput, replay needs, independent consumer groups or retention beyond Celery operations.
+- Define Kafka topic/envelope ownership, partition keys, schema compatibility, retention, retry tiers, DLQs and replay runbooks before implementation.
+- Evaluate and select the smaller local summarizer; approve or disable OpenAI/Claude separately through privacy, contract, residency, cost and clinical-quality gates.
 - Benchmark Elasticsearch on multilingual clinical search and filtered vector retrieval; validate licensing, residency, recovery and operating cost rather than adopting vendor headline numbers.
 - Establish baseline metrics for consultation and documentation time.
 
@@ -68,12 +69,12 @@ Duration target: 8–12 weeks.
 9. Object upload, malware scanning and initial OCR routing with immutable source retention.
 10. PyTorch clinical NLP and versioned deterministic Python red-flag rules.
 11. Draft summary with provenance plus clinician correction, sign-off and immutable audit.
-12. Celery/Redis workers fed from a PostgreSQL transactional outbox for async document, summary and alert workflows.
+12. Kafka workers fed from a PostgreSQL transactional outbox for async document, summary and alert workflows.
 13. Direct-to-quarantine object upload plus route-specific NGINX/gateway limits and timeout propagation.
 
 ### Defer
 
-- Kafka/Redpanda, Elasticsearch, Kubernetes service mesh and multi-region deployment.
+- Elasticsearch, Kubernetes service mesh and multi-region deployment.
 - KServe, Ray Serve and Drools-style rule authoring until measured scale or governance requirements justify them.
 - Autonomous diagnosis, prescription or AI-only emergency decisions.
 - Full longitudinal reasoning across every available patient document.
@@ -93,7 +94,7 @@ Duration target: 8–10 weeks.
 
 ### Work
 
-- Harden Celery/Redis recovery, idempotency, retry/dead-letter handling and PostgreSQL re-dispatch; load-test the Kafka migration threshold.
+- Harden Kafka recovery, idempotency, retry/dead-letter handling, PostgreSQL outbox re-dispatch and replay drills.
 - Add OCR/document worker and source-linked extraction review.
 - Add deterministic red-flag and workflow alert rules.
 - Add patient-friendly summary and multilingual TTS.
@@ -109,7 +110,7 @@ Duration target: 8–10 weeks.
 - Measurable reduction in doctor documentation time.
 - Acceptable ASR and clinical-entity error rates by language and environment.
 - Zero unresolved high-severity consent or cross-patient data leaks.
-- Queue recovery, duplicate delivery and idempotency exercises pass.
+- Kafka outage recovery, duplicate delivery, replay and idempotency exercises pass.
 
 ## Phase 3 — Multi-facility scale
 
@@ -122,7 +123,7 @@ Duration target: 12–16 weeks after pilot evidence.
 - HPR/HFR verification where applicable.
 - HIS, LIMS and PACS adapters.
 - Introduce Elasticsearch for derived clinical-document search, audit exploration and aggregate dashboards.
-- Migrate high-volume AI pipelines to Kafka/Redpanda consumer groups when the recorded Phase 2 triggers are met; retain Celery for simple local jobs if operationally useful.
+- Scale Kafka partitions and isolated local/OpenAI/Claude consumer groups from measured queue age, throughput and provider budgets.
 - Split Kafka inference topics and worker pools by local versus approved external execution, with bounded backlog/age, normalized results and provider-specific DLQs.
 - Autoscale CPU/GPU workers from queue depth and latency.
 - Evaluate KServe or Ray Serve only if the number of models, rollout patterns or GPU scheduling needs exceed the vLLM/Kubernetes deployment.
@@ -133,7 +134,7 @@ Duration target: 12–16 weeks after pilot evidence.
 
 - Load, failover, privacy and clinical-safety targets pass at projected peak volume.
 - Search indexes and summaries can be rebuilt from source systems.
-- Kafka replay and idempotency exercises pass if the scale-stage backbone is enabled.
+- Kafka replay and idempotency exercises pass at projected peak scale.
 - Facility onboarding is repeatable without code forks.
 
 ## Phase 4 — Validated advanced assistance

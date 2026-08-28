@@ -19,7 +19,9 @@
 
 ## Routing
 
-The model gateway selects a vLLM-hosted or approved external model using task, language, latency, cost, privacy classification and approved-model policy. Provider API keys remain in the secrets manager. Model names supplied by clients are ignored; routing is controlled by server policy.
+The internal model router selects a vLLM-hosted or approved external model using task, language, deadline, local capacity, cost/token budget, residency, consent/purpose, privacy classification and approved-model policy. Model names supplied by clients are ignored. Provider API keys remain in the secrets manager and are exposed only to isolated provider worker pools. Local saturation never causes automatic external PHI transfer: the task must be explicitly eligible for that provider and facility.
+
+Local workers, each external provider and response normalization use separate concurrency pools and circuit breakers. All paths emit the same versioned result envelope. Kafka/log/audit metadata records hashes, model/template/policy versions, redaction decision, token usage, latency and outcome; full prompts/responses are retained only as encrypted, access-audited artifacts when an approved retention policy requires them.
 
 ## Speech, OCR and clinical NLP
 

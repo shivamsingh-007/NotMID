@@ -60,11 +60,13 @@ flowchart LR
     end
 
     CLERK["Clerk + hospital SSO adapter"]
-    EDGE["CDN/WAF + load balancer + API gateway"]
+    EDGE["CDN/WAF + load balancer + NGINX + public API gateway"]
     CORE["FastAPI Clinical Platform"]
     CONV["Conversation Orchestrator"]
-    AI["AI Model Gateway"]
+    AI["Internal AI Model Router"]
     VLLM["vLLM / HiMed 8B candidate"]
+    EXT["Approved External Provider Pools"]
+    NORMALIZE["Result Normalization"]
     SPEECH["AI4Bharat/Bhashini ASR + Indic TTS"]
     OCR["OCR ensemble + clinical NLP"]
     RULES["Deterministic Rules Service"]
@@ -94,6 +96,9 @@ flowchart LR
     CORE --> CONV
     CONV --> AI
     AI --> VLLM
+    AI -. policy-eligible only .-> EXT
+    VLLM --> NORMALIZE
+    EXT --> NORMALIZE
     CONV --> SPEECH
     WORKERS --> OCR
     CONV --> RULES
@@ -145,6 +150,7 @@ sequenceDiagram
 - Apps depend on public API contracts, never service internals.
 - Workers consume versioned events and call owned service APIs where necessary.
 - The AI gateway depends on safety policy and model configuration, not clinical database tables.
+- The public API gateway cannot select a model/provider; only the internal model router may route to policy-approved local or external pools.
 - ABDM and messaging providers are isolated behind adapters.
 - Tests depend on published contracts and observable outcomes.
 - Infrastructure deploys services but contains no clinical business rules.

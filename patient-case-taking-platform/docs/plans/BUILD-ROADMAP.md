@@ -35,6 +35,8 @@ Duration target: 3–5 weeks.
 - Define consent, retention, deletion, emergency access and audit policies.
 - Select FHIR resource mappings and ABDM participation roles: HIP, HIU or both.
 - Approve the API style, event envelope and service ownership map.
+- Define edge route classes, TLS ownership, direct-upload limits and the public-gateway/internal-model-router trust boundary.
+- Approve the external-model eligibility matrix by task, facility, purpose, data class, residency and provider contract.
 - Benchmark HiMed 8B through vLLM for license compatibility, GPU memory, throughput, Hindi/English quality and clinical-safety baselines.
 - Define the queue-to-Kafka migration envelope and measurable triggers: sustained backlog/throughput, replay needs, independent consumer groups or retention beyond Celery operations.
 - Benchmark Elasticsearch on multilingual clinical search and filtered vector retrieval; validate licensing, residency, recovery and operating cost rather than adopting vendor headline numbers.
@@ -67,6 +69,7 @@ Duration target: 8–12 weeks.
 10. PyTorch clinical NLP and versioned deterministic Python red-flag rules.
 11. Draft summary with provenance plus clinician correction, sign-off and immutable audit.
 12. Celery/Redis workers fed from a PostgreSQL transactional outbox for async document, summary and alert workflows.
+13. Direct-to-quarantine object upload plus route-specific NGINX/gateway limits and timeout propagation.
 
 ### Defer
 
@@ -98,6 +101,7 @@ Duration target: 8–10 weeks.
 - Add offline capture with encrypted local queue and explicit sync state.
 - Integrate ABDM sandbox identity/linking/consent flows.
 - Add operational dashboards for latency, failures and AI quality.
+- Add normalized model results, provider-specific budgets/concurrency bulkheads and approved failure UX; keep external inference disabled until its privacy gate passes.
 - Deploy the shared pilot environment on Kubernetes with separate CPU/GPU pools and explicit resource limits.
 
 ### Exit gate
@@ -119,6 +123,7 @@ Duration target: 12–16 weeks after pilot evidence.
 - HIS, LIMS and PACS adapters.
 - Introduce Elasticsearch for derived clinical-document search, audit exploration and aggregate dashboards.
 - Migrate high-volume AI pipelines to Kafka/Redpanda consumer groups when the recorded Phase 2 triggers are met; retain Celery for simple local jobs if operationally useful.
+- Split Kafka inference topics and worker pools by local versus approved external execution, with bounded backlog/age, normalized results and provider-specific DLQs.
 - Autoscale CPU/GPU workers from queue depth and latency.
 - Evaluate KServe or Ray Serve only if the number of models, rollout patterns or GPU scheduling needs exceed the vLLM/Kubernetes deployment.
 - Add WhatsApp using explicit opt-in and approved low-PHI templates.

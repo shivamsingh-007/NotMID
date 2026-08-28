@@ -155,6 +155,7 @@ Full detail: [`BUILD-ROADMAP.md`](patient-case-taking-platform/docs/plans/BUILD-
 | [`CONTEXT-GRAPH.md`](patient-case-taking-platform/CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](patient-case-taking-platform/docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
 | [`SYSTEM-ARCHITECTURE.md`](patient-case-taking-platform/docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
+| [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](patient-case-taking-platform/docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](patient-case-taking-platform/docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |
 | [`DATA-OWNERSHIP.md`](patient-case-taking-platform/docs/architecture/DATA-OWNERSHIP.md) | Sources of truth & storage rules |
 | [`DATA-MODEL.md`](patient-case-taking-platform/docs/architecture/DATA-MODEL.md) | Conceptual Postgres, MongoDB, object & AYUSH model |

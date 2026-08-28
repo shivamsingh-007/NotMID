@@ -163,6 +163,7 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
+| [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |
 | [`DATA-OWNERSHIP.md`](docs/architecture/DATA-OWNERSHIP.md) | Sources of truth & storage rules |
 | [`DATA-MODEL.md`](docs/architecture/DATA-MODEL.md) | Conceptual Postgres, MongoDB, object & AYUSH model |

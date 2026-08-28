@@ -25,13 +25,17 @@ These deployables contain the logical bounded contexts defined in `SERVICE-BOUND
 
 ## Edge request path
 
-`Client → WAF/DDoS → managed load balancer → API gateway → channel BFF/core API`
+`Client → CDN/WAF/DDoS → managed load balancer → NGINX ingress → public API gateway → channel BFF/core API`
 
 - CDN serves static public assets only.
 - Authenticated clinical responses must use private/no-store caching rules.
-- The API gateway handles authentication validation, request limits, routing and correlation IDs.
+- NGINX applies route-specific body/header limits, coarse throttles and ingress routing. Public TLS may terminate at the managed load balancer with re-encryption/mTLS to NGINX, or at NGINX for a single-site deployment.
+- The public API gateway handles Clerk token validation, quotas, request shaping, timeout propagation, routing and correlation IDs. FastAPI still performs authoritative clinical authorization and database-backed idempotency.
 - Rate limits differ for human interactive, file upload, integration callback and internal worker traffic.
-- Nginx is optional ingress infrastructure, not an additional business gateway.
+- Large documents use authorized direct-to-quarantine object-storage uploads; they do not stream through NGINX/API pods except for a bounded fallback route.
+- The internal AI model router is not the public API gateway. Clients cannot choose an arbitrary model/provider.
+
+Detailed ownership, admission control and implementation slices are defined in `TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`.
 
 ## Concrete technology choices
 

@@ -7,6 +7,7 @@ All thresholds below are initial hypotheses. Load tests and pilot telemetry must
 | Dependency | Initial signal | Fallback | Safety boundary |
 |---|---|---|---|
 | LLM/vLLM | 5-second time-to-first-token target; bounded async deadline by task | Controlled ontology questions, touch entry, queue draft work | Never block signing or deterministic triage; never present an unfinished draft as final |
+| External LLM provider | timeout, rate limit, budget exhaustion or policy denial | Stay local if capacity permits; otherwise delayed/manual workflow | Never fail over externally unless task, facility, consent/purpose, residency and provider policy explicitly permit it |
 | Streaming ASR | 3-second chunk-stall signal | Retry a smaller chunk once, then type/tap mode or async transcription | Preserve audio/session reference and explicit pending state |
 | PostgreSQL | sustained high latency or connection saturation | Read-only safe cache for eligible views; encrypted local draft for approved kiosk flows | Stop or clearly hold writes when commit status is uncertain; never sign against an unconfirmed write |
 | Redis | miss, timeout or restart | Rebuild cache; re-dispatch durable pending jobs from PostgreSQL | Redis loss cannot lose consent, encounter or job truth |
@@ -31,6 +32,14 @@ Use rolling-window circuit breakers, bulkheads for critical versus batch work, b
 - Retry transient failures at most three times with exponential backoff and full jitter; enforce per-service retry budgets.
 - Non-transient validation, authorization and safety failures do not retry.
 - Dead-letter replay is audited, rate-limited and uses the original idempotency key.
+- Queue acceptance is bounded by task deadline, queue age, backlog and downstream capacity. Optional work is deferred/rejected before a broker backlog becomes a privacy, cost or latency incident.
+
+## Model-provider isolation
+
+- Local vLLM, every external provider and result normalization use independent worker pools, credentials, concurrency caps, retry budgets and circuit breakers.
+- Provider token/cost policy is authoritative in controlled configuration/PostgreSQL; atomic Redis counters may enforce hot-path reservations and reconcile to durable usage records.
+- Never expose raw provider error bodies to users or ordinary logs. Normalize status/error classes and retain only PHI-safe operational metadata.
+- If both local and eligible external inference fail, show confirmed structured intake, document timeline and raw extraction review; keep physician edit/sign workflows available and enqueue at most one useful, deadline-bounded regeneration.
 
 ## Deployment safety
 
@@ -42,9 +51,9 @@ Use rolling-window circuit breakers, bulkheads for critical versus batch work, b
 
 ## User experience in degraded mode
 
-- Doctor: show a timestamped read-only cached summary only when eligible, with clear pending/stale status; keep manual note entry available.
-- Patient/kiosk: show progress and offer touch/text when voice is busy; clearly label unsynced offline drafts.
-- Operators: show a stable incident code and recovery action, without provider internals or PHI.
+- Doctor: “AI summary delayed — showing structured intake and extracted records.” Show a timestamped cached summary only when eligible and keep manual note entry/signing available.
+- Patient/kiosk: “Your information is being processed. Please continue with the next step.” Offer touch/text when voice is busy and clearly label unsynced offline drafts.
+- Operators: provider, approved model identifier, normalized status/error class, latency, attempt, queue depth/age, budget state and correlation ID—without PHI, raw provider body or credentials.
 
 ## Verification
 

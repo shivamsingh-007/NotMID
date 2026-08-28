@@ -2,9 +2,9 @@
 
 ## Deployment boundary
 
-Maintain three separate applications rather than a single role-switched dashboard. This provides clearer ownership, smaller permission surfaces, independent release cadence and simpler role-specific UX.
+Maintain three separate Next.js applications in one TypeScript monorepo rather than a single role-switched dashboard. This provides clearer ownership, smaller permission surfaces, independent release cadence and simpler role-specific UX while preserving shared UI/API packages.
 
-All three applications may use the same identity provider, but each receives its own audience/client configuration and allowed callback URLs.
+All three applications use Clerk, but each receives its own audience/client configuration and allowed callback URLs. Hospital SSO is connected through the identity boundary where available. The kiosk may start an opaque pre-auth intake flow, but it cannot retrieve PHI before verified patient or attributed staff authorization.
 
 ## Application layers
 
@@ -27,11 +27,13 @@ All three applications may use the same identity provider, but each receives its
 
 ## Authentication and authorization
 
-- Use secure server-managed or HTTP-only cookie sessions where the deployment framework supports them.
+- Use Clerk's Next.js integration with secure, HTTP-only session handling where supported; never persist bearer tokens in `localStorage`.
+- Send Clerk tokens only to the intended FastAPI audience. FastAPI validates tokens and applies internal authorization.
 - Route middleware provides early redirects, not final authorization.
 - Every backend request is authorized independently.
 - Step-up authentication is required for sensitive administration, exports and break-glass access.
 - Session expiry must preserve safe unsaved work without leaking data to another shared-device user.
+- Clerk outage handling may preserve an already verified, bounded clinical session according to policy, but must not create new privileged sessions or silently bypass verification.
 
 ## Error and loading behavior
 
@@ -46,4 +48,3 @@ All three applications may use the same identity provider, but each receives its
 - Sanitize uploaded/rich document previews and never trust OCR/LLM markup.
 - Redact clinical request/response bodies from monitoring.
 - Clear sensitive memory/session state on logout, role change and kiosk reset.
-

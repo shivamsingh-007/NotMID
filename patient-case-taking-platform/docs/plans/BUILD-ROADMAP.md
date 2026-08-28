@@ -7,6 +7,18 @@
 - Patients may lack ABHA, smartphones, literacy or reliable connectivity.
 - The first release should optimize safe workflow learning, not national-scale infrastructure.
 
+## Approved stack baseline
+
+- Next.js/React/TypeScript monorepo with separate patient, doctor and user-administration deployments.
+- FastAPI for the modular clinical core, WebSocket gateway and Python-facing APIs.
+- Clerk for staff/patient web authentication, with hospital SSO integration where available and a constrained kiosk pre-auth flow.
+- vLLM behind the AI gateway, with HiMed 8B treated as the first candidate rather than a clinically approved model.
+- AI4Bharat/Bhashini-compatible ASR, Indic/Bhashini-compatible TTS, an OCR ensemble and PyTorch clinical NLP services.
+- Versioned Python rules service for deterministic red flags and policies.
+- PostgreSQL for transactional/clinical truth; MongoDB for raw transcript/OCR/model artifacts; Redis for ephemeral state; S3-compatible object storage for binaries.
+- WebSockets for interactive updates and Kafka-compatible durable events, using Redpanda for local/pilot unless production constraints select managed Kafka.
+- Docker for every deployable; Kubernetes for shared pilot/production. KServe/Ray Serve remain optional later.
+
 ## Phase 0 — Discovery, governance and contracts
 
 Duration target: 3–5 weeks.
@@ -17,9 +29,13 @@ Duration target: 3–5 weeks.
 - Define patient, caregiver, receptionist, nurse and doctor journeys.
 - Appoint clinical-safety, privacy and data-governance owners.
 - Define internal patient identity, duplicate resolution and merge/unmerge rules.
+- Validate Clerk privacy, residency, webhook, MFA, session-revocation and hospital-SSO requirements; document the replacement boundary.
+- Define kiosk pre-auth capabilities and prove that anonymous sessions cannot search or display PHI.
 - Define consent, retention, deletion, emergency access and audit policies.
 - Select FHIR resource mappings and ABDM participation roles: HIP, HIU or both.
 - Approve the API style, event envelope and service ownership map.
+- Benchmark HiMed 8B through vLLM for license compatibility, GPU memory, throughput, Hindi/English quality and clinical-safety baselines.
+- Select the production Kafka-compatible provider after comparing operating model, residency, support and cost; keep Redpanda as the local/pilot default.
 - Establish baseline metrics for consultation and documentation time.
 
 ### Exit gate
@@ -28,6 +44,8 @@ Duration target: 3–5 weeks.
 - Approved information architecture and threat model.
 - Synthetic evaluation set representing Hindi, English and code-switched speech.
 - ABDM sandbox path and facility responsibilities confirmed.
+- Clerk and hospital-SSO threat model approved, including outage and account-linking recovery.
+- HiMed 8B is either approved as a limited candidate for the next phase or replaced based on recorded evaluation evidence.
 
 ## Phase 1 — Safe clinical workflow MVP
 
@@ -35,20 +53,23 @@ Duration target: 8–12 weeks.
 
 ### Build order
 
-1. Repository tooling, CI checks, secrets handling and local development environment.
-2. Workforce identity, facility boundaries and RBAC.
-3. Internal patient identity and assisted registration.
-4. Encounter and structured case-taking state machine.
-5. Patient PWA, assisted kiosk and clinician review views.
-6. Object upload with malware scanning and immutable source retention.
-7. AI gateway with Hindi/English ASR, transcription confidence and provider isolation.
-8. Patient confirmation and correction workflow.
-9. Draft encounter summary with source provenance.
-10. Clinician correction, sign-off and immutable audit trail.
+1. Repository tooling, Docker-based local environment, CI checks, secrets handling and contract generation.
+2. Next.js application shells plus Clerk integration for patient, doctor and administration audiences.
+3. FastAPI token verification, internal identity mapping, facility boundaries and RBAC/ABAC enforcement.
+4. Internal patient identity, safe kiosk pre-auth and assisted registration.
+5. PostgreSQL transactional schema, MongoDB artifact collections, object-store registry and cross-store reference rules.
+6. Encounter and structured case-taking state machine with WebSocket progress updates.
+7. AI gateway and vLLM deployment with an evaluated HiMed 8B configuration and manual fallback.
+8. AI4Bharat/Bhashini ASR, patient confirmation and correction workflow.
+9. Object upload, malware scanning and initial OCR routing with immutable source retention.
+10. PyTorch clinical NLP and versioned deterministic Python red-flag rules.
+11. Draft summary with provenance plus clinician correction, sign-off and immutable audit.
+12. Redpanda-backed outbox/events for async document, summary and alert workflows.
 
 ### Defer
 
-- MongoDB, OpenSearch, Kubernetes service mesh and multi-region deployment.
+- OpenSearch, Kubernetes service mesh and multi-region deployment.
+- KServe, Ray Serve and Drools-style rule authoring until measured scale or governance requirements justify them.
 - Autonomous diagnosis, prescription or AI-only emergency decisions.
 - Full longitudinal reasoning across every available patient document.
 
@@ -57,6 +78,8 @@ Duration target: 8–12 weeks.
 - A supervised consultation completes end-to-end.
 - No AI draft enters the signed record without clinician approval.
 - Critical symptom test cases meet the clinician-approved recall target.
+- FastAPI rejects invalid issuer/audience/expired Clerk tokens and every tested cross-role access attempt.
+- The platform remains usable for manual entry when Clerk, vLLM or ASR is unavailable, subject to documented identity safeguards.
 - Restore drill, access audit and incident runbook pass.
 
 ## Phase 2 — Hospital pilot and asynchronous processing
@@ -65,7 +88,7 @@ Duration target: 8–10 weeks.
 
 ### Work
 
-- Introduce Kafka with outbox, schema registry, retries and dead-letter handling.
+- Harden the Kafka-compatible Redpanda backbone with schema registry, retries, dead-letter handling and replay drills; select managed Kafka/Redpanda for production.
 - Add OCR/document worker and source-linked extraction review.
 - Add deterministic red-flag and workflow alert rules.
 - Add patient-friendly summary and multilingual TTS.
@@ -73,6 +96,7 @@ Duration target: 8–10 weeks.
 - Add offline capture with encrypted local queue and explicit sync state.
 - Integrate ABDM sandbox identity/linking/consent flows.
 - Add operational dashboards for latency, failures and AI quality.
+- Deploy the shared pilot environment on Kubernetes with separate CPU/GPU pools and explicit resource limits.
 
 ### Exit gate
 
@@ -93,6 +117,7 @@ Duration target: 12–16 weeks after pilot evidence.
 - HIS, LIMS and PACS adapters.
 - Introduce OpenSearch for derived clinical search.
 - Autoscale CPU/GPU workers from queue depth and latency.
+- Evaluate KServe or Ray Serve only if the number of models, rollout patterns or GPU scheduling needs exceed the vLLM/Kubernetes deployment.
 - Add WhatsApp using explicit opt-in and approved low-PHI templates.
 - Implement production disaster recovery and regional failover exercises.
 
@@ -135,4 +160,3 @@ Every advanced feature requires a new hazard analysis, clinical evaluation and r
 | S6 | Patient receives a simple approved summary | Signed note, multilingual renderer/TTS |
 | S7 | Uploaded prescription becomes a reviewed structured document | Object storage, scanning, OCR worker |
 | S8 | ABHA-linked record flow works in sandbox | Consent service, ABDM adapter |
-

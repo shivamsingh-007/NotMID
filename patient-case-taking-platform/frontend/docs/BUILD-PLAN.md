@@ -2,18 +2,20 @@
 
 ## Stage 1 — Foundation
 
-- Confirm React/Next.js, package manager and monorepo tooling.
+- Establish the Next.js/React TypeScript monorepo, package manager and task runner.
 - Establish TypeScript, formatting, linting, test and accessibility gates.
-- Build session/authentication, typed API client and authorization primitives.
+- Integrate separate Clerk applications/audiences for patient, doctor and administration surfaces.
+- Build the typed FastAPI client, session adapters and internal authorization primitives.
 - Define design tokens, multilingual typography, icons and accessible components.
 - Implement PHI-safe frontend telemetry.
 
-Exit: each empty application deploys independently, authenticates against a test identity provider and passes baseline checks.
+Exit: each application deploys independently, authenticates through Clerk, rejects cross-application audiences and passes backend authorization tests.
 
 ## Stage 2 — Patient workflow slice
 
 - Language/accessibility onboarding.
 - Patient registration and identity confirmation.
+- Opaque kiosk pre-auth intake that cannot search or display PHI.
 - Voice/text case-taking with repeat, correction and explicit confirmation.
 - Offline/sync status and shared-device reset.
 - Patient-friendly approved summary.
@@ -55,4 +57,3 @@ Exit: least-privilege user administration works without granting clinical access
 - Keyboard and screen-reader navigation pass for all critical workflows.
 - Patient workflow passes comprehension testing with intended users.
 - Clinical data is absent from analytics, browser error payloads and generic persistent storage.
-

@@ -2,11 +2,16 @@
 
 ## Identity and authorization
 
-- Use workforce IAM for doctors, nurses, operators and administrators.
+- Use Clerk as the authentication provider for staff and patient web surfaces; integrate hospital SSO where available.
+- Treat Clerk as an identity proof/session issuer, not the authorization source of truth.
+- FastAPI validates token signature, issuer, audience, expiry and authorized-party/client claims using cached, pinned JWKS metadata with bounded refresh behavior.
+- Map Clerk identities to internal patient, caregiver or workforce identities; never use a Clerk ID as the patient or clinical-record primary key.
 - Verify facility and practitioner relationships; keep HPR/HFR as external verification inputs.
 - Use short-lived sessions, MFA for privileged roles and device/session revocation.
 - Combine role, facility, care relationship, consent, purpose and record sensitivity in authorization decisions.
 - Record emergency break-glass reason and notify governance reviewers.
+- Verify Clerk webhook signatures, enforce idempotency and treat webhook data as identity lifecycle input rather than immediate clinical authorization.
+- Kiosk anonymous/pre-auth sessions are opaque, short-lived and limited to starting intake; record search and PHI display require verified identity or an attributed staff-assisted flow.
 
 ## Patient consent
 
@@ -32,9 +37,9 @@ Capture successful and denied access, searches, exports, consent changes, patien
 - Broken facility/tenant isolation.
 - Prompt injection from uploaded documents.
 - Provider-side retention or training on PHI.
+- Clerk tenant/account mis-linking, webhook spoofing, stale revocation and identity-provider outage.
 - Notification content exposed on shared phones.
 - Unauthorized caregiver access.
 - Stolen kiosk or shared-device session.
 - Event replay, duplicate delivery and stale authorization caches.
 - Malicious or incorrect patient merges.
-

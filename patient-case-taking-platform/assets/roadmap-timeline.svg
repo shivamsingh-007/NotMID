@@ -109,7 +109,7 @@
     <text x="90" y="80" font-family="system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" fill="#FFF">KEY WORK</text>
     <g font-family="system-ui, sans-serif" font-size="9" fill="#CCC" text-anchor="middle">
       <text x="90" y="100">• Clinical workflow observation</text>
-      <text x="90" y="115">• Hazard analysis & threat model</text>
+      <text x="90" y="115">• Hazard analysis &amp; threat model</text>
       <text x="90" y="130">• Consent/retention policies</text>
       <text x="90" y="145">• ABDM sandbox path</text>
       <text x="90" y="160">• Synthetic eval dataset</text>
@@ -120,7 +120,7 @@
     <text x="90" y="190" font-family="system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" fill="#B0D0F0">EXIT GATE</text>
     <g font-family="system-ui, sans-serif" font-size="8" fill="#AAA" text-anchor="middle">
       <text x="90" y="210">✓ Signed hazard analysis</text>
-      <text x="90" y="225">✓ Approved IA & threat model</text>
+      <text x="90" y="225">✓ Approved IA &amp; threat model</text>
       <text x="90" y="240">✓ Eval dataset ready</text>
       <text x="90" y="255">✓ ABDM sandbox confirmed</text>
     </g>
@@ -137,13 +137,13 @@
     
     <text x="90" y="80" font-family="system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" fill="#FFF">BUILD ORDER</text>
     <g font-family="system-ui, sans-serif" font-size="9" fill="#CCC" text-anchor="middle">
-      <text x="90" y="100">1. Repo tooling & CI</text>
-      <text x="90" y="113">2. Workforce identity & RBAC</text>
-      <text x="90" y="126">3. Patient identity & reg</text>
+      <text x="90" y="100">1. Repo tooling &amp; CI</text>
+      <text x="90" y="113">2. Workforce identity &amp; RBAC</text>
+      <text x="90" y="126">3. Patient identity &amp; reg</text>
       <text x="90" y="139">4. Encounter state machine</text>
       <text x="90" y="152">5. PWA, Kiosk, Clinician</text>
       <text x="90" y="165">6. Object upload + scanning</text>
-      <text x="90" y="178">7. AI Gateway (Hi/En ASR)</text>
+      <text x="90" y="178">7. vLLM Gateway + Indic ASR</text>
       <text x="90" y="191">8. Patient confirm/correct</text>
       <text x="90" y="204">9. Draft summary + provenance</text>
       <text x="90" y="217">10. Clinician sign-off</text>
@@ -167,7 +167,7 @@
     
     <text x="90" y="80" font-family="system-ui, sans-serif" font-size="10" font-weight="700" text-anchor="middle" fill="#FFF">WORK</text>
     <g font-family="system-ui, sans-serif" font-size="9" fill="#CCC" text-anchor="middle">
-      <text x="90" y="100">• Kafka event backbone</text>
+      <text x="90" y="100">• Kafka / Redpanda backbone</text>
       <text x="90" y="113">• OCR/document worker</text>
       <text x="90" y="126">• Red-flag alert rules</text>
       <text x="90" y="139">• Multilingual TTS</text>
@@ -202,7 +202,7 @@
       <text x="90" y="139">• OpenSearch clinical search</text>
       <text x="90" y="152">• Autoscale CPU/GPU</text>
       <text x="90" y="165">• WhatsApp opt-in</text>
-      <text x="90" y="178">• DR & failover</text>
+      <text x="90" y="178">• DR &amp; failover</text>
     </g>
     
     <line x1="15" y1="195" x2="165" y2="195" stroke="#8B2D6B" stroke-width="1" stroke-dasharray="4,4"/>

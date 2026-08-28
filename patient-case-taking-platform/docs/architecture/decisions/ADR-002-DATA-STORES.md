@@ -1,17 +1,20 @@
-# ADR-002: Minimize Authoritative Data Stores
+# ADR-002: Define Authoritative and Flexible Data Stores
 
 ## Status
 
-Proposed.
+Accepted for planning.
 
 ## Decision
 
-Use PostgreSQL as the transactional source of truth, object storage for binary sources, Redis for ephemeral state and OpenSearch only for derived search. Do not introduce MongoDB in the initial architecture.
+Use PostgreSQL as the transactional and clinical source of truth. Use MongoDB for versioned raw transcripts, OCR/layout JSON, intermediate extraction results and model-output envelopes whose schema evolves quickly. Use S3-compatible object storage for immutable audio and document binaries, Redis for ephemeral state, and OpenSearch only for derived search.
+
+MongoDB must not own patient identity, consent, authorization, encounter lifecycle, confirmed answers, signed notes, alert acknowledgement or audit evidence. PostgreSQL records the stable workflow/job reference for every MongoDB artifact, and MongoDB records are partitioned by facility/patient and governed by the same retention and access policies as other PHI.
 
 ## Consequences
 
-- Fewer consistency and operational failure modes.
-- FHIR and flexible document metadata can use JSONB initially.
+- PostgreSQL remains the system of record for clinically actionable state and FHIR resources.
+- MongoDB supports high-volume append-oriented transcript segments and heterogeneous OCR/model payloads without forcing them into the transactional schema.
+- Cross-store transactions are forbidden; the transactional outbox and idempotent projectors reconcile references and processing states.
+- Deleting or rebuilding a derived extraction cannot alter a signed clinical record.
 - OpenSearch and vector indexes must be rebuildable.
-- MongoDB requires a later ADR backed by measured workload evidence.
-
+- Operating MongoDB is an accepted cost; retention, backup, encryption, residency and restore testing are required before pilot use.

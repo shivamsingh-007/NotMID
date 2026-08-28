@@ -92,20 +92,26 @@ sequenceDiagram
 1. **Patient safety is a release gate**, not a backlog item
 2. **Clinician remains accountable** for signed clinical content
 3. **ABHA is an external identifier**, not the internal primary key
-4. **PostgreSQL is the transactional source of truth**
-5. **Object storage holds immutable source documents** and audio
-6. **AI providers reachable only through the model gateway**
-7. **Every clinical assertion retains provenance**
+4. **PostgreSQL is the transactional and clinical source of truth**
+5. **MongoDB stores flexible raw AI artifacts, never signed clinical truth**
+6. **Object storage holds immutable source documents** and audio
+7. **vLLM and every model service remain behind the AI gateway**
+8. **Every clinical assertion retains provenance**
 
 ### Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS |
-| **Backend** | Node.js, Fastify, PostgreSQL, Prisma ORM |
-| **Messaging** | Kafka (Phase 2+), Redis |
-| **AI/ML** | Whisper ASR, Custom NER, Hugging Face Transformers |
-| **Infrastructure** | Kubernetes, Terraform, GitHub Actions |
+| **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
+| **Backend APIs** | FastAPI + Pydantic + OpenAPI |
+| **Realtime & events** | WebSockets + Kafka-compatible events; Redpanda for local/pilot |
+| **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
+| **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
+| **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
+| **Documents & NLP** | OCR ensemble + specialist handwriting model + PyTorch clinical NLP |
+| **Rules** | Versioned Python rules service; Drools-style engine only if needed later |
+| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived OpenSearch |
+| **Infrastructure** | Docker; Kubernetes for pilot/production; KServe/Ray Serve optional later |
 | **Standards** | FHIR R4, ABDM APIs, OpenAPI 3.1 |
 | **Observability** | OpenTelemetry, Prometheus, Grafana |
 

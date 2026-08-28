@@ -8,9 +8,9 @@ Frontend monorepo boundary for three separately deployable experiences:
 
 The applications share stable packages, not feature implementations. Each application has independent routes, authorization policies, build output, tests and deployment configuration.
 
-## Proposed stack
+## Selected stack
 
-The structure is compatible with React and Next.js in a TypeScript monorepo. Confirm the framework and package manager before creating runtime configuration or dependencies.
+Use a Next.js/React TypeScript monorepo with PWA support. Patient, doctor and user-administration experiences remain separate deployable applications within one codebase. Clerk supplies authentication components/session issuance; backend authorization remains authoritative.
 
 ## Directory tree
 
@@ -57,6 +57,8 @@ frontend/
 5. Shared packages contain primitives and contracts, not app-specific workflows.
 6. PHI is never persisted in generic browser storage, analytics or error reports.
 7. Patient accessibility and multilingual behavior are release requirements.
+8. Each application has a separate Clerk audience/client configuration and cannot accept another application's session audience.
+9. Kiosk pre-auth can create only a short-lived intake session and cannot search or render PHI.
 
 ## Start here
 
@@ -64,4 +66,3 @@ frontend/
 2. [`docs/FRONTEND-ARCHITECTURE.md`](docs/FRONTEND-ARCHITECTURE.md)
 3. [`docs/ROUTE-ACCESS-MATRIX.md`](docs/ROUTE-ACCESS-MATRIX.md)
 4. [`docs/BUILD-PLAN.md`](docs/BUILD-PLAN.md)
-

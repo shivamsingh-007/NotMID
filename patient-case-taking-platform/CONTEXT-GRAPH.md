@@ -23,7 +23,8 @@ flowchart TD
 
     SERVICES --> CORE["clinical-platform"]
     SERVICES --> CONV["conversation-orchestrator"]
-    SERVICES --> AIGW["ai-model-gateway"]
+    SERVICES --> AIGW["ai-model-gateway + vLLM runtime"]
+    SERVICES --> MODELSVC["speech, clinical NLP and rules services"]
     SERVICES --> WORKERS["document, summary, alert and notification workers"]
     SERVICES --> ABDM["abdm-adapter"]
 
@@ -58,13 +59,19 @@ flowchart LR
         AK["Assisted Kiosk"]
     end
 
-    EDGE["WAF + load balancer + API gateway"]
-    CORE["Clinical Platform"]
+    CLERK["Clerk + hospital SSO adapter"]
+    EDGE["CDN/WAF + load balancer + API gateway"]
+    CORE["FastAPI Clinical Platform"]
     CONV["Conversation Orchestrator"]
     AI["AI Model Gateway"]
-    BUS["Kafka Event Backbone"]
+    VLLM["vLLM / HiMed 8B candidate"]
+    SPEECH["AI4Bharat/Bhashini ASR + Indic TTS"]
+    OCR["OCR ensemble + clinical NLP"]
+    RULES["Deterministic Rules Service"]
+    BUS["Kafka API / Redpanda Event Backbone"]
     WORKERS["Async Workers"]
     PG[("PostgreSQL")]
+    MONGO[("MongoDB")]
     OBJ[("Object Storage")]
     REDIS[("Redis")]
     SEARCH[("OpenSearch")]
@@ -79,10 +86,18 @@ flowchart LR
     PP --> EDGE
     CW --> EDGE
     AK --> EDGE
+    PP --> CLERK
+    CW --> CLERK
+    CLERK --> CORE
     EDGE --> CORE
     CORE --> CONV
     CONV --> AI
+    AI --> VLLM
+    CONV --> SPEECH
+    WORKERS --> OCR
+    CONV --> RULES
     CORE --> PG
+    WORKERS --> MONGO
     CORE --> REDIS
     CORE --> OBJ
     CORE --> BUS
@@ -130,4 +145,3 @@ sequenceDiagram
 - ABDM and messaging providers are isolated behind adapters.
 - Tests depend on published contracts and observable outcomes.
 - Infrastructure deploys services but contains no clinical business rules.
-

@@ -1,4 +1,3 @@
 # Data Module
 
-PostgreSQL, Redis, object storage and derived search with backup, encryption and recovery controls.
-
+PostgreSQL for transactional/clinical truth, MongoDB for raw transcript/OCR/model artifacts, Redis for ephemeral state, S3-compatible object storage for binaries and OpenSearch for derived search. Every store requires backup, encryption, residency, retention and recovery controls appropriate to PHI.

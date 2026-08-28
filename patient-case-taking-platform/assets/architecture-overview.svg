@@ -120,10 +120,10 @@
       <text x="90" y="22" font-family="system-ui, sans-serif" font-size="11" font-weight="700" text-anchor="middle" fill="#FFF" letter-spacing="0.5">AI MODEL</text>
       <text x="90" y="34" font-family="system-ui, sans-serif" font-size="9" font-weight="500" text-anchor="middle" fill="#F5C6E0">GATEWAY</text>
       <g font-family="system-ui, sans-serif" font-size="9" fill="#E0E0E0" text-anchor="middle">
-        <text x="90" y="54">🎯 Whisper ASR</text>
-        <text x="90" y="70">🔍 Clinical NER</text>
-        <text x="90" y="86">🌐 Hi/En Support</text>
-        <text x="90" y="102">🔒 Provider Isolation</text>
+        <text x="90" y="54">🎯 AI4Bharat ASR</text>
+        <text x="90" y="70">🧠 vLLM / HiMed 8B</text>
+        <text x="90" y="86">🔍 PyTorch Clinical NLP</text>
+        <text x="90" y="102">🔒 Gateway Isolation</text>
         <text x="90" y="118">📈 Confidence Score</text>
       </g>
     </g>
@@ -148,19 +148,21 @@
   </g>
   
   <g transform="translate(50, 430)">
-    <g font-family="system-ui, sans-serif" font-size="10" font-weight="600" fill="#FFD23F">
-      <text x="70" y="15">🐘 PostgreSQL</text>
-      <text x="220" y="15">📦 Object Storage</text>
-      <text x="380" y="15">🔴 Redis</text>
-      <text x="480" y="15">🔍 OpenSearch</text>
-      <text x="600" y="15">📋 Immutable Audit</text>
+    <g font-family="system-ui, sans-serif" font-size="9" font-weight="600" fill="#FFD23F" text-anchor="middle">
+      <text x="50" y="15">🐘 PostgreSQL</text>
+      <text x="155" y="15">🍃 MongoDB</text>
+      <text x="275" y="15">📦 Object Store</text>
+      <text x="390" y="15">🔴 Redis</text>
+      <text x="500" y="15">🔍 OpenSearch</text>
+      <text x="625" y="15">📋 Audit</text>
     </g>
-    <g font-family="system-ui, sans-serif" font-size="8" fill="#888">
-      <text x="70" y="30" text-anchor="middle">Source of Truth</text>
-      <text x="220" y="30" text-anchor="middle">Immutable Docs/Audio</text>
-      <text x="380" y="30" text-anchor="middle">Ephemeral Cache</text>
-      <text x="480" y="30" text-anchor="middle">Derived Search</text>
-      <text x="600" y="30" text-anchor="middle">Tamper-proof Logs</text>
+    <g font-family="system-ui, sans-serif" font-size="8" fill="#888" text-anchor="middle">
+      <text x="50" y="30">Clinical Truth</text>
+      <text x="155" y="30">Raw AI JSON</text>
+      <text x="275" y="30">Docs / Audio</text>
+      <text x="390" y="30">Ephemeral</text>
+      <text x="500" y="30">Derived Search</text>
+      <text x="625" y="30">Tamper-proof</text>
     </g>
   </g>
   
@@ -176,7 +178,7 @@
       <text x="500" y="15">📱 SMS / WhatsApp</text>
     </g>
     <g font-family="system-ui, sans-serif" font-size="8" fill="#888">
-      <text x="100" y="30" text-anchor="middle">Identity & Consent</text>
+      <text x="100" y="30" text-anchor="middle">Identity &amp; Consent</text>
       <text x="280" y="30" text-anchor="middle">Hospital Systems</text>
       <text x="500" y="30" text-anchor="middle">Notifications</text>
     </g>
@@ -199,7 +201,7 @@
     
     <!-- Core to Workers (Kafka) -->
     <path d="M720 280 V350 H720" stroke="#FFD23F" stroke-dasharray="5,5" marker-end="none"/>
-    <text x="725" y="320" font-family="system-ui, sans-serif" font-size="8" fill="#FFD23F" text-anchor="start">Kafka</text>
+    <text x="725" y="320" font-family="system-ui, sans-serif" font-size="8" fill="#FFD23F" text-anchor="start">Kafka / Redpanda</text>
     
     <!-- Core to Data -->
     <path d="M150 420 V435" stroke="#FF6B35"/>

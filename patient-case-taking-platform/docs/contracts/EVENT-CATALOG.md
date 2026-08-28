@@ -36,6 +36,10 @@ Do not include raw audio, images, PDFs, unrestricted transcripts, access tokens 
 | `NotificationRequested.v1` | Owning workflow | Notification worker |
 | `NotificationDeliveryUpdated.v1` | Notification worker | Owning workflow, operations |
 
+## Event backbone
+
+Use Kafka protocol contracts. Redpanda is the default local and pilot implementation; production may use managed Kafka or Redpanda after residency, support, cost and operational review. No producer or consumer may depend on vendor-specific behavior without an ADR.
+
 ## Delivery rules
 
 - Producers use a transactional outbox.
@@ -44,4 +48,3 @@ Do not include raw audio, images, PDFs, unrestricted transcripts, access tokens 
 - Retries use bounded exponential backoff.
 - Poison messages move to a dead-letter topic with a remediation runbook.
 - Events are not used as an undocumented substitute for synchronous authorization checks.
-

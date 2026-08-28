@@ -92,20 +92,26 @@ sequenceDiagram
 1. **Patient safety is a release gate**, not a backlog item
 2. **Clinician remains accountable** for signed clinical content
 3. **ABHA is an external identifier**, not the internal primary key
-4. **PostgreSQL is the transactional source of truth**
-5. **Object storage holds immutable source documents** and audio
-6. **AI providers reachable only through the model gateway**
-7. **Every clinical assertion retains provenance**
+4. **PostgreSQL is the transactional and clinical source of truth**
+5. **MongoDB stores flexible raw AI artifacts, never signed clinical truth**
+6. **Object storage holds immutable source documents** and audio
+7. **vLLM and every model service remain behind the AI gateway**
+8. **Every clinical assertion retains provenance**
 
 ### Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| **Frontend** | Next.js 14, React 18, TypeScript, Tailwind CSS |
-| **Backend** | Node.js, Fastify, PostgreSQL, Prisma ORM |
-| **Messaging** | Kafka (Phase 2+), Redis |
-| **AI/ML** | Whisper ASR, Custom NER, Hugging Face Transformers |
-| **Infrastructure** | Kubernetes, Terraform, GitHub Actions |
+| **Frontend** | Next.js + React + TypeScript, PWA-capable shared monorepo |
+| **Backend APIs** | FastAPI + Pydantic + OpenAPI |
+| **Realtime & events** | WebSockets + Kafka-compatible events; Redpanda for local/pilot |
+| **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
+| **LLM serving** | AI gateway → vLLM → HiMed 8B candidate, subject to clinical/license evaluation |
+| **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
+| **Documents & NLP** | PaddleOCR/Tesseract/TrOCR/Donut ensemble + specialist handwriting model + PyTorch clinical NLP |
+| **Rules** | Versioned Python rules service; Drools-style engine only if authoring complexity justifies it |
+| **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived OpenSearch |
+| **Infrastructure** | Docker; Kubernetes for pilot/production; KServe/Ray Serve optional later |
 | **Standards** | FHIR R4, ABDM APIs, OpenAPI 3.1 |
 | **Observability** | OpenTelemetry, Prometheus, Grafana |
 
@@ -128,8 +134,8 @@ sequenceDiagram
 | Phase | Timeline | Focus |
 |-------|----------|-------|
 | **0 — Discovery & Governance** | 3–5 weeks | Clinical workflow observation, consent/retention policies, ABDM sandbox path, synthetic evaluation set |
-| **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Identity & RBAC, encounter state machine, Patient PWA / kiosk / clinician review, AI gateway (Hi/En ASR), clinician sign-off & immutable audit |
-| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Kafka event backbone, OCR/document worker, red-flag alerts, multilingual summaries + TTS, offline capture, ABDM sandbox integration |
+| **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Clerk identity boundary, FastAPI core, encounter state machine, Patient PWA / kiosk / clinician review, vLLM gateway and Hi/En ASR, clinician sign-off |
+| **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Kafka/Redpanda event backbone, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
 | **3 — Multi-Facility Scale** | 12–16 weeks | Facility-aware isolation, ABDM production (HIP/HIU), HIS/LIMS/PACS adapters, OpenSearch, autoscale, DR & failover |
 | **4 — Validated Advanced Assistance** | — | Specialty interviews, care-gap suggestions, retrieval-assisted summaries with citations, de-identified analytics |
 

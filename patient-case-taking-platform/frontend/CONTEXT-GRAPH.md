@@ -6,7 +6,7 @@ flowchart TD
     DOCTORS["Doctors / nurses"] --> DOCTOR["Doctor Dashboard"]
     PATIENTS["Patients / caregivers"] --> PATIENT["Patient Dashboard"]
 
-    ADMIN --> AUTH["Auth Session"]
+    ADMIN --> AUTH["Clerk Auth Session"]
     DOCTOR --> AUTH
     PATIENT --> AUTH
 
@@ -28,7 +28,7 @@ flowchart TD
     ADMIN --> I18N
 
     API --> GATEWAY["Backend API Gateway / BFF"]
-    AUTH --> IDP["Identity Provider"]
+    AUTH --> IDP["Clerk / Hospital SSO"]
     AUTHZ --> GATEWAY
 
     ADMIN --> ADMINF["User, role, facility and audit features"]
@@ -50,4 +50,3 @@ flowchart LR
 ```
 
 Dependency direction is downward only. Shared packages must never import from applications.
-

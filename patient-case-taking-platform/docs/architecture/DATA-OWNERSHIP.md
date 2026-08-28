@@ -10,7 +10,11 @@
 | Signed clinical record | Clinical record module | PostgreSQL | FHIR document, search index |
 | Raw audio and documents | Document registry | Object storage | Transcript, OCR and thumbnails |
 | Document metadata | Document registry | PostgreSQL | OpenSearch projection |
-| AI jobs and results | Owning workflow/worker | PostgreSQL | Operational metrics |
+| Confirmed transcript facts | Encounter module | PostgreSQL | Summary/search projection |
+| Raw transcript segments | Conversation orchestrator | MongoDB | Confirmed facts promoted through FastAPI/PostgreSQL |
+| OCR/layout and intermediate model JSON | Document/AI workers | MongoDB | Reviewed facts and search projection |
+| AI job/workflow state | Owning workflow/worker | PostgreSQL | Operational metrics |
+| Versioned AI result envelopes | Owning AI worker | MongoDB | Reviewed/accepted facts in PostgreSQL |
 | Session/cache/limits | Owning service | Redis | None; safe to lose/recreate |
 | Search | Search projector | OpenSearch | Rebuilt from authoritative data |
 | Audit evidence | Audit component | Append-only/immutable store | Security analytics |
@@ -35,5 +39,13 @@ Retention periods must be approved by clinical, legal and facility governance. I
 
 ## Database choice
 
-Begin with PostgreSQL plus JSONB for flexible FHIR representations. Do not introduce MongoDB until measured access patterns demonstrate a need not met by PostgreSQL. Use one managed OpenSearch product rather than operating both Elasticsearch and OpenSearch.
+Use PostgreSQL plus JSONB for transactional clinical state and FHIR representations. Use MongoDB for append-oriented raw transcript segments, OCR/layout JSON and versioned intermediate AI outputs whose schemas evolve independently of signed clinical records.
 
+Cross-store rules:
+
+- PostgreSQL owns workflow state and stable artifact identifiers.
+- MongoDB artifacts reference internal facility, patient, encounter, source-object and model-run IDs; they never carry authorization policy as truth.
+- A transactional outbox/event consumer advances processing state idempotently; no distributed transaction is assumed.
+- Confirmed or clinician-approved facts are written to PostgreSQL with provenance and are not reconstructed from the latest MongoDB document at read time.
+- MongoDB receives the same encryption, residency, retention, backup, restore, access-control and audit treatment as other PHI stores.
+- Use one managed OpenSearch product rather than operating both Elasticsearch and OpenSearch.

@@ -2,12 +2,12 @@
 
 ## Capabilities
 
-- Hindi/English/code-switched ASR with confidence and timestamps.
+- Hindi/English ASR first; code-switching and word timestamps remain evaluation work. Confidence is nullable unless a provider supplies a calibrated value.
 - OCR and document layout understanding.
 - Clinical entity, negation, temporality and medication extraction.
 - Structured follow-up question assistance.
 - Source-linked summary generation.
-- Multilingual text-to-speech.
+- Multilingual text-to-speech (deferred from the current voice slice by product decision).
 
 ## Serving topology
 
@@ -27,7 +27,8 @@ Local workers, each external provider and response normalization use separate co
 
 ## Speech, OCR and clinical NLP
 
-- Route ASR by detected language and acoustic conditions to approved AI4Bharat/Bhashini-compatible models. Preserve word/segment timing, confidence and language/code-switch metadata.
+- The current registry explicitly routes Hindi to AI4Bharat and English to Whisper small.en; unsupported languages fail to touch entry. Acoustic signal quality is separate from model confidence. Language detection, code-switch routing and word timing remain later language-pack capabilities.
+- The WebSocket gateway sends cumulative partial transcripts without Kafka latency. Redis stores turn context only when enabled; `ai.asr.completed.v1` contains identifiers, hashes and result metadata rather than raw audio or transcript text.
 - Use Indic/Bhashini-compatible TTS only for approved patient-facing text; never speak an unreviewed diagnosis or prescription as authoritative.
 - Route printed documents through PaddleOCR/Tesseract baselines and use TrOCR/Donut or a Hindi handwriting specialist only when document classification warrants it.
 - Store page and bounding-region provenance for every OCR value. Low-confidence or conflicting values enter a human review queue.
@@ -44,6 +45,8 @@ Retrieval is restricted by the same patient, facility, care relationship, purpos
 ## Async execution
 
 Kafka consumer groups handle non-blocking model work from the MVP. PostgreSQL retains durable job/workflow state, the transactional outbox and stable artifact references; object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. Workers persist idempotent status and result references before announcing completion. Interactive ASR and WebSocket updates use a streaming path and do not wait on Kafka round trips.
+
+The Phase 4 implementation currently supplies an optional direct Kafka metadata publisher and Redis turn adapter. These are off by default and are not substitutes for the planned PostgreSQL outbox, durable consent source, or integration tests.
 
 ## Model operations progression
 

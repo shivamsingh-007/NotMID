@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Evidence-led review of the OpenCode foundation changes for the NotMID patient case-taking platform.">
+  <title>NotMID · OpenCode Review & Remediation Ledger</title>
+  <style>
+    :root {
+      --paper: #f4f0e8;
+      --paper-2: #ebe4d8;
+      --ink: #142923;
+      --muted: #5d6963;
+      --line: rgba(20, 41, 35, .16);
+      --white: #fffdf8;
+      --green: #176b57;
+      --green-2: #0e4b3d;
+      --coral: #e6593f;
+      --amber: #bc7617;
+      --blue: #275f77;
+      --shadow: 0 24px 70px rgba(20, 41, 35, .12);
+      --radius: 22px;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      overflow-x: clip;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 85% 0%, rgba(230, 89, 63, .12), transparent 28rem),
+        linear-gradient(90deg, transparent 49.7%, rgba(20, 41, 35, .025) 50%, transparent 50.3%),
+        var(--paper);
+      font-family: var(--sans);
+      line-height: 1.55;
+    }
+
+    a { color: inherit; }
+    button, input { font: inherit; }
+    :focus-visible { outline: 3px solid var(--coral); outline-offset: 3px; }
+    .skip { position: fixed; left: 1rem; top: -5rem; z-index: 100; padding: .7rem 1rem; background: var(--ink); color: white; }
+    .skip:focus { top: 1rem; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 64px;
+      padding: .7rem clamp(1rem, 4vw, 4rem);
+      color: #f7f2e8;
+      background: rgba(20, 41, 35, .96);
+      border-bottom: 1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(14px);
+    }
+    .brand { display: flex; align-items: center; gap: .75rem; font-weight: 800; letter-spacing: .02em; }
+    .brand-mark { width: 28px; height: 28px; border: 1px solid rgba(255,255,255,.5); border-radius: 50%; display: grid; place-items: center; color: #ff937d; }
+    .topnav { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; }
+    .topnav a { padding: .45rem .7rem; border-radius: 999px; color: #d9e4df; font-size: .82rem; text-decoration: none; white-space: nowrap; }
+    .topnav a:hover { background: rgba(255,255,255,.09); color: white; }
+
+    .hero {
+      min-height: 710px;
+      display: grid;
+      align-items: end;
+      padding: clamp(5rem, 10vw, 9rem) clamp(1rem, 5vw, 5rem) 4.5rem;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::after {
+      content: "REVIEWED";
+      position: absolute;
+      right: -1rem;
+      top: 5rem;
+      color: transparent;
+      -webkit-text-stroke: 1px rgba(20, 41, 35, .12);
+      font: 900 clamp(5rem, 15vw, 14rem)/.8 var(--sans);
+      letter-spacing: -.08em;
+      transform: rotate(-4deg);
+      pointer-events: none;
+    }
+    .hero-grid { width: min(1260px, 100%); margin: auto; display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr); gap: clamp(2rem, 7vw, 8rem); align-items: end; position: relative; z-index: 1; }
+    .hero-grid > *, .section-head > *, .evidence-grid > *, .boundary > *, .footer-inner > * { min-width: 0; }
+    .eyebrow { display: flex; align-items: center; gap: .7rem; color: var(--green); text-transform: uppercase; letter-spacing: .16em; font-weight: 800; font-size: .74rem; }
+    .eyebrow::before { content: ""; width: 42px; height: 2px; background: var(--coral); }
+    h1 { margin: 1rem 0 1.4rem; max-width: 850px; font: 500 clamp(3.5rem, 8vw, 7.7rem)/.88 var(--serif); letter-spacing: -.065em; }
+    .hero-copy { max-width: 760px; font-size: clamp(1.05rem, 1.6vw, 1.35rem); color: var(--muted); }
+    .hero-copy strong { color: var(--ink); }
+    .verdict-card { background: var(--ink); color: #f4f0e8; padding: 2rem; border-radius: 140px 140px 22px 22px; box-shadow: var(--shadow); }
+    .verdict-card .seal { width: 92px; height: 92px; display: grid; place-items: center; margin: 0 auto 3rem; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); color: #ff937d; font: 500 2.4rem var(--serif); }
+    .verdict-card small { color: #9fada7; text-transform: uppercase; letter-spacing: .14em; font-weight: 800; }
+    .verdict-card h2 { margin: .55rem 0 1rem; font: 500 2.3rem/1 var(--serif); }
+    .verdict-card p { margin: 0; color: #c7d3ce; font-size: .95rem; }
+
+    main { overflow: hidden; }
+    .section { width: min(1260px, calc(100% - 2rem)); margin: 0 auto; padding: clamp(4.5rem, 9vw, 8rem) 0; }
+    .section + .section { border-top: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1.3fr); gap: 2rem; margin-bottom: 3rem; align-items: end; }
+    .kicker { color: var(--coral); font: 800 .75rem var(--sans); letter-spacing: .15em; text-transform: uppercase; }
+    h2 { margin: .6rem 0 0; font: 500 clamp(2.5rem, 5vw, 5rem)/.95 var(--serif); letter-spacing: -.04em; }
+    .section-intro { max-width: 670px; margin: 0 0 .4rem auto; color: var(--muted); font-size: 1.08rem; }
+
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--line); box-shadow: var(--shadow); }
+    .metric { min-height: 210px; padding: 1.6rem; background: var(--white); display: flex; flex-direction: column; justify-content: space-between; }
+    .metric .num { font: 500 clamp(3.4rem, 6vw, 6.2rem)/.8 var(--serif); letter-spacing: -.06em; }
+    .metric .label { color: var(--muted); font-size: .86rem; text-transform: uppercase; letter-spacing: .09em; font-weight: 800; }
+    .metric em { color: var(--green); font-style: normal; }
+
+    .truth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .truth { padding: clamp(1.4rem, 3vw, 2.5rem); border: 1px solid var(--line); border-radius: var(--radius); background: rgba(255,253,248,.66); }
+    .truth--dark { color: #f6f1e8; background: var(--green-2); border-color: transparent; }
+    .truth h3 { margin: 0 0 1.2rem; font: 500 2rem var(--serif); }
+    .truth ul { margin: 0; padding: 0; list-style: none; display: grid; gap: .8rem; }
+    .truth li { display: grid; grid-template-columns: 20px 1fr; gap: .7rem; }
+    .truth li::before { content: "✓"; color: var(--green); font-weight: 900; }
+    .truth--dark li::before { content: "○"; color: #ff937d; }
+    .truth--dark li { color: #d4dfda; }
+
+    .toolbar { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.3rem; }
+    .filter { border: 1px solid var(--line); padding: .65rem 1rem; border-radius: 999px; background: transparent; color: var(--ink); cursor: pointer; font-weight: 750; font-size: .85rem; }
+    .filter[aria-pressed="true"] { color: white; border-color: var(--ink); background: var(--ink); }
+    .findings { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+    .finding { min-height: 330px; padding: 1.5rem; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); display: flex; flex-direction: column; box-shadow: 0 12px 34px rgba(20,41,35,.06); transition: transform .25s ease, opacity .2s ease; }
+    .finding:hover { transform: translateY(-4px); }
+    .finding[hidden] { display: none; }
+    .finding-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+    .id { font: 700 .74rem var(--mono); color: var(--muted); }
+    .pill { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .6rem; border-radius: 999px; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 850; }
+    .critical { background: #fae1db; color: #9f2f1e; }
+    .high { background: #f8e8cb; color: #88500b; }
+    .medium { background: #dbe9ed; color: #1e576d; }
+    .fixed { background: #dcece6; color: var(--green-2); }
+    .finding h3 { margin: 1.2rem 0 .55rem; font: 500 1.65rem/1.1 var(--serif); }
+    .finding p { margin: 0; color: var(--muted); font-size: .91rem; }
+    .finding .repair { margin-top: auto; padding-top: 1.1rem; border-top: 1px solid var(--line); color: var(--ink); }
+    .repair strong { display: block; color: var(--green); font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; }
+
+    .workflow-wrap { padding: 1rem; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--ink); box-shadow: var(--shadow); }
+    .workflow { min-width: 1040px; width: 100%; height: auto; display: block; }
+    .workflow text { font-family: var(--sans); }
+    .workflow .box { fill: #1c382f; stroke: rgba(255,255,255,.18); stroke-width: 1; }
+    .workflow .box-live { fill: #f8f2e8; stroke: #f8f2e8; }
+    .workflow .box-gate { fill: #e6593f; stroke: #e6593f; }
+    .workflow .label-light { fill: #f6f1e8; font-size: 14px; font-weight: 700; }
+    .workflow .label-dark { fill: #142923; font-size: 14px; font-weight: 800; }
+    .workflow .sub { fill: #a7bbb3; font-size: 11px; }
+    .workflow .sub-dark { fill: #5d6963; font-size: 11px; }
+    .workflow .solid { fill: none; stroke: #9fd0bf; stroke-width: 2; marker-end: url(#arrow); }
+    .workflow .dash { fill: none; stroke: #ff937d; stroke-width: 2; stroke-dasharray: 7 7; marker-end: url(#arrow-coral); }
+    .legend { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-top: 1rem; color: #c6d4cf; font-size: .82rem; }
+    .legend span::before { content: ""; display: inline-block; width: 28px; height: 2px; margin-right: .5rem; vertical-align: middle; background: #9fd0bf; }
+    .legend .planned::before { background: repeating-linear-gradient(90deg, #ff937d 0 6px, transparent 6px 10px); }
+
+    .tech-table { width: 100%; border-collapse: collapse; background: rgba(255,253,248,.72); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: table; }
+    .tech-table th, .tech-table td { text-align: left; padding: 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .tech-table th { color: var(--muted); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+    .tech-table tr:last-child td { border-bottom: 0; }
+    .tech-table code { font: .8rem var(--mono); color: var(--green-2); }
+
+    .evidence-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 1rem; }
+    .terminal { margin: 0; padding: 1.5rem; min-height: 440px; overflow: auto; color: #dce8e3; background: #0d1d18; border-radius: var(--radius); font: .86rem/1.75 var(--mono); box-shadow: var(--shadow); }
+    .terminal { max-width: 100%; }
+    .terminal .prompt { color: #ff937d; }
+    .terminal .ok { color: #9fd0bf; }
+    .terminal .note { color: #a0ada8; }
+    .gates { display: grid; gap: .65rem; }
+    .gate { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: .8rem; padding: 1rem; border: 1px solid var(--line); border-radius: 15px; background: var(--white); }
+    .gate .check { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: #dcece6; color: var(--green); font-weight: 900; }
+    .gate strong { display: block; font-size: .9rem; }
+    .gate small { color: var(--muted); }
+    .gate code { font: .72rem var(--mono); color: var(--green); }
+
+    .boundary { display: grid; grid-template-columns: .8fr 1.2fr; gap: 1rem; }
+    .boundary-callout { padding: 2.2rem; color: white; background: var(--coral); border-radius: var(--radius); }
+    .boundary-callout .huge { font: 500 4rem/.9 var(--serif); }
+    .boundary-callout p { color: #fff0eb; }
+    .next-list { counter-reset: next; display: grid; gap: .7rem; }
+    .next { counter-increment: next; display: grid; grid-template-columns: 54px 1fr; gap: 1rem; padding: 1.1rem; background: var(--white); border: 1px solid var(--line); border-radius: 15px; }
+    .next::before { content: "0" counter(next); font: 700 1.1rem var(--mono); color: var(--coral); }
+    .next strong { display: block; }
+    .next span { color: var(--muted); font-size: .88rem; }
+
+    footer { margin-top: 4rem; padding: 3rem clamp(1rem, 5vw, 5rem); color: #d5dfda; background: var(--ink); }
+    .footer-inner { width: min(1260px, 100%); margin: auto; display: flex; justify-content: space-between; gap: 2rem; align-items: end; }
+    footer .signoff { font: 500 2.4rem var(--serif); color: white; }
+    footer small { color: #92a39c; }
+    footer a { color: #ff937d; }
+
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity .55s ease, transform .55s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+
+    @media (max-width: 900px) {
+      .topnav { display: none; }
+      .hero { min-height: auto; }
+      .hero-grid, .section-head, .evidence-grid, .boundary { grid-template-columns: 1fr; }
+      .verdict-card { max-width: 480px; border-radius: var(--radius); }
+      .verdict-card .seal { margin: 0 0 2rem; }
+      .section-intro { margin-left: 0; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .findings { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 600px) {
+      h1 { font-size: 3.6rem; }
+      .hero::after { display: none; }
+      .metrics, .truth-grid, .findings { grid-template-columns: 1fr; }
+      .metric { min-height: 160px; }
+      .tech-table, .tech-table tbody, .tech-table tr, .tech-table td { display: block; }
+      .tech-table thead { display: none; }
+      .tech-table tr { border-bottom: 1px solid var(--line); padding: .8rem; }
+      .tech-table td { border: 0; padding: .35rem .5rem; }
+      .tech-table td::before { content: attr(data-label); display: block; color: var(--muted); font-size: .66rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+      .footer-inner { align-items: start; flex-direction: column; }
+      .hero-copy, .verdict-card p, .next span { overflow-wrap: anywhere; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+    @media print {
+      .topbar, .toolbar { display: none; }
+      body { background: white; }
+      .hero { min-height: auto; padding-top: 2rem; }
+      .section { break-inside: avoid; padding: 2.5rem 0; }
+      .finding { break-inside: avoid; }
+      .reveal { opacity: 1; transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to review</a>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">N</span> NotMID / Engineering Review</div>
+    <nav class="topnav" aria-label="Report sections">
+      <a href="#verdict">Verdict</a><a href="#findings">Repairs</a><a href="#workflow">Workflow</a><a href="#technology">Technology</a><a href="#evidence">Evidence</a><a href="#boundary">Boundary</a>
+    </nav>
+  </header>
+
+  <main id="content">
+    <section class="hero" id="verdict">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">OpenCode change set + Phase 4 voice · reviewed 31 August 2026</div>
+          <h1>Useful bones.<br>Unsafe claims.<br><em style="color:var(--green);font-style:italic">Now corrected.</em></h1>
+          <p class="hero-copy">The original AI integration added useful seams but did not prove a safe voice workflow. The reviewed Phase 4 slice now delivers auditable Hindi/English WebSocket intake, microphone diagnostics, partial feedback, transcript correction, touch fallback, consent-controlled encrypted retention, metadata-only events, and measured Indian speech baselines—without pretending that demo identity or in-memory audit is production-ready.</p>
+        </div>
+        <aside class="verdict-card" aria-label="Review verdict">
+          <div class="seal">✓</div>
+          <small>Final disposition</small>
+          <h2>Accept with remediation</h2>
+          <p>Keep the scaffold. Do not expose the synthetic clinical surface outside explicit demo mode. Build identity, persistence, tenancy, audit, and governance before calling any phase clinically complete.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section reveal">
+      <div class="metrics" aria-label="Review metrics">
+        <div class="metric"><span class="num">20</span><span class="label">Material defects remediated</span></div>
+        <div class="metric"><span class="num">72</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">3/3</span><span class="label">Web apps linted & built</span></div>
+        <div class="metric"><span class="num">0</span><span class="label">Known npm audit findings</span></div>
+      </div>
+    </section>
+
+    <section class="section reveal">
+      <div class="section-head">
+        <div><span class="kicker">01 · Truth model</span><h2>What exists—and what does not.</h2></div>
+        <p class="section-intro">A file is not a feature, a router is not a secured service, and a unit test is not production evidence. The ledger now uses those distinctions consistently.</p>
+      </div>
+      <div class="truth-grid">
+        <article class="truth">
+          <h3>Verified foundation</h3>
+          <ul>
+            <li>Patient, clinician, and admin Next.js shells compile on the current Active LTS line.</li>
+            <li>FastAPI passes lint, type-check, and behavioral suites with 72 tests passing and four explicit real-model integration skips.</li>
+            <li>Readiness checks real Postgres, MongoDB, and Redis connectivity and returns 503 when unavailable.</li>
+            <li>Compose and CI configuration parse; local Kafka addressing is valid for host and container clients.</li>
+            <li>Hindi hospital-noise proxy WER is 14.21%; spontaneous Indian-English WER is 6.36%. Patient voice review and touch fallback compile in the production kiosk.</li>
+          </ul>
+        </article>
+        <article class="truth truth--dark">
+          <h3>Still a production boundary</h3>
+          <ul>
+            <li>No Clerk signature, issuer, audience, key-rotation, or webhook verification is wired.</li>
+            <li>No Postgres repositories, migrations, transactional outbox, or durable audit implementation exists.</li>
+            <li>No tenant-isolation, facility-scope, consent-policy, or break-glass integration evidence exists.</li>
+            <li>Voice Redis/Kafka/S3 adapters exist but lack deployed integration proof; vLLM, Elasticsearch, and the durable Postgres outbox remain unimplemented.</li>
+            <li>No full Compose startup, browser E2E, accessibility, load, security, backup, or deployment proof exists.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section reveal" id="findings">
+      <div class="section-head">
+        <div><span class="kicker">02 · Remediation ledger</span><h2>Twenty repairs that changed the risk.</h2></div>
+        <p class="section-intro">Filter by original severity. Each card states the defect found in the OpenCode output and the concrete change retained in the repository.</p>
+      </div>
+      <div class="toolbar" role="group" aria-label="Filter findings">
+        <button class="filter" data-filter="all" aria-pressed="true">All · 20</button>
+        <button class="filter" data-filter="critical" aria-pressed="false">Critical · 4</button>
+        <button class="filter" data-filter="high" aria-pressed="false">High · 10</button>
+        <button class="filter" data-filter="medium" aria-pressed="false">Medium · 6</button>
+      </div>
+      <div class="findings">
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">SEC-01</span><span class="pill critical">Critical</span></div><h3>Synthetic clinical APIs looked deployable</h3><p>In-memory patient, encounter, consent, audit, AYUSH, FHIR, session, and development-token routes were included by default without real Clerk or persistence.</p><div class="repair"><strong>Repaired</strong>All business routers now require explicit <code>ENABLE_DEMO_ROUTES=true</code>; default startup exposes health only.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">SEC-02</span><span class="pill critical">Critical</span></div><h3>Credentialed wildcard CORS</h3><p>The API allowed every origin, method, and header while enabling credentials—an unsafe and browser-incompatible policy.</p><div class="repair"><strong>Repaired</strong>Explicit development origins, limited methods and limited request headers; cross-origin credentials disabled.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">DEP-03</span><span class="pill critical">Critical</span></div><h3>Frontend baseline carried high advisories</h3><p>All three apps used a broad Next.js 14 range; dependency resolution reported five high-severity findings per application.</p><div class="repair"><strong>Repaired</strong>Next.js 16.3.3 Active LTS, React 19, fresh lockfiles, and zero known npm audit vulnerabilities.</div></article>
+
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">OPS-04</span><span class="pill high">High</span></div><h3>Readiness checked imports, not dependencies</h3><p><code>/readyz</code> returned “ok” when client libraries existed even if every datastore was offline.</p><div class="repair"><strong>Repaired</strong>Bounded async ping probes, per-dependency results, cleanup, and HTTP 503 on any unavailable required dependency.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">CI-05</span><span class="pill high">High</span></div><h3>CI executed from the wrong directory</h3><p>Workflow commands assumed <code>apps/</code> lived at repository root; the project actually lives under <code>patient-case-taking-platform/</code>.</p><div class="repair"><strong>Repaired</strong>Job working directories now match repository layout and commands match the declared Python and Node projects.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PY-06</span><span class="pill high">High</span></div><h3>Python project could not install</h3><p>The declared setuptools backend was not importable, so a clean editable install failed before tests or type checks.</p><div class="repair"><strong>Repaired</strong>Standard <code>setuptools.build_meta</code> backend plus a verified dev installation.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">WEB-07</span><span class="pill high">High</span></div><h3>No reproducible frontend dependency graph</h3><p>Dockerfiles and CI used inconsistent install commands while no package lockfiles existed.</p><div class="repair"><strong>Repaired</strong>Fresh per-app lockfiles, <code>npm ci</code> in CI and containers, consistent Active LTS dependencies.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">WEB-08</span><span class="pill high">High</span></div><h3>Kiosk could not survive a production build</h3><p>A server component passed an event callback into a client component, violating the React Server Component boundary.</p><div class="repair"><strong>Repaired</strong>The interactive landing surface is explicitly client-side and persists language choice locally.</div></article>
+
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">A11Y-09</span><span class="pill medium">Medium</span></div><h3>Interactive markup nested a button in a link</h3><p>The kiosk wrapped button elements with anchors, producing invalid interactive nesting and ambiguous keyboard behavior.</p><div class="repair"><strong>Repaired</strong>Links receive a shared action style directly; form buttons remain semantic buttons.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">CTR-10</span><span class="pill medium">Medium</span></div><h3>Containers were inconsistent and privileged</h3><p>Only one app used standalone output; runners varied, copied full dependencies, and ran as root.</p><div class="repair"><strong>Repaired</strong>Standalone output for all apps, Node 22 builders, minimal runtime copies, and non-root runtime users; API is non-root too.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">EVT-11</span><span class="pill medium">Medium</span></div><h3>Kafka advertised one unusable address</h3><p>The broker told host clients to connect to the container hostname, so localhost connections would fail after bootstrap.</p><div class="repair"><strong>Repaired</strong>Separate internal and external listeners with the API using the internal broker address.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">DOC-12</span><span class="pill medium">Medium</span></div><h3>The ledger called prototypes “complete”</h3><p>Phase 1, auth, persistence, audit, FHIR, and CI were marked complete based mainly on file creation. A second ADR tree duplicated canonical decisions.</p><div class="repair"><strong>Repaired</strong>Evidence-based status vocabulary, explicit limits, and one canonical ADR location.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">AI-13</span><span class="pill critical">Critical</span></div><h3>ASR upload discarded the patient’s audio</h3><p>The multipart smoke request looked real, but the endpoint accepted no file parameter and always transcribed generated zero bytes.</p><div class="repair"><strong>Repaired</strong>The REST contract now consumes the uploaded file, validates type, emptiness and size, and returns bounded provider failures.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">AI-14</span><span class="pill high">High</span></div><h3>Browser audio chunks formed a corrupt stream</h3><p>Every processor callback emitted a new WAV header and the API concatenated those files; the browser also labelled native-rate samples as 16 kHz.</p><div class="repair"><strong>Repaired</strong>The kiosk downsamples to 16 kHz PCM16, preserves message ordering while the socket connects, and the API creates one valid WAV container.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">AI-15</span><span class="pill high">High</span></div><h3>Model scripts executed during test discovery</h3><p>Pytest collection could start Uvicorn, download large gated models, consume GPU memory, write fixtures, or wait ten minutes.</p><div class="repair"><strong>Repaired</strong>Real-model and subprocess suites require explicit environment flags; default CI stays deterministic and side-effect free.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">AI-16</span><span class="pill high">High</span></div><h3>Clinical confidence values were invented</h3><p>ASR and OCR returned hard-coded 0.92 and 0.90 scores even when the provider response exposed no calibrated confidence.</p><div class="repair"><strong>Repaired</strong>Confidence is nullable and only populated when a provider supplies a real score.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">AI-17</span><span class="pill high">High</span></div><h3>OCR configuration was ignored</h3><p><code>OCR_PROVIDER=mock</code> still instantiated PaddleOCR-VL, forcing heavyweight dependencies into demos and smoke tests.</p><div class="repair"><strong>Repaired</strong>The registry now honors configuration. Routine documents use PP-OCRv5; the 0.9B vision-language pipeline is an explicit complex-layout fallback.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">API-18</span><span class="pill medium">Medium</span></div><h3>AI boundaries were unbounded and leaky</h3><p>WebSocket audio grew without limit, base64 OCR accepted malformed or oversized payloads, and raw provider exceptions were returned.</p><div class="repair"><strong>Repaired</strong>15 MB audio and 10 MB image ceilings, strict base64 validation, typed media allowlists, and sanitized 503 responses.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH4-19</span><span class="pill high">High</span></div><h3>Voice could not degrade safely</h3><p>No microphone diagnostic, ordered end-of-stream contract, transcript correction step, unsupported-language guard, or reliable touch fallback protected patient progress.</p><div class="repair"><strong>Repaired</strong>Device checks, ordered PCM16 delivery, cumulative partials, editable confirmation, clarification signals, and explicit touch fallback.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">PH4-20</span><span class="pill medium">Medium</span></div><h3>Latency and accuracy claims lacked a cohort</h3><p>Single fixture timing could not establish Hindi/English behavior in Indian hospital conditions, and the original p95 calculation understated small-sample tails.</p><div class="repair"><strong>Repaired</strong>Provenance-bearing Hindi noisy, 5 dB hospital-ambient proxy, and spontaneous Indian-English manifests; nearest-rank p95 and explicit proxy limitations.</div></article>
+      </div>
+    </section>
+
+    <section class="section reveal" id="workflow">
+      <div class="section-head">
+        <div><span class="kicker">03 · Communication map</span><h2>How the system communicates now.</h2></div>
+        <p class="section-intro">Solid mint paths are exercised scaffold paths. Dashed coral paths are architectural intentions that still require adapters, security controls, and integration evidence.</p>
+      </div>
+      <div class="workflow-wrap">
+        <svg class="workflow" viewBox="0 0 1180 630" role="img" aria-labelledby="flow-title flow-desc">
+          <title id="flow-title">NotMID application and service communication workflow</title>
+          <desc id="flow-desc">Users access three Next.js applications. The patient kiosk streams ordered PCM audio to a FastAPI voice boundary and receives partial and final transcripts. Redis, Kafka and encrypted object storage are optional voice adapters; durable identity, consent and audit remain planned integrations.</desc>
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#9fd0bf"/></marker>
+            <marker id="arrow-coral" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff937d"/></marker>
+          </defs>
+          <text x="40" y="45" class="sub">SURFACES</text><text x="410" y="45" class="sub">APPLICATION BOUNDARY</text><text x="825" y="45" class="sub">PLATFORM CAPABILITIES</text>
+          <rect class="box-live" x="40" y="75" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="112">Patient kiosk / PWA</text><text class="sub-dark" x="65" y="138">Mic check · Hindi/English · review · touch fallback</text>
+          <rect class="box-live" x="40" y="205" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="242">Clinician console</text><text class="sub-dark" x="65" y="268">Worklist · review placeholders</text>
+          <rect class="box-live" x="40" y="335" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="372">Administration console</text><text class="sub-dark" x="65" y="398">Users · facilities · audit placeholders</text>
+
+          <rect class="box" x="410" y="75" width="290" height="95" rx="18"/><text class="label-light" x="438" y="112">Edge / API gateway</text><text class="sub" x="438" y="138">NGINX, rate limits, Clerk token pass-through</text>
+          <rect class="box-live" x="410" y="215" width="290" height="100" rx="18"/><text class="label-dark" x="438" y="252">FastAPI + voice gateway</text><text class="sub-dark" x="438" y="278">ordered PCM · partial/final · clarification</text>
+          <rect class="box-gate" x="410" y="360" width="290" height="100" rx="18"/><text class="label-light" x="438" y="397">Demo route gate</text><text class="sub" x="438" y="423">OFF by default · in-memory prototypes only</text>
+
+          <rect class="box" x="825" y="75" width="300" height="85" rx="18"/><text class="label-light" x="852" y="108">Clerk + hospital SSO</text><text class="sub" x="852" y="133">JWT validation and identity mapping pending</text>
+          <rect class="box" x="825" y="190" width="300" height="85" rx="18"/><text class="label-light" x="852" y="223">Redis · encrypted S3</text><text class="sub" x="852" y="248">Voice adapters built · deployment proof pending</text>
+          <rect class="box" x="825" y="305" width="300" height="85" rx="18"/><text class="label-light" x="852" y="338">Kafka / Redpanda</text><text class="sub" x="852" y="363">Metadata-only ASR event · outbox pending</text>
+          <rect class="box-gate" x="825" y="420" width="300" height="85" rx="18"/><text class="label-light" x="852" y="453">AI adapter plane</text><text class="sub" x="852" y="478">AI4Bharat Hindi · Whisper en-IN · PaddleOCR</text>
+          <rect class="box" x="825" y="535" width="300" height="65" rx="18"/><text class="label-light" x="852" y="575">ABDM · SMS · WhatsApp · search</text>
+
+          <path class="dash" d="M290 122 C350 122 350 122 410 122"/><path class="dash" d="M290 252 C350 252 350 145 410 132"/><path class="dash" d="M290 382 C355 382 350 145 410 138"/>
+          <path class="solid" d="M555 170 L555 215"/><path class="solid" d="M555 315 L555 360"/>
+          <path class="dash" d="M700 115 C755 115 770 115 825 115"/><path class="dash" d="M700 255 C760 255 765 232 825 232"/><path class="dash" d="M700 405 C760 405 765 347 825 347"/><path class="dash" d="M700 420 C755 420 770 462 825 462"/><path class="dash" d="M975 505 L975 535"/>
+        </svg>
+        <div class="legend"><span>Verified scaffold path</span><span class="planned">Planned or demo-only integration</span></div>
+      </div>
+    </section>
+
+    <section class="section reveal" id="technology">
+      <div class="section-head">
+        <div><span class="kicker">04 · Technology disposition</span><h2>Chosen, used, or merely named.</h2></div>
+        <p class="section-intro">The architecture remains intentionally microservice-light. These labels show what the current repository actually proves.</p>
+      </div>
+      <table class="tech-table">
+        <thead><tr><th>Technology</th><th>Project use</th><th>Current evidence</th><th>Disposition</th></tr></thead>
+        <tbody>
+          <tr><td data-label="Technology"><strong>Next.js 16 + React 19</strong></td><td data-label="Project use">Patient, clinician, administration web surfaces</td><td data-label="Current evidence">Three production builds; standalone container output</td><td data-label="Disposition"><span class="pill fixed">Verified shell</span></td></tr>
+          <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">80 source files type-check; 72 tests pass</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
+          <tr><td data-label="Technology"><strong>Clerk</strong></td><td data-label="Project use">Web authentication; internal identity mapping</td><td data-label="Current evidence">Configuration names and demo token sketch only</td><td data-label="Disposition"><span class="pill high">Not integrated</span></td></tr>
+          <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Clinical source of truth, consent, encounter, outbox</td><td data-label="Current evidence">Compose service and readiness ping; no repositories/migrations</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
+          <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Raw artifacts, ephemeral state, binary objects</td><td data-label="Current evidence">Local services; Mongo and Redis readiness probes</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
+          <tr><td data-label="Technology"><strong>Kafka</strong></td><td data-label="Project use">Durable async workflows, worker isolation, replay</td><td data-label="Current evidence">Corrected dual-listener local broker configuration</td><td data-label="Disposition"><span class="pill high">No workflows yet</span></td></tr>
+          <tr><td data-label="Technology"><strong>FHIR R4 / AYUSH models</strong></td><td data-label="Project use">Interoperability and domain contract exploration</td><td data-label="Current evidence">In-memory transformations and unit tests in demo surface</td><td data-label="Disposition"><span class="pill medium">Prototype</span></td></tr>
+          <tr><td data-label="Technology"><strong>AI4Bharat ASR + Whisper small.en</strong></td><td data-label="Project use">Hindi and English voice intake with explicit language packs</td><td data-label="Current evidence">Hospital-noise Hindi proxy: 14.21% WER / 0.63 s warm p95. Spontaneous Indian English: 6.36% WER / 5.37 s warm p95 on CPU</td><td data-label="Disposition"><span class="pill fixed">Phase 4 verified locally</span></td></tr>
+          <tr><td data-label="Technology"><strong>PP-OCRv5 + PaddleOCR-VL</strong></td><td data-label="Project use">Fast routine OCR with complex-layout fallback</td><td data-label="Current evidence">Four-line OCR → 4/4 lines in 5.09 s first / 4.53 s warm on CPU; VL fallback verified separately</td><td data-label="Disposition"><span class="pill fixed">Verified locally · workers pending</span></td></tr>
+          <tr><td data-label="Technology"><strong>vLLM + HiMed 8B</strong></td><td data-label="Project use">Planned clinical reasoning and summarization serving</td><td data-label="Current evidence">Architecture documents only</td><td data-label="Disposition"><span class="pill high">Not implemented</span></td></tr>
+          <tr><td data-label="Technology"><strong>Elasticsearch</strong></td><td data-label="Project use">Derived document and audit search</td><td data-label="Current evidence">Canonical ADR only; no index or client</td><td data-label="Disposition"><span class="pill high">Deferred</span></td></tr>
+          <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Both parse; commands aligned; full topology not started</td><td data-label="Disposition"><span class="pill medium">Partially verified</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section reveal" id="evidence">
+      <div class="section-head">
+        <div><span class="kicker">05 · Verification evidence</span><h2>Checks run, not checks imagined.</h2></div>
+        <p class="section-intro">The report deliberately preserves the remaining warning boundary: full infrastructure startup and end-to-end clinical workflows were not executed.</p>
+      </div>
+      <div class="evidence-grid">
+        <pre class="terminal" aria-label="Verification command summary"><span class="prompt">$</span> npm run lint && npm run build <span class="note"># patient kiosk</span>
+<span class="ok">✓ ESLint clean
+✓ Next.js 16.3.3 production build
+✓ 7 product routes</span>
+
+<span class="prompt">$</span> npm run lint && npm run build <span class="note"># clinician</span>
+<span class="ok">✓ ESLint clean
+✓ production build
+✓ 5 static + 1 dynamic route</span>
+
+<span class="prompt">$</span> npm run lint && npm run build <span class="note"># admin</span>
+<span class="ok">✓ ESLint clean
+✓ production build
+✓ 7 static routes</span>
+
+<span class="prompt">$</span> ruff check apps/api
+<span class="ok">All checks passed!</span>
+
+<span class="prompt">$</span> mypy app tools
+<span class="ok">Success: no issues found in 80 source files</span>
+
+<span class="prompt">$</span> pytest apps/api/tests -q
+<span class="ok">72 passed · 4 real-model suites skipped by policy</span>
+
+<span class="prompt">$</span> real-provider verification <span class="note"># cached weights</span>
+<span class="ok">✓ Startup warmup: AI4Bharat 24.2 s · PP-OCRv5 27.0 s
+✓ AI4Bharat CUDA: 8 s Hindi → text · 0.47 s first / 0.33 s warm
+✓ Hindi + hospital ambient at 5 dB: 14.21% WER · 0.63 s warm p95
+✓ Indian-English Monsoon: 6.36% WER · 5.37 s warm p95 on CPU
+✓ PP-OCRv5 CPU: 4/4 lines · 5.09 s first / 4.53 s warm
+✓ PaddleOCR-VL CPU fallback: 4/4 lines · 493.5 s</span>
+
+<span class="prompt">$</span> docker compose config --quiet
+<span class="ok">✓ parsed</span>
+
+<span class="note">Not run: full 9-service startup, E2E browser suite,
+load test, DAST/SAST program, deployment smoke test.</span></pre>
+        <div class="gates">
+          <div class="gate"><span class="check">✓</span><div><strong>Frontend dependency integrity</strong><small>Fresh locks and audits</small></div><code>0 findings × 3</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Frontend compilation</strong><small>Patient, clinician, admin</small></div><code>3 / 3</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Python packaging</strong><small>Editable project install</small></div><code>passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>80 files</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention and AI contracts</small></div><code>72 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Voice quality</strong><small>Hindi hospital proxy + spontaneous Indian English</small></div><code>14.21% · 6.36% WER</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>ESLint + TypeScript production compilation</small></div><code>7 routes</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Configuration syntax</strong><small>Compose and CI YAML</small></div><code>parsed</code></div>
+          <div class="gate"><span class="check">!</span><div><strong>Integration environment</strong><small>Requires image pulls and service startup</small></div><code>pending</code></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section reveal" id="boundary">
+      <div class="section-head">
+        <div><span class="kicker">06 · Production boundary</span><h2>The next work is not more scaffolding.</h2></div>
+        <p class="section-intro">The safest sequencing is identity and durable clinical truth first, then asynchronous model workflows. RAG is not required for the initial case-taking product.</p>
+      </div>
+      <div class="boundary">
+        <aside class="boundary-callout"><div class="huge">No RAG<br>for V1.</div><p>Structured intake, deterministic red-flag rules, document timelines, and clinician-edited summaries can ship without a retrieval-generation layer. Add semantic retrieval only after access-filtered search has a measured clinical use case and evaluation set.</p></aside>
+        <div class="next-list">
+          <div class="next"><div><strong>Clerk verification + internal identity</strong><span>JWT/JWKS validation, subject mapping, facility membership, caregiver relationships, signed webhooks, MFA and SSO policy.</span></div></div>
+          <div class="next"><div><strong>Postgres persistence + migrations</strong><span>Repositories, optimistic concurrency, signed clinical records, consent versions, audit evidence and transactional outbox.</span></div></div>
+          <div class="next"><div><strong>Authorization at every boundary</strong><span>Tenant and facility scoping, purpose-of-use, patient/caregiver access, break-glass approval and negative integration tests.</span></div></div>
+          <div class="next"><div><strong>One complete clinical slice</strong><span>Register → consent → intake → doctor review/edit/sign → patient-approved summary, with no AI dependency for correctness.</span></div></div>
+          <div class="next"><div><strong>Async AI workers after the workflow is durable</strong><span>Outbox to Kafka, idempotent workers, model registry, vLLM routing, failure fallbacks, evaluation and PHI-safe telemetry.</span></div></div>
+          <div class="next"><div><strong>Operational proof</strong><span>Compose/integration environment, accessibility and browser tests, threat model, load profile, backup/restore, staged deployment and rollback.</span></div></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+      <div><div class="signoff">Phase 4 voice implemented.<br>Clinical readiness still gated.</div><small>Evidence snapshot · 31 August 2026 · Asia/Kolkata</small></div>
+      <small>Source reviewed: <a href="https://opncd.ai/share/egsk269W">OpenCode shared session</a><br>Canonical decisions: <a href="../docs/architecture/decisions/">docs/architecture/decisions</a></small>
+    </div>
+  </footer>
+
+  <script>
+    const filters = document.querySelectorAll('.filter');
+    const findings = document.querySelectorAll('.finding');
+    filters.forEach((button) => button.addEventListener('click', () => {
+      filters.forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+      const filter = button.dataset.filter;
+      findings.forEach((card) => { card.hidden = filter !== 'all' && card.dataset.severity !== filter; });
+    }));
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion || !('IntersectionObserver' in window)) {
+      document.querySelectorAll('.reveal').forEach((item) => item.classList.add('in'));
+    } else {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) { entry.target.classList.add('in'); observer.unobserve(entry.target); }
+        });
+      }, { threshold: .08 });
+      document.querySelectorAll('.reveal').forEach((item) => observer.observe(item));
+    }
+  </script>
+</body>
+</html>

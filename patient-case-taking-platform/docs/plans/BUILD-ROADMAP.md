@@ -7,6 +7,10 @@
 - Patients may lack ABHA, smartphones, literacy or reliable connectivity.
 - The first release should optimize safe workflow learning, not national-scale infrastructure.
 
+## Current implementation milestone
+
+The repository's **Phase 4 voice-layer code slice is implemented and locally verified**. Its exact evidence, deferred TTS decision, and remaining production/clinical-release gates are recorded in [`PHASE-4-VOICE-LAYER.md`](PHASE-4-VOICE-LAYER.md). This implementation milestone is distinct from the longer product-roadmap phase numbering below.
+
 ## Approved stack baseline
 
 - Next.js/React/TypeScript monorepo with separate patient, doctor and user-administration deployments.

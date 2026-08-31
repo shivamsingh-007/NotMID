@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for planning.
+Accepted; implemented for the Phase 4 voice slice. Durable outbox integration remains pending.
 
 ## Decision
 
@@ -16,6 +16,7 @@ Use authenticated WebSockets for partial transcripts, progress and time-sensitiv
 - Consumers are idempotent and use schema versions, bounded retries and dead-letter handling.
 - PostgreSQL unique constraints and a processed-event ledger provide correctness; Redis keys may accelerate checks but are not the idempotency source of truth.
 - Interactive ASR uses the streaming path rather than waiting for queue round trips.
+- The implemented ASR completion event is metadata-only and excludes raw audio and transcript content. Redis turn context expires; optional audio retention requires separate consent and application-layer AES-256-GCM encryption before object storage.
 
 ## Exit criteria
 

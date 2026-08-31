@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "notmid-clinical-api"
+version = "0.1.0"
+description = "MediKiosk Clinical Platform API"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "pydantic>=2.0",
+    "pydantic-settings>=2.0",
+    "python-dotenv>=1.0",
+    "httpx>=0.27.0",
+    "python-multipart>=0.0.9",
+    "asyncpg>=0.29.0",
+    "motor>=3.5.0",
+    "redis>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["mypy", "pytest", "pytest-asyncio", "ruff"]
+ai-asr = [
+    "numpy>=1.26",
+    "soundfile>=0.12",
+    "torch>=2.2",
+    "torchaudio>=2.2",
+    "transformers>=4.48",
+    "onnx==1.20.1",
+    "onnxruntime==1.20.1",
+]
+ai-ocr-fast = [
+    "paddleocr>=3.7,<3.8",
+    "torch>=2.2",
+]
+ai-ocr-vl = [
+    "paddleocr[doc-parser]>=3.7,<3.8",
+    "torch>=2.2",
+]
+voice-platform = [
+    "aiokafka>=0.11",
+    "boto3>=1.35",
+    "cryptography>=43",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: requires model artifacts, network access, or a running subprocess",
+]
+
+[tool.mypy]
+ignore_missing_imports = true

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Evidence-led review of the OpenCode foundation changes for the NotMID patient case-taking platform.">
-  <title>NotMID · OpenCode Review & Remediation Ledger</title>
+  <meta name="description" content="Evidence-led review of the MediKiosk foundation, Phase 5 dialogue, and Phase 6 deterministic triage prototype.">
+  <title>MediKiosk · Phase 5–6 Engineering Review Ledger</title>
   <style>
     :root {
       --paper: #f4f0e8;
@@ -247,23 +247,23 @@
     <section class="hero" id="verdict">
       <div class="hero-grid">
         <div>
-          <div class="eyebrow">OpenCode change set + Phase 5 clinical dialogue · reviewed 1 September 2026</div>
+          <div class="eyebrow">Phase 5 dialogue + Phase 6 Slice 6.1 · reviewed 1 September 2026</div>
           <h1>Useful bones.<br>Unsafe claims.<br><em style="color:var(--green);font-style:italic">Now corrected.</em></h1>
-          <p class="hero-copy">Phase 5 now connects confirmed Hindi/English voice answers to an offline, deterministic SOCRATES question provider; interrupts routine questioning on fixed warning-symptom rules; and produces an evidence-linked draft that can be edited or rejected. The provider makes no external network call and no vLLM service or model weights are part of this phase.</p>
+          <p class="hero-copy">Phase 5 connects confirmed Hindi/English voice answers to an offline SOCRATES provider and produces an evidence-linked editable draft. Phase 6 Slice 6.1 now routes warning detection through one versioned deterministic prototype ruleset with stable rule IDs, owner roles, source paths, bounded inputs, and an explicit “no configured flag” outcome. No durable staff alert is created yet.</p>
         </div>
         <aside class="verdict-card" aria-label="Review verdict">
           <div class="seal">✓</div>
           <small>Final disposition</small>
           <h2>Accept with remediation</h2>
-          <p>Keep the scaffold. Do not expose the synthetic clinical surface outside explicit demo mode. Build identity, persistence, tenancy, audit, and governance before calling any phase clinically complete.</p>
+          <p>Accept Slice 6.1 as a demo-gated software contract. Do not call it clinically validated: durable flags, authenticated ownership, acknowledgement, escalation, outbox delivery, and clinical governance remain release gates.</p>
         </aside>
       </div>
     </section>
 
     <section class="section reveal">
       <div class="metrics" aria-label="Review metrics">
-        <div class="metric"><span class="num">25</span><span class="label">Material defects remediated</span></div>
-        <div class="metric"><span class="num">82</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">29</span><span class="label">Material defects remediated</span></div>
+        <div class="metric"><span class="num">90</span><span class="label">API tests <em>passing</em></span></div>
         <div class="metric"><span class="num">3/3</span><span class="label">Web apps linted & built</span></div>
         <div class="metric"><span class="num">0</span><span class="label">Known npm audit findings</span></div>
       </div>
@@ -279,7 +279,7 @@
           <h3>Verified foundation</h3>
           <ul>
             <li>Patient, clinician, and admin Next.js shells compile on the current Active LTS line.</li>
-            <li>FastAPI passes lint, type-check, and behavioral suites with 82 tests passing and four explicit real-model integration skips.</li>
+            <li>FastAPI passes lint, type-check, and behavioral suites with 90 tests passing and four explicit real-model integration skips.</li>
             <li>Readiness checks real Postgres, MongoDB, and Redis connectivity and returns 503 when unavailable.</li>
             <li>Compose and CI configuration parse; local Kafka addressing is valid for host and container clients.</li>
             <li>Hindi hospital-noise proxy WER is 14.21%; spontaneous Indian-English WER is 6.36%. Patient voice review and touch fallback compile in the production kiosk.</li>
@@ -289,7 +289,7 @@
           <h3>Still a production boundary</h3>
           <ul>
             <li>No Clerk signature, issuer, audience, key-rotation, or webhook verification is wired.</li>
-            <li>No Postgres repositories, migrations, transactional outbox, or durable audit implementation exists.</li>
+            <li>No Postgres repositories, migrations, durable triage flags, transactional outbox, or durable audit implementation exists.</li>
             <li>No tenant-isolation, facility-scope, consent-policy, or break-glass integration evidence exists.</li>
             <li>Voice Redis/Kafka/S3 adapters exist but lack deployed integration proof; vLLM, Elasticsearch, and the durable Postgres outbox remain unimplemented.</li>
             <li>No full Compose startup, browser E2E, accessibility, load, security, backup, or deployment proof exists.</li>
@@ -300,14 +300,14 @@
 
     <section class="section reveal" id="findings">
       <div class="section-head">
-        <div><span class="kicker">02 · Remediation ledger</span><h2>Twenty-five repairs that changed the risk.</h2></div>
+        <div><span class="kicker">02 · Remediation ledger</span><h2>Twenty-nine repairs that changed the risk.</h2></div>
         <p class="section-intro">Filter by original severity. Each card states the defect found in the OpenCode output and the concrete change retained in the repository.</p>
       </div>
       <div class="toolbar" role="group" aria-label="Filter findings">
-        <button class="filter" data-filter="all" aria-pressed="true">All · 25</button>
-        <button class="filter" data-filter="critical" aria-pressed="false">Critical · 5</button>
-        <button class="filter" data-filter="high" aria-pressed="false">High · 13</button>
-        <button class="filter" data-filter="medium" aria-pressed="false">Medium · 7</button>
+        <button class="filter" data-filter="all" aria-pressed="true">All · 29</button>
+        <button class="filter" data-filter="critical" aria-pressed="false">Critical · 6</button>
+        <button class="filter" data-filter="high" aria-pressed="false">High · 15</button>
+        <button class="filter" data-filter="medium" aria-pressed="false">Medium · 8</button>
       </div>
       <div class="findings">
         <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">SEC-01</span><span class="pill critical">Critical</span></div><h3>Synthetic clinical APIs looked deployable</h3><p>In-memory patient, encounter, consent, audit, AYUSH, FHIR, session, and development-token routes were included by default without real Clerk or persistence.</p><div class="repair"><strong>Repaired</strong>All business routers now require explicit <code>ENABLE_DEMO_ROUTES=true</code>; default startup exposes health only.</div></article>
@@ -334,9 +334,13 @@
         <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">PH4-20</span><span class="pill medium">Medium</span></div><h3>Latency and accuracy claims lacked a cohort</h3><p>Single fixture timing could not establish Hindi/English behavior in Indian hospital conditions, and the original p95 calculation understated small-sample tails.</p><div class="repair"><strong>Repaired</strong>Provenance-bearing Hindi noisy, 5 dB hospital-ambient proxy, and spontaneous Indian-English manifests; nearest-rank p95 and explicit proxy limitations.</div></article>
         <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-21</span><span class="pill high">High</span></div><h3>Clinical dialogue had no approved provider boundary</h3><p>A future-model architecture was documented, but no bounded, replaceable task contract could prove safe behavior without downloading weights or sending patient text externally.</p><div class="repair"><strong>Repaired</strong>Versioned Pydantic dialogue and summary contracts route only to an offline deterministic mock; unsupported providers fail closed.</div></article>
         <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-22</span><span class="pill high">High</span></div><h3>Voice answers did not change the interview</h3><p>Confirmed transcripts advanced a fixed form, so voice capture and the clinical dialogue service remained disconnected.</p><div class="repair"><strong>Repaired</strong>The assisted route sends each confirmed transcript under the returned SOCRATES domain and renders the next mock-provider question.</div></article>
-        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">PH5-23</span><span class="pill critical">Critical</span></div><h3>Warning symptoms could remain inside routine questioning</h3><p>A patient-facing assistant needs a deterministic interruption that is perceivable without relying on colour, animation, or visual attention alone.</p><div class="repair"><strong>Repaired</strong>Fixed red-flag rules bypass SOCRATES, move focus to an assertive bilingual alert, name the rule flags, and direct immediate staff escalation.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">PH5-23</span><span class="pill critical">Critical</span></div><h3>Warning symptoms could remain inside routine questioning</h3><p>A patient-facing assistant needs a deterministic interruption that is perceivable without relying on colour, animation, or visual attention alone.</p><div class="repair"><strong>Repaired</strong>Deterministic rules bypass SOCRATES, move focus to an assertive bilingual alert, hide internal rule identifiers from the patient, and direct immediate staff escalation.</div></article>
         <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-24</span><span class="pill high">High</span></div><h3>Generated text lacked an explicit rejection path</h3><p>Showing an AI-authored clinical draft without a clear reject state risks implying that it already belongs to the medical record.</p><div class="repair"><strong>Repaired</strong>Patient confirmation remains editable, and the clinician can edit, sign, or reject the unsigned draft; rejection explicitly records that nothing was signed.</div></article>
         <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">OPS-25</span><span class="pill medium">Medium</span></div><h3>The Compose override described a different application</h3><p>The automatically loaded override tried to run the Python API as Node, mounted nonexistent paths, and excluded the shared design-system package.</p><div class="repair"><strong>Repaired</strong>FastAPI reload and all three Next.js development mounts now match the repository. Phase 5 explicitly requires no vLLM service, weights, GPU, or external model API.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">PH6-26</span><span class="pill critical">Critical</span></div><h3>Two warning-rule authorities could disagree</h3><p>The legacy rules engine and the Phase 5 LLM ontology each owned separate red-flag terms, IDs, and behavior.</p><div class="repair"><strong>Repaired</strong>Phase 5 dialogue and summaries now call one canonical prototype evaluator; the duplicate LLM warning table was removed.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH6-27</span><span class="pill high">High</span></div><h3>Triggered rules lacked review metadata</h3><p>Earlier results did not carry a rule version, ruleset version, owner role, explanation code, approval status, or source evidence paths.</p><div class="repair"><strong>Repaired</strong>Immutable rule results now expose stable versions, triage-nurse ownership, controlled explanation codes, path-only evidence, and an explicit prototype-only status.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH6-28</span><span class="pill high">High</span></div><h3>Rule silence had no safe contract</h3><p>An empty result could be misread as a routine triage classification even though it only meant that configured rules did not match.</p><div class="repair"><strong>Repaired</strong>The evaluation contract returns <code>no_configured_flag</code> plus <code>no_match_is_not_safe_or_routine=true</code>; inputs and evidence keys are bounded.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">PH6-29</span><span class="pill medium">Medium</span></div><h3>Internal rule IDs appeared in emergency copy</h3><p>The patient alert displayed implementation identifiers that added anxiety without helping the patient call staff.</p><div class="repair"><strong>Repaired</strong>The accessible emergency state now says routine questions are paused while rule IDs remain in staff/API evidence only.</div></article>
       </div>
     </section>
 
@@ -348,7 +352,7 @@
       <div class="workflow-wrap">
         <svg class="workflow" viewBox="0 0 1180 630" role="img" aria-labelledby="flow-title flow-desc">
           <title id="flow-title">NotMID application and service communication workflow</title>
-          <desc id="flow-desc">Users access three Next.js applications. The patient kiosk streams ordered PCM audio to FastAPI, confirms the transcript, and sends the confirmed answer to an offline deterministic SOCRATES provider. Warning rules can interrupt the dialogue; summaries remain unsigned drafts for clinician editing or rejection.</desc>
+          <desc id="flow-desc">Users access three Next.js applications. The patient kiosk streams ordered PCM audio to FastAPI, confirms the transcript, and sends the confirmed answer to an offline SOCRATES provider. The canonical Phase 6 prototype ruleset can interrupt the dialogue; durable alert ownership is still pending and summaries remain unsigned drafts for clinician editing or rejection.</desc>
           <defs>
             <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#9fd0bf"/></marker>
             <marker id="arrow-coral" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff937d"/></marker>
@@ -385,7 +389,7 @@
         <thead><tr><th>Technology</th><th>Project use</th><th>Current evidence</th><th>Disposition</th></tr></thead>
         <tbody>
           <tr><td data-label="Technology"><strong>Next.js 16 + React 19</strong></td><td data-label="Project use">Patient, clinician, administration web surfaces</td><td data-label="Current evidence">Three production builds; standalone container output</td><td data-label="Disposition"><span class="pill fixed">Verified shell</span></td></tr>
-          <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">Static checks pass; 82 tests pass and four real-provider suites skip by policy</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
+          <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">Static checks pass; 90 tests pass and four real-provider suites skip by policy</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>Clerk</strong></td><td data-label="Project use">Web authentication; internal identity mapping</td><td data-label="Current evidence">Configuration names and demo token sketch only</td><td data-label="Disposition"><span class="pill high">Not integrated</span></td></tr>
           <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Clinical source of truth, consent, encounter, outbox</td><td data-label="Current evidence">Compose service and readiness ping; no repositories/migrations</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
           <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Raw artifacts, ephemeral state, binary objects</td><td data-label="Current evidence">Local services; Mongo and Redis readiness probes</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
@@ -394,6 +398,7 @@
           <tr><td data-label="Technology"><strong>AI4Bharat ASR + Whisper small.en</strong></td><td data-label="Project use">Hindi and English voice intake with explicit language packs</td><td data-label="Current evidence">Hospital-noise Hindi proxy: 14.21% WER / 0.63 s warm p95. Spontaneous Indian English: 6.36% WER / 5.37 s warm p95 on CPU</td><td data-label="Disposition"><span class="pill fixed">Phase 4 verified locally</span></td></tr>
           <tr><td data-label="Technology"><strong>PP-OCRv5 + PaddleOCR-VL</strong></td><td data-label="Project use">Fast routine OCR with complex-layout fallback</td><td data-label="Current evidence">Four-line OCR → 4/4 lines in 5.09 s first / 4.53 s warm on CPU; VL fallback verified separately</td><td data-label="Disposition"><span class="pill fixed">Verified locally · workers pending</span></td></tr>
           <tr><td data-label="Technology"><strong>Offline clinical mock</strong></td><td data-label="Project use">Adaptive SOCRATES questions and evidence-linked summary contracts</td><td data-label="Current evidence">Schema validation, retry/fallback, red-flag interruption, audit-minimized metadata, connected patient UI</td><td data-label="Disposition"><span class="pill fixed">Phase 5 demo provider</span></td></tr>
+          <tr><td data-label="Technology"><strong>Versioned Python rules engine</strong></td><td data-label="Project use">Canonical deterministic warning evaluation and Phase 5 interruption</td><td data-label="Current evidence">Eight focused tests cover Hindi/English mapping, negation, rule ownership/versioning, no-match semantics, bounded API input and PHI-minimized audit</td><td data-label="Disposition"><span class="pill medium">Phase 6 prototype · durable alerts pending</span></td></tr>
           <tr><td data-label="Technology"><strong>vLLM + HiMed 8B</strong></td><td data-label="Project use">Planned clinical reasoning and summarization serving</td><td data-label="Current evidence">Architecture documents only</td><td data-label="Disposition"><span class="pill high">Not implemented</span></td></tr>
           <tr><td data-label="Technology"><strong>Elasticsearch</strong></td><td data-label="Project use">Derived document and audit search</td><td data-label="Current evidence">Canonical ADR only; no index or client</td><td data-label="Disposition"><span class="pill high">Deferred</span></td></tr>
           <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Both parse; commands aligned; full topology not started</td><td data-label="Disposition"><span class="pill medium">Partially verified</span></td></tr>
@@ -425,11 +430,11 @@
 <span class="prompt">$</span> ruff check apps/api
 <span class="ok">All checks passed!</span>
 
-<span class="prompt">$</span> mypy app tools
-<span class="ok">Success: no issues found in 87 source files</span>
+<span class="prompt">$</span> mypy app
+<span class="ok">Success: no issues found in 86 source files</span>
 
 <span class="prompt">$</span> pytest apps/api/tests -q
-<span class="ok">82 passed · 4 real-model suites skipped by policy</span>
+<span class="ok">90 passed · 4 real-model suites skipped by policy</span>
 
 <span class="prompt">$</span> real-provider verification <span class="note"># cached weights</span>
 <span class="ok">✓ Startup warmup: AI4Bharat 24.2 s · PP-OCRv5 27.0 s
@@ -448,8 +453,9 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend dependency integrity</strong><small>Fresh locks and audits</small></div><code>0 findings × 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend compilation</strong><small>Patient, clinician, admin</small></div><code>3 / 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Python packaging</strong><small>Editable project install</small></div><code>passed</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>87 files</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention and AI contracts</small></div><code>82 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>86 app files</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention, dialogue and triage contracts</small></div><code>90 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Phase 6 canonical evaluator</strong><small>Versions, ownership, evidence paths, negation and bounded demo API</small></div><code>8 focused tests</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Voice quality</strong><small>Hindi hospital proxy + spontaneous Indian English</small></div><code>14.21% · 6.36% WER</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>Fixed + adaptive assisted intake compile</small></div><code>7 routes</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Configuration syntax</strong><small>Compose and CI YAML</small></div><code>parsed</code></div>
@@ -467,9 +473,9 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
         <aside class="boundary-callout"><div class="huge">No RAG<br>for V1.</div><p>Structured intake, deterministic red-flag rules, document timelines, and clinician-edited summaries can ship without a retrieval-generation layer. Add semantic retrieval only after access-filtered search has a measured clinical use case and evaluation set.</p></aside>
         <div class="next-list">
           <div class="next"><div><strong>Clerk verification + internal identity</strong><span>JWT/JWKS validation, subject mapping, facility membership, caregiver relationships, signed webhooks, MFA and SSO policy.</span></div></div>
-          <div class="next"><div><strong>Postgres persistence + migrations</strong><span>Repositories, optimistic concurrency, signed clinical records, consent versions, audit evidence and transactional outbox.</span></div></div>
+          <div class="next"><div><strong>Postgres persistence + migrations</strong><span>Repositories, optimistic concurrency, durable triage flags and lifecycle history, signed clinical records, consent versions, audit evidence and transactional outbox.</span></div></div>
           <div class="next"><div><strong>Authorization at every boundary</strong><span>Tenant and facility scoping, purpose-of-use, patient/caregiver access, break-glass approval and negative integration tests.</span></div></div>
-          <div class="next"><div><strong>One complete clinical slice</strong><span>Register → consent → intake → doctor review/edit/sign → patient-approved summary, with no AI dependency for correctness.</span></div></div>
+          <div class="next"><div><strong>Durable triage ownership and escalation</strong><span>Authenticated acknowledge, handoff, resolve and governed override commands; facility-owned timers; reference-only events; broker/provider failure recovery.</span></div></div>
           <div class="next"><div><strong>Async AI workers after the workflow is durable</strong><span>Outbox to Kafka, idempotent workers, model registry, vLLM routing, failure fallbacks, evaluation and PHI-safe telemetry.</span></div></div>
           <div class="next"><div><strong>Operational proof</strong><span>Compose/integration environment, accessibility and browser tests, threat model, load profile, backup/restore, staged deployment and rollback.</span></div></div>
         </div>
@@ -479,7 +485,7 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
 
   <footer>
     <div class="footer-inner">
-      <div><div class="signoff">Phase 5 mock dialogue connected.<br>Clinical readiness still gated.</div><small>Evidence snapshot · 1 September 2026 · Asia/Kolkata</small></div>
+      <div><div class="signoff">Phase 6 canonical evaluator started.<br>Durable alert readiness still gated.</div><small>Evidence snapshot · commit 8c6f747 · 1 September 2026 · Asia/Kolkata</small></div>
       <small>Source reviewed: <a href="https://opncd.ai/share/egsk269W">OpenCode shared session</a><br>Canonical decisions: <a href="../docs/architecture/decisions/">docs/architecture/decisions</a></small>
     </div>
   </footer>

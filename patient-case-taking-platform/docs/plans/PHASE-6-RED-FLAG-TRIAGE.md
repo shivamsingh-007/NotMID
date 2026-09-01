@@ -16,6 +16,28 @@
 - Durable flags, authenticated ownership, acknowledgement, escalation, outbox
   delivery, clinical approval, and validation remain unimplemented release gates.
 
+### Slice 6.1 implementation record
+
+| Delivered boundary | Repository evidence |
+| --- | --- |
+| Canonical evaluator | `apps/api/app/rules/triage.py` returns `flags_triggered` or `no_configured_flag` from the registered deterministic ruleset. |
+| Versioned result | `RuleResult` carries rule version, ruleset version, explanation code, owner role, evidence paths and `prototype_only` approval status. |
+| Phase 5 integration | The mock dialogue and summary provider imports the canonical evaluator; the duplicate warning-term table was removed from the LLM ontology. |
+| Demo API | `POST /api/v1/triage/evaluate` accepts bounded controlled fields and reports explicitly that no durable alert was created. |
+| Privacy boundary | Evaluation responses contain source paths rather than source text; audit metadata contains rule IDs, versions and outcome without symptom text. |
+| Patient safety copy | Routine questioning stops on a configured critical match, while the patient view hides internal rule identifiers. |
+
+Verified on commit `8c6f747`:
+
+- `90 passed, 4 skipped` in the full API test suite;
+- eight focused Phase 6 contract/regression tests;
+- Ruff and mypy passed;
+- patient kiosk lint and production build passed.
+
+These checks establish prototype software behavior only. They do not establish
+clinical sensitivity, specificity, approval, alert delivery, acknowledgement,
+escalation performance or production readiness.
+
 ## 1. Outcome
 
 Phase 6 will turn confirmed intake answers and verified vitals into versioned,

@@ -33,6 +33,9 @@ The provider can be replaced later through the same interface, but changing
 - Confirmed voice transcripts feed the returned SOCRATES domain before the next question.
 - Polite assistant status, assertive bilingual emergency messaging, and a touch fallback.
 - Editable patient review plus clinician edit, reject, and sign demonstration states.
+- Phase 6 Slice 6.1 now supplies the single prototype warning-rule authority.
+  Dialogue and summary responses use stable rule IDs from
+  `phase6.prototype.v1`; patient emergency copy does not expose those internal IDs.
 
 AYUSH Dashavidha remains represented in the existing structured AYUSH contract.
 It is not inferred by the mock provider; a clinician or supervised workflow must
@@ -68,7 +71,7 @@ model download, GPU, or external model credential is required. Open
 | --- | --- | --- |
 | No autonomous diagnosis | Implemented in mock contract | Output schemas contain questions and draft facts, not diagnosis fields. |
 | No treatment recommendations | Implemented in mock contract | No treatment or prescription output exists. |
-| Emergency escalation | Partial | Deterministic flags interrupt dialogue and the patient UI presents an assertive bilingual staff-escalation message; durable Kafka alert delivery, staff acknowledgement, and paging escalation are not implemented. |
+| Emergency escalation | Partial | The canonical Phase 6 prototype ruleset interrupts dialogue and the patient UI presents an assertive bilingual staff-escalation message without exposing internal rule IDs; durable alert persistence, Kafka delivery, staff acknowledgement, and paging escalation are not implemented. |
 | Uncertainty signal | Implemented with qualification | Every output has a technical confidence/completeness signal explicitly marked as not being a clinical probability. |
 | Evidence linking | Implemented in API contract and demo UI | Outputs point to source field paths; the clinician view demonstrates source-adjacent editing, but durable evidence retrieval is not implemented. |
 | Audit trail | Partial | PHI-minimized metadata is emitted in memory. Durable append-only storage, access controls, deletion jobs, and verified retention are release gates. |

@@ -51,7 +51,7 @@ async def test_red_flag_bypasses_normal_dialogue() -> None:
     )
     assert response.answer_type == "urgent_action"
     assert response.escalation_required is True
-    assert "difficulty_breathing" in response.safety_flags
+    assert "RF-RESP-001" in response.safety_flags
     assert any(item.source_path == "last_patient_message" for item in response.evidence)
 
 
@@ -106,7 +106,7 @@ async def test_fallback_does_not_drop_deterministic_red_flags() -> None:
         confirmed_answers={"associated_symptoms": "difficulty breathing"},
     )
     response = await LLMRouter(InvalidProvider(), max_attempts=1).generate_summary(request)
-    assert "difficulty_breathing" in response.red_flags
+    assert "RF-RESP-001" in response.red_flags
 
 
 def test_health_endpoint_confirms_no_external_network() -> None:
@@ -207,4 +207,4 @@ def test_assisted_dialogue_endpoint_interrupts_for_emergency_message() -> None:
     body = response.json()
     assert body["escalation_required"] is True
     assert body["answer_type"] == "urgent_action"
-    assert "difficulty_breathing" in body["safety_flags"]
+    assert "RF-RESP-001" in body["safety_flags"]

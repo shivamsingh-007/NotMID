@@ -7,7 +7,6 @@ from pydantic import BaseModel, ValidationError
 
 from app.audit.emitter import audit_emitter
 from app.config import settings
-from app.llm.ontology import detect_red_flags
 from app.llm.providers import LLMProvider, build_provider
 from app.llm.schemas import (
     ClinicalSummaryRequest,
@@ -15,6 +14,7 @@ from app.llm.schemas import (
     DialogueRequest,
     DialogueResponse,
 )
+from app.rules.triage import detect_red_flags
 
 ResponseT = TypeVar("ResponseT", bound=BaseModel)
 

@@ -33,38 +33,3 @@ SOCRATES_QUESTIONS = {
         "severity": "0 से 10 तक, तकलीफ कितनी गंभीर है?",
     },
 }
-
-# These rules are intentionally conservative and deterministic. They trigger a
-# clinician workflow; they do not diagnose or prescribe.
-RED_FLAG_TERMS = {
-    "difficulty_breathing": (
-        "difficulty breathing",
-        "cannot breathe",
-        "shortness of breath",
-        "सांस लेने में तकलीफ",
-        "साँस लेने में तकलीफ",
-        "सांस नहीं",
-    ),
-    "chest_pressure": ("chest pressure", "chest feels heavy", "सीना भारी", "छाती में दबाव"),
-    "loss_of_consciousness": (
-        "unconscious",
-        "fainted",
-        "loss of consciousness",
-        "बेहोश",
-        "बेहोशी",
-    ),
-    "stroke_signs": (
-        "face drooping",
-        "slurred speech",
-        "one sided weakness",
-        "बोलने में दिक्कत",
-        "चेहरा टेढ़ा",
-        "एक तरफ कमजोरी",
-    ),
-    "severe_bleeding": ("heavy bleeding", "bleeding won't stop", "बहुत खून", "खून नहीं रुक"),
-}
-
-
-def detect_red_flags(text: str) -> list[str]:
-    normalized = " ".join(text.casefold().split())
-    return [name for name, terms in RED_FLAG_TERMS.items() if any(term in normalized for term in terms)]

@@ -163,6 +163,7 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`SETUP.md`](SETUP.md) | Fresh-device setup, local development and dashboard usage |
 | [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
+| [`PHASE-6-RED-FLAG-TRIAGE.md`](docs/plans/PHASE-6-RED-FLAG-TRIAGE.md) | Proposed deterministic triage and durable alert implementation plan |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |

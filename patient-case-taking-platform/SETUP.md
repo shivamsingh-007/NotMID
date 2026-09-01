@@ -116,6 +116,35 @@ curl http://localhost:8000/api/v1/clinical-ai/health
 
 The response should report `"provider":"mock"`, `"ready":true` and `"external_network_used":false`. Then open <http://localhost:3000/case-taking/assisted>.
 
+To exercise the Phase 6 Slice 6.1 contract with synthetic data:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/triage/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"tenant_id":"11111111-1111-4111-8111-111111111111","facility_id":"22222222-2222-4222-8222-222222222222","encounter_id":"33333333-3333-4333-8333-333333333333","input_version":1,"idempotency_key":"setup-example-1","language":"en","chief_complaint":"My chest feels heavy","confirmed_answers":{}}'
+```
+
+PowerShell alternative:
+
+```powershell
+$triageBody = @{
+  tenant_id = "11111111-1111-4111-8111-111111111111"
+  facility_id = "22222222-2222-4222-8222-222222222222"
+  encounter_id = "33333333-3333-4333-8333-333333333333"
+  input_version = 1
+  idempotency_key = "setup-example-1"
+  language = "en"
+  chief_complaint = "My chest feels heavy"
+  confirmed_answers = @{}
+} | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/triage/evaluate -ContentType "application/json" -Body $triageBody
+```
+
+The response should use `phase6.prototype.v1`, return the stable rule ID
+`RF-CARDIAC-001`, and state `"durable_alert_created":false`. A result of
+`no_configured_flag` means only that no configured prototype rule matched; it
+does not mean routine or safe.
+
 ### Stop the stack
 
 ```bash
@@ -288,6 +317,9 @@ Stop the development server, remove the affected app's `.next` directory, and ru
 - Clerk and hospital SSO integration are not required for the local prototype and are not production-configured.
 - Demo API routes are disabled by default. Set `ENABLE_DEMO_ROUTES=true` in `.env` only for local contract/UI prototyping; those routes do not provide production authorization or persistence guarantees.
 - Phase 5 intentionally has no vLLM integration. Any generative provider requires separate clinical, privacy, licensing and rollback approval.
+- Phase 6 Slice 6.1 provides a canonical prototype evaluator only. Durable flags,
+  staff ownership, acknowledgement, escalation, outbox delivery, clinical
+  approval and measured validation are not implemented.
 - Production deployment requires managed secrets, TLS, authenticated data services, backups, monitoring and reviewed clinical-safety controls.
 
 For product behavior see [`PRODUCT.md`](PRODUCT.md). For the visual system see [`DESIGN.md`](DESIGN.md). For architecture and safety constraints start with [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) and [`AGENTS.md`](AGENTS.md).

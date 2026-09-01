@@ -19,6 +19,7 @@ from app.routers import (
     fhir,
     health,
     intake_sessions,
+    llm,
     ocr,
     patients,
 )
@@ -80,6 +81,7 @@ if settings.ENABLE_DEMO_ROUTES:
     app.include_router(facilities.router)
     app.include_router(encounters.router)
     app.include_router(intake_sessions.router)
+    app.include_router(llm.router)
     app.include_router(consent.router)
     app.include_router(audit.router)
     app.include_router(clinical_summaries.router)

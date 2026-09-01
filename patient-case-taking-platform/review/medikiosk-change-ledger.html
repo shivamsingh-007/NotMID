@@ -247,9 +247,9 @@
     <section class="hero" id="verdict">
       <div class="hero-grid">
         <div>
-          <div class="eyebrow">OpenCode change set + Phase 4 voice · reviewed 31 August 2026</div>
+          <div class="eyebrow">OpenCode change set + Phase 5 clinical dialogue · reviewed 1 September 2026</div>
           <h1>Useful bones.<br>Unsafe claims.<br><em style="color:var(--green);font-style:italic">Now corrected.</em></h1>
-          <p class="hero-copy">The original AI integration added useful seams but did not prove a safe voice workflow. The reviewed Phase 4 slice now delivers auditable Hindi/English WebSocket intake, microphone diagnostics, partial feedback, transcript correction, touch fallback, consent-controlled encrypted retention, metadata-only events, and measured Indian speech baselines—without pretending that demo identity or in-memory audit is production-ready.</p>
+          <p class="hero-copy">Phase 5 now connects confirmed Hindi/English voice answers to an offline, deterministic SOCRATES question provider; interrupts routine questioning on fixed warning-symptom rules; and produces an evidence-linked draft that can be edited or rejected. The provider makes no external network call and no vLLM service or model weights are part of this phase.</p>
         </div>
         <aside class="verdict-card" aria-label="Review verdict">
           <div class="seal">✓</div>
@@ -262,8 +262,8 @@
 
     <section class="section reveal">
       <div class="metrics" aria-label="Review metrics">
-        <div class="metric"><span class="num">20</span><span class="label">Material defects remediated</span></div>
-        <div class="metric"><span class="num">72</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">25</span><span class="label">Material defects remediated</span></div>
+        <div class="metric"><span class="num">82</span><span class="label">API tests <em>passing</em></span></div>
         <div class="metric"><span class="num">3/3</span><span class="label">Web apps linted & built</span></div>
         <div class="metric"><span class="num">0</span><span class="label">Known npm audit findings</span></div>
       </div>
@@ -279,7 +279,7 @@
           <h3>Verified foundation</h3>
           <ul>
             <li>Patient, clinician, and admin Next.js shells compile on the current Active LTS line.</li>
-            <li>FastAPI passes lint, type-check, and behavioral suites with 72 tests passing and four explicit real-model integration skips.</li>
+            <li>FastAPI passes lint, type-check, and behavioral suites with 82 tests passing and four explicit real-model integration skips.</li>
             <li>Readiness checks real Postgres, MongoDB, and Redis connectivity and returns 503 when unavailable.</li>
             <li>Compose and CI configuration parse; local Kafka addressing is valid for host and container clients.</li>
             <li>Hindi hospital-noise proxy WER is 14.21%; spontaneous Indian-English WER is 6.36%. Patient voice review and touch fallback compile in the production kiosk.</li>
@@ -300,14 +300,14 @@
 
     <section class="section reveal" id="findings">
       <div class="section-head">
-        <div><span class="kicker">02 · Remediation ledger</span><h2>Twenty repairs that changed the risk.</h2></div>
+        <div><span class="kicker">02 · Remediation ledger</span><h2>Twenty-five repairs that changed the risk.</h2></div>
         <p class="section-intro">Filter by original severity. Each card states the defect found in the OpenCode output and the concrete change retained in the repository.</p>
       </div>
       <div class="toolbar" role="group" aria-label="Filter findings">
-        <button class="filter" data-filter="all" aria-pressed="true">All · 20</button>
-        <button class="filter" data-filter="critical" aria-pressed="false">Critical · 4</button>
-        <button class="filter" data-filter="high" aria-pressed="false">High · 10</button>
-        <button class="filter" data-filter="medium" aria-pressed="false">Medium · 6</button>
+        <button class="filter" data-filter="all" aria-pressed="true">All · 25</button>
+        <button class="filter" data-filter="critical" aria-pressed="false">Critical · 5</button>
+        <button class="filter" data-filter="high" aria-pressed="false">High · 13</button>
+        <button class="filter" data-filter="medium" aria-pressed="false">Medium · 7</button>
       </div>
       <div class="findings">
         <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">SEC-01</span><span class="pill critical">Critical</span></div><h3>Synthetic clinical APIs looked deployable</h3><p>In-memory patient, encounter, consent, audit, AYUSH, FHIR, session, and development-token routes were included by default without real Clerk or persistence.</p><div class="repair"><strong>Repaired</strong>All business routers now require explicit <code>ENABLE_DEMO_ROUTES=true</code>; default startup exposes health only.</div></article>
@@ -332,6 +332,11 @@
         <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">API-18</span><span class="pill medium">Medium</span></div><h3>AI boundaries were unbounded and leaky</h3><p>WebSocket audio grew without limit, base64 OCR accepted malformed or oversized payloads, and raw provider exceptions were returned.</p><div class="repair"><strong>Repaired</strong>15 MB audio and 10 MB image ceilings, strict base64 validation, typed media allowlists, and sanitized 503 responses.</div></article>
         <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH4-19</span><span class="pill high">High</span></div><h3>Voice could not degrade safely</h3><p>No microphone diagnostic, ordered end-of-stream contract, transcript correction step, unsupported-language guard, or reliable touch fallback protected patient progress.</p><div class="repair"><strong>Repaired</strong>Device checks, ordered PCM16 delivery, cumulative partials, editable confirmation, clarification signals, and explicit touch fallback.</div></article>
         <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">PH4-20</span><span class="pill medium">Medium</span></div><h3>Latency and accuracy claims lacked a cohort</h3><p>Single fixture timing could not establish Hindi/English behavior in Indian hospital conditions, and the original p95 calculation understated small-sample tails.</p><div class="repair"><strong>Repaired</strong>Provenance-bearing Hindi noisy, 5 dB hospital-ambient proxy, and spontaneous Indian-English manifests; nearest-rank p95 and explicit proxy limitations.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-21</span><span class="pill high">High</span></div><h3>Clinical dialogue had no approved provider boundary</h3><p>A future-model architecture was documented, but no bounded, replaceable task contract could prove safe behavior without downloading weights or sending patient text externally.</p><div class="repair"><strong>Repaired</strong>Versioned Pydantic dialogue and summary contracts route only to an offline deterministic mock; unsupported providers fail closed.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-22</span><span class="pill high">High</span></div><h3>Voice answers did not change the interview</h3><p>Confirmed transcripts advanced a fixed form, so voice capture and the clinical dialogue service remained disconnected.</p><div class="repair"><strong>Repaired</strong>The assisted route sends each confirmed transcript under the returned SOCRATES domain and renders the next mock-provider question.</div></article>
+        <article class="finding" data-severity="critical"><div class="finding-top"><span class="id">PH5-23</span><span class="pill critical">Critical</span></div><h3>Warning symptoms could remain inside routine questioning</h3><p>A patient-facing assistant needs a deterministic interruption that is perceivable without relying on colour, animation, or visual attention alone.</p><div class="repair"><strong>Repaired</strong>Fixed red-flag rules bypass SOCRATES, move focus to an assertive bilingual alert, name the rule flags, and direct immediate staff escalation.</div></article>
+        <article class="finding" data-severity="high"><div class="finding-top"><span class="id">PH5-24</span><span class="pill high">High</span></div><h3>Generated text lacked an explicit rejection path</h3><p>Showing an AI-authored clinical draft without a clear reject state risks implying that it already belongs to the medical record.</p><div class="repair"><strong>Repaired</strong>Patient confirmation remains editable, and the clinician can edit, sign, or reject the unsigned draft; rejection explicitly records that nothing was signed.</div></article>
+        <article class="finding" data-severity="medium"><div class="finding-top"><span class="id">OPS-25</span><span class="pill medium">Medium</span></div><h3>The Compose override described a different application</h3><p>The automatically loaded override tried to run the Python API as Node, mounted nonexistent paths, and excluded the shared design-system package.</p><div class="repair"><strong>Repaired</strong>FastAPI reload and all three Next.js development mounts now match the repository. Phase 5 explicitly requires no vLLM service, weights, GPU, or external model API.</div></article>
       </div>
     </section>
 
@@ -343,18 +348,18 @@
       <div class="workflow-wrap">
         <svg class="workflow" viewBox="0 0 1180 630" role="img" aria-labelledby="flow-title flow-desc">
           <title id="flow-title">NotMID application and service communication workflow</title>
-          <desc id="flow-desc">Users access three Next.js applications. The patient kiosk streams ordered PCM audio to a FastAPI voice boundary and receives partial and final transcripts. Redis, Kafka and encrypted object storage are optional voice adapters; durable identity, consent and audit remain planned integrations.</desc>
+          <desc id="flow-desc">Users access three Next.js applications. The patient kiosk streams ordered PCM audio to FastAPI, confirms the transcript, and sends the confirmed answer to an offline deterministic SOCRATES provider. Warning rules can interrupt the dialogue; summaries remain unsigned drafts for clinician editing or rejection.</desc>
           <defs>
             <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#9fd0bf"/></marker>
             <marker id="arrow-coral" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#ff937d"/></marker>
           </defs>
           <text x="40" y="45" class="sub">SURFACES</text><text x="410" y="45" class="sub">APPLICATION BOUNDARY</text><text x="825" y="45" class="sub">PLATFORM CAPABILITIES</text>
-          <rect class="box-live" x="40" y="75" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="112">Patient kiosk / PWA</text><text class="sub-dark" x="65" y="138">Mic check · Hindi/English · review · touch fallback</text>
+          <rect class="box-live" x="40" y="75" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="112">Patient kiosk / PWA</text><text class="sub-dark" x="65" y="138">Voice answer · adaptive SOCRATES · touch fallback</text>
           <rect class="box-live" x="40" y="205" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="242">Clinician console</text><text class="sub-dark" x="65" y="268">Worklist · review placeholders</text>
           <rect class="box-live" x="40" y="335" width="250" height="95" rx="18"/><text class="label-dark" x="65" y="372">Administration console</text><text class="sub-dark" x="65" y="398">Users · facilities · audit placeholders</text>
 
           <rect class="box" x="410" y="75" width="290" height="95" rx="18"/><text class="label-light" x="438" y="112">Edge / API gateway</text><text class="sub" x="438" y="138">NGINX, rate limits, Clerk token pass-through</text>
-          <rect class="box-live" x="410" y="215" width="290" height="100" rx="18"/><text class="label-dark" x="438" y="252">FastAPI + voice gateway</text><text class="sub-dark" x="438" y="278">ordered PCM · partial/final · clarification</text>
+          <rect class="box-live" x="410" y="215" width="290" height="100" rx="18"/><text class="label-dark" x="438" y="252">FastAPI voice + dialogue</text><text class="sub-dark" x="438" y="278">confirmed transcript · warning rules · mock draft</text>
           <rect class="box-gate" x="410" y="360" width="290" height="100" rx="18"/><text class="label-light" x="438" y="397">Demo route gate</text><text class="sub" x="438" y="423">OFF by default · in-memory prototypes only</text>
 
           <rect class="box" x="825" y="75" width="300" height="85" rx="18"/><text class="label-light" x="852" y="108">Clerk + hospital SSO</text><text class="sub" x="852" y="133">JWT validation and identity mapping pending</text>
@@ -380,7 +385,7 @@
         <thead><tr><th>Technology</th><th>Project use</th><th>Current evidence</th><th>Disposition</th></tr></thead>
         <tbody>
           <tr><td data-label="Technology"><strong>Next.js 16 + React 19</strong></td><td data-label="Project use">Patient, clinician, administration web surfaces</td><td data-label="Current evidence">Three production builds; standalone container output</td><td data-label="Disposition"><span class="pill fixed">Verified shell</span></td></tr>
-          <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">80 source files type-check; 72 tests pass</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
+          <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">Static checks pass; 82 tests pass and four real-provider suites skip by policy</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>Clerk</strong></td><td data-label="Project use">Web authentication; internal identity mapping</td><td data-label="Current evidence">Configuration names and demo token sketch only</td><td data-label="Disposition"><span class="pill high">Not integrated</span></td></tr>
           <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Clinical source of truth, consent, encounter, outbox</td><td data-label="Current evidence">Compose service and readiness ping; no repositories/migrations</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
           <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Raw artifacts, ephemeral state, binary objects</td><td data-label="Current evidence">Local services; Mongo and Redis readiness probes</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
@@ -388,6 +393,7 @@
           <tr><td data-label="Technology"><strong>FHIR R4 / AYUSH models</strong></td><td data-label="Project use">Interoperability and domain contract exploration</td><td data-label="Current evidence">In-memory transformations and unit tests in demo surface</td><td data-label="Disposition"><span class="pill medium">Prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>AI4Bharat ASR + Whisper small.en</strong></td><td data-label="Project use">Hindi and English voice intake with explicit language packs</td><td data-label="Current evidence">Hospital-noise Hindi proxy: 14.21% WER / 0.63 s warm p95. Spontaneous Indian English: 6.36% WER / 5.37 s warm p95 on CPU</td><td data-label="Disposition"><span class="pill fixed">Phase 4 verified locally</span></td></tr>
           <tr><td data-label="Technology"><strong>PP-OCRv5 + PaddleOCR-VL</strong></td><td data-label="Project use">Fast routine OCR with complex-layout fallback</td><td data-label="Current evidence">Four-line OCR → 4/4 lines in 5.09 s first / 4.53 s warm on CPU; VL fallback verified separately</td><td data-label="Disposition"><span class="pill fixed">Verified locally · workers pending</span></td></tr>
+          <tr><td data-label="Technology"><strong>Offline clinical mock</strong></td><td data-label="Project use">Adaptive SOCRATES questions and evidence-linked summary contracts</td><td data-label="Current evidence">Schema validation, retry/fallback, red-flag interruption, audit-minimized metadata, connected patient UI</td><td data-label="Disposition"><span class="pill fixed">Phase 5 demo provider</span></td></tr>
           <tr><td data-label="Technology"><strong>vLLM + HiMed 8B</strong></td><td data-label="Project use">Planned clinical reasoning and summarization serving</td><td data-label="Current evidence">Architecture documents only</td><td data-label="Disposition"><span class="pill high">Not implemented</span></td></tr>
           <tr><td data-label="Technology"><strong>Elasticsearch</strong></td><td data-label="Project use">Derived document and audit search</td><td data-label="Current evidence">Canonical ADR only; no index or client</td><td data-label="Disposition"><span class="pill high">Deferred</span></td></tr>
           <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Both parse; commands aligned; full topology not started</td><td data-label="Disposition"><span class="pill medium">Partially verified</span></td></tr>
@@ -409,7 +415,7 @@
 <span class="prompt">$</span> npm run lint && npm run build <span class="note"># clinician</span>
 <span class="ok">✓ ESLint clean
 ✓ production build
-✓ 5 static + 1 dynamic route</span>
+✓ 6 static + 1 dynamic product route</span>
 
 <span class="prompt">$</span> npm run lint && npm run build <span class="note"># admin</span>
 <span class="ok">✓ ESLint clean
@@ -420,10 +426,10 @@
 <span class="ok">All checks passed!</span>
 
 <span class="prompt">$</span> mypy app tools
-<span class="ok">Success: no issues found in 80 source files</span>
+<span class="ok">Success: no issues found in 87 source files</span>
 
 <span class="prompt">$</span> pytest apps/api/tests -q
-<span class="ok">72 passed · 4 real-model suites skipped by policy</span>
+<span class="ok">82 passed · 4 real-model suites skipped by policy</span>
 
 <span class="prompt">$</span> real-provider verification <span class="note"># cached weights</span>
 <span class="ok">✓ Startup warmup: AI4Bharat 24.2 s · PP-OCRv5 27.0 s
@@ -442,10 +448,10 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend dependency integrity</strong><small>Fresh locks and audits</small></div><code>0 findings × 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend compilation</strong><small>Patient, clinician, admin</small></div><code>3 / 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Python packaging</strong><small>Editable project install</small></div><code>passed</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>80 files</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention and AI contracts</small></div><code>72 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>87 files</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention and AI contracts</small></div><code>82 passed</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Voice quality</strong><small>Hindi hospital proxy + spontaneous Indian English</small></div><code>14.21% · 6.36% WER</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>ESLint + TypeScript production compilation</small></div><code>7 routes</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>Fixed + adaptive assisted intake compile</small></div><code>7 routes</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Configuration syntax</strong><small>Compose and CI YAML</small></div><code>parsed</code></div>
           <div class="gate"><span class="check">!</span><div><strong>Integration environment</strong><small>Requires image pulls and service startup</small></div><code>pending</code></div>
         </div>
@@ -473,7 +479,7 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
 
   <footer>
     <div class="footer-inner">
-      <div><div class="signoff">Phase 4 voice implemented.<br>Clinical readiness still gated.</div><small>Evidence snapshot · 31 August 2026 · Asia/Kolkata</small></div>
+      <div><div class="signoff">Phase 5 mock dialogue connected.<br>Clinical readiness still gated.</div><small>Evidence snapshot · 1 September 2026 · Asia/Kolkata</small></div>
       <small>Source reviewed: <a href="https://opncd.ai/share/egsk269W">OpenCode shared session</a><br>Canonical decisions: <a href="../docs/architecture/decisions/">docs/architecture/decisions</a></small>
     </div>
   </footer>

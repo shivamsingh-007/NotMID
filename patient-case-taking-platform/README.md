@@ -169,6 +169,7 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
 | [`PHASE-6-RED-FLAG-TRIAGE.md`](docs/plans/PHASE-6-RED-FLAG-TRIAGE.md) | In-progress deterministic triage and durable alert implementation plan |
+| [`PHASE-7-DOCUMENT-INGESTION-OCR.md`](docs/plans/PHASE-7-DOCUMENT-INGESTION-OCR.md) | Proposed safe document ingestion, OCR and reviewed extraction plan |
 | [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5 and Phase 6 Slice 6.1 engineering review |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |

@@ -172,5 +172,5 @@ Every advanced feature requires a new hazard analysis, clinical evaluation and r
 | S4 | Doctor sees the confirmed transcript and unresolved questions | Conversation orchestration, clinician web |
 | S5 | Doctor edits and signs a note | Clinical record, provenance, audit |
 | S6 | Patient receives a simple approved summary | Signed note, multilingual renderer/TTS |
-| S7 | Uploaded prescription becomes a reviewed structured document | Object storage, scanning, OCR worker |
+| S7 | [Uploaded prescription becomes a reviewed structured document](PHASE-7-DOCUMENT-INGESTION-OCR.md) | Object storage, scanning, OCR worker |
 | S8 | ABHA-linked record flow works in sandbox | Consent service, ABDM adapter |

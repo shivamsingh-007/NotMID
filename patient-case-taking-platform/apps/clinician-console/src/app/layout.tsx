@@ -10,17 +10,22 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-surface text-gray-900 min-h-screen flex">
-        <Sidebar />
-        <div className="flex-1 flex flex-col min-h-screen">
-          <header className="h-14 border-b bg-white px-6 flex items-center justify-between">
-            <h2 className="font-semibold text-primary">MediKiosk Clinical Platform</h2>
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-500">Demo Hospital</span>
-              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-sm font-medium">DR</div>
-            </div>
-          </header>
-          <main className="flex-1 p-6">{children}</main>
+      <body className="clinician-body">
+        <div className="clinician-shell">
+          <Sidebar />
+          <div className="clinician-content">
+            <header className="clinician-topbar">
+              <div>
+                <span className="mk-eyebrow">Community Medicine · Morning shift</span>
+                <div className="facility-name">MediKiosk District Care Centre · Jaipur</div>
+              </div>
+              <div className="clinician-profile">
+                <div className="profile-copy"><strong>Dr Meera Rao</strong><span>General Medicine · HPR verified</span></div>
+                <div className="profile-avatar" aria-hidden="true">MR</div>
+              </div>
+            </header>
+            <main className="clinician-main">{children}</main>
+          </div>
         </div>
       </body>
     </html>

@@ -100,6 +100,7 @@ export default function CaseTakingPage() {
           language={lang}
         />
         <div className="flex flex-wrap gap-6 justify-center">
+          <IconCard icon="✦" label={lang === "hi" ? "सहायक प्रश्न" : "Assisted Questions"} onSelect={() => router.push("/case-taking/assisted")} size="large" />
           <IconCard icon="🏥" label={lang === "hi" ? "एलोपैथिक" : "Allopathic"} onSelect={() => { setSelectedType("allopathic"); setStep({ type: "section_intro", sectionIndex: 0 }); }} size="large" />
           <IconCard icon="🧘" label={lang === "hi" ? "आयुष" : "AYUSH"} onSelect={() => { setSelectedType("ayush"); setStep({ type: "section_intro", sectionIndex: 0 }); }} size="large" />
         </div>

@@ -2,57 +2,80 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { TouchButton } from "@/components/TouchButton";
-import { AudioPrompt } from "@/components/AudioPrompt";
 import { AccessibilityControls } from "@/components/AccessibilityControls";
 
-const WELCOME = {
-  hi: "MediKiosk में आपका स्वागत है। कृपया अपनी भाषा चुनें और शुरू करें।",
-  en: "Welcome to MediKiosk. Please select your language and press Start.",
+const COPY = {
+  hi: {
+    eyebrow: "आपकी बात, आपकी भाषा में",
+    title: "अपनी सेहत की बात",
+    titleAccent: "आसानी से बताइए।",
+    lede: "बोलकर या छूकर शुरू करें। MediKiosk आपकी बात समझने में मदद करेगा और हर उत्तर आपसे पक्का करेगा।",
+    voiceTitle: "नमस्ते, मैं सुनने के लिए तैयार हूँ",
+    voiceHelp: "माइक दबाकर अपनी परेशानी बताइए — जैसे “मुझे दो दिन से बुखार है।”",
+    speak: "बोलकर शुरू करें",
+    stop: "सुनना रोकें",
+    touch: "छूकर शुरू करें",
+    helper: "सहायता चाहिए? नर्स को बुलाएँ",
+  },
+  en: {
+    eyebrow: "Your story, in your language",
+    title: "Tell us how you feel.",
+    titleAccent: "We’ll listen carefully.",
+    lede: "Speak or tap to begin. MediKiosk helps organize your story and asks you to confirm every answer.",
+    voiceTitle: "Namaste, I’m ready to listen",
+    voiceHelp: "Press the microphone and describe your concern — for example, “I have had a fever for two days.”",
+    speak: "Start with voice",
+    stop: "Stop listening",
+    touch: "Start by touch",
+    helper: "Need help? Call a nurse",
+  },
 };
 
 export default function Home() {
   const [lang, setLang] = useState<"hi" | "en">("hi");
+  const [listening, setListening] = useState(false);
+  const copy = COPY[lang];
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6 text-center">
-      <AccessibilityControls />
+    <main className="patient-shell">
+      <header className="patient-header">
+        <div className="mk-wordmark" aria-label="MediKiosk">Medi<em>Kiosk</em></div>
+        <p className="patient-trust">Ayushman Bharat Digital Mission ready · सुरक्षित सत्र</p>
+        <AccessibilityControls />
+      </header>
 
-      <div className="h-20 w-20 rounded-full bg-primary flex items-center justify-center" aria-hidden="true">
-        <span className="text-3xl text-white font-bold">M</span>
+      <div className="patient-main">
+        <section className="patient-copy mk-enter">
+          <p className="mk-eyebrow">{copy.eyebrow}</p>
+          <h1 className="mk-display patient-title">{copy.title}<span>{copy.titleAccent}</span></h1>
+          <p className="patient-lede">{copy.lede}</p>
+          <div className="patient-language" aria-label="Choose language">
+            <button className="language-chip" aria-pressed={lang === "hi"} onClick={() => setLang("hi")}>अ हिंदी</button>
+            <button className="language-chip" aria-pressed={lang === "en"} onClick={() => setLang("en")}>A English</button>
+          </div>
+        </section>
+
+        <section className="mk-card patient-card mk-enter" aria-live="polite">
+          <span className="mk-pill mk-pill--success">● निजी और सुरक्षित · Private & secure</span>
+          <button
+            className="voice-orb"
+            type="button"
+            data-listening={listening}
+            aria-pressed={listening}
+            aria-label={listening ? copy.stop : copy.speak}
+            onClick={() => setListening((value) => !value)}
+          >
+            {listening ? "■" : "●"}
+          </button>
+          <h2 className="voice-title">{listening ? copy.stop : copy.voiceTitle}</h2>
+          <p className="voice-help">{listening ? "सुन रहा हूँ… Listening…" : copy.voiceHelp}</p>
+          <div className="patient-actions">
+            <Link className="mk-button mk-button--success" href="/kiosk-session">{listening ? copy.stop : copy.speak} <span aria-hidden="true">→</span></Link>
+            <Link className="mk-button mk-button--soft" href="/case-taking">{copy.touch}</Link>
+          </div>
+          <p className="patient-note"><span aria-hidden="true">✦</span>{copy.helper}</p>
+        </section>
       </div>
-
-      <div className="space-y-2">
-        <h1 className="text-4xl font-bold text-primary">
-          {lang === "hi" ? "स्वागत है" : "Welcome"}
-        </h1>
-        <p className="text-2xl text-gray-600">MediKiosk</p>
-      </div>
-
-      <AudioPrompt text={WELCOME[lang]} language={lang} />
-
-      <div className="flex gap-4">
-        <TouchButton
-          variant={lang === "hi" ? "primary" : "secondary"}
-          size="large"
-          onClick={() => setLang("hi")}
-        >
-          हिंदी
-        </TouchButton>
-        <TouchButton
-          variant={lang === "en" ? "primary" : "secondary"}
-          size="large"
-          onClick={() => setLang("en")}
-        >
-          English
-        </TouchButton>
-      </div>
-
-      <Link href="/kiosk-session">
-        <TouchButton variant="success" size="large">
-          {lang === "hi" ? "परामर्श शुरू करें" : "Start Consultation"}
-        </TouchButton>
-      </Link>
     </main>
   );
 }

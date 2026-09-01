@@ -175,9 +175,9 @@ export function VoiceInput({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4" aria-busy={mode === "processing"}>
       {error && (
-        <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg">
+        <div className="text-red-600 text-sm bg-red-50 px-4 py-2 rounded-lg" role="alert">
           {error}
         </div>
       )}
@@ -198,7 +198,7 @@ export function VoiceInput({
       )}
 
       {mode === "recording" && (
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4" role="status" aria-live="polite" aria-label={language === "hi" ? "माइक्रोफ़ोन सुन रहा है" : "Microphone is listening"}>
           <div className="flex items-end gap-1 h-12">
             {[...Array(5)].map((_, i) => (
               <div
@@ -244,7 +244,7 @@ export function VoiceInput({
       )}
 
       {mode === "processing" && (
-        <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-2" role="status" aria-live="polite">
           <div className="text-3xl animate-spin">⏳</div>
           <p className="text-sm text-gray-600">
             {language === "hi" ? "प्रसंस्करण..." : "Processing..."}
@@ -253,8 +253,8 @@ export function VoiceInput({
       )}
 
       {mode === "review" && (
-        <div className="w-full max-w-xl space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
-          <p className="font-semibold text-primary">
+        <div className="w-full max-w-xl space-y-3 rounded-2xl border border-blue-200 bg-blue-50 p-4" role="group" aria-labelledby="voice-review-title">
+          <p className="font-semibold text-primary" id="voice-review-title">
             {needsClarification
               ? language === "hi"
                 ? "आवाज़ स्पष्ट नहीं थी। कृपया सुधारें या फिर बोलें।"

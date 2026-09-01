@@ -203,7 +203,7 @@ export default function AssistedQuestionPage() {
 
         {phase === "emergency" && question && (
           <section ref={emergencyRef} tabIndex={-1} className="rounded-3xl border-4 border-[var(--mk-danger)] bg-[var(--mk-danger-soft)] p-6 sm:p-10" role="alert" aria-live="assertive">
-            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><p className="max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{question.question}</p><p className="mb-5 text-sm">Rule flags: {question.safety_flags.join(", ")}</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
+            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><p className="max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{question.question}</p><p className="mb-5 text-sm">Routine questions are paused · सामान्य प्रश्न रोक दिए गए हैं</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
           </section>
         )}
 

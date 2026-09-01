@@ -2,7 +2,8 @@
 
 from typing import Any, Protocol
 
-from app.llm.ontology import SOCRATES_DOMAINS, SOCRATES_QUESTIONS, detect_red_flags
+from app.llm.ontology import SOCRATES_DOMAINS, SOCRATES_QUESTIONS
+from app.rules.triage import detect_red_flags, evaluate_text_sources
 
 
 class LLMProvider(Protocol):
@@ -36,14 +37,16 @@ class MockClinicalProvider:
 
     def _next_question(self, payload: dict[str, Any]) -> dict[str, Any]:
         language = payload["language"]
-        combined_text = " ".join(
-            (
-                payload["chief_complaint"],
-                payload["last_patient_message"],
-                _flatten_text(payload["collected_answers"]),
-            )
-        )
-        red_flags = detect_red_flags(combined_text)
+        text_sources = {
+            "chief_complaint": payload["chief_complaint"],
+            "last_patient_message": payload["last_patient_message"],
+            **{
+                f"collected_answers.{key}": _flatten_text(value)
+                for key, value in payload["collected_answers"].items()
+            },
+        }
+        evaluation = evaluate_text_sources(text_sources)
+        red_flags = [flag.rule_id for flag in evaluation.flags]
         if red_flags:
             question = (
                 "I may have heard a warning symptom. Please alert a staff member now. "
@@ -64,7 +67,7 @@ class MockClinicalProvider:
                     "basis": "deterministic_rule",
                     "not_clinical_probability": True,
                 },
-                "evidence": _red_flag_evidence(payload, red_flags),
+                "evidence": _red_flag_evidence(text_sources, red_flags),
                 "provider": self.name,
             }
 
@@ -203,15 +206,9 @@ def _flatten_text(value: Any) -> str:
     return _safe_text(value)
 
 
-def _red_flag_evidence(payload: dict[str, Any], flags: list[str]) -> list[dict[str, str]]:
-    sources = {
-        "chief_complaint": payload["chief_complaint"],
-        "last_patient_message": payload["last_patient_message"],
-        **{
-            f"collected_answers.{key}": _flatten_text(value)
-            for key, value in payload["collected_answers"].items()
-        },
-    }
+def _red_flag_evidence(
+    sources: dict[str, str], flags: list[str]
+) -> list[dict[str, str]]:
     evidence: list[dict[str, str]] = []
     for source_path, source_text in sources.items():
         matched = set(detect_red_flags(source_text))

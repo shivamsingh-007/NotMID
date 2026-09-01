@@ -21,8 +21,9 @@ def test_chest_pain_no_radiation():
 def test_difficulty_breathing_red_flag():
     results = engine.evaluate({"chief_complaint": "shortness of breath", "symptoms": []})
     assert len(results) == 1
-    assert results[0].rule_id == "RF-002"
-    assert results[0].severity == Severity.HIGH
+    assert results[0].rule_id == "RF-RESP-001"
+    assert results[0].severity == Severity.CRITICAL
+    assert results[0].ruleset_version == "phase6.prototype.v1"
 
 
 def test_fever_with_rash_red_flag():

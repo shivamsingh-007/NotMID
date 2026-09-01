@@ -1,10 +1,20 @@
 # Phase 6 — Deterministic red-flag triage and alert lifecycle
 
-**Status:** Proposed; not implemented or clinically validated
+**Status:** In progress; prototype only and not clinically validated
 
 **Depends on:** Phase 5 pull request #7, authenticated tenant/actor context, durable PostgreSQL writes, and the transactional outbox
 
 **Primary users:** patient, triage nurse, duty doctor, clinical-safety owner, and operator
+
+### Implementation progress
+
+- Slice 6.1 has started on `codex/phase-6-triage-plan`.
+- The canonical prototype ruleset now owns Phase 5 warning detection and returns
+  stable rule/ruleset versions, owner role, explanation code, and source paths.
+- A bounded demo endpoint exposes evaluation metadata and states explicitly that
+  no durable alert was created.
+- Durable flags, authenticated ownership, acknowledgement, escalation, outbox
+  delivery, clinical approval, and validation remain unimplemented release gates.
 
 ## 1. Outcome
 

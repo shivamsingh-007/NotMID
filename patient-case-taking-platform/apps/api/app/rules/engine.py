@@ -2,7 +2,7 @@
 Rules are clinician-owned, testable, and versioned.
 No LLM is the sole red-flag detector."""
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
 
@@ -13,7 +13,7 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
-@dataclass
+@dataclass(frozen=True)
 class RuleResult:
     rule_id: str
     rule_name: str
@@ -21,13 +21,19 @@ class RuleResult:
     severity: Severity
     message: str
     requires_acknowledgement: bool = False
+    rule_version: str = "1.0.0"
+    ruleset_version: str = ""
+    explanation_code: str = ""
+    owner_role: str = "clinician"
+    evidence_paths: tuple[str, ...] = ()
+    approval_status: str = "prototype_only"
 
 
 Rule = Callable[[dict, dict], RuleResult]
 
 
 class RulesEngine:
-    def __init__(self, version: str = "1.0.0"):
+    def __init__(self, version: str = "phase6.prototype.v1"):
         self.version = version
         self._rules: list[Rule] = []
 
@@ -40,7 +46,7 @@ class RulesEngine:
         for rule in self._rules:
             result = rule(answers, context or {})
             if result.triggered:
-                results.append(result)
+                results.append(replace(result, ruleset_version=self.version))
         return results
 
 

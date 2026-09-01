@@ -22,6 +22,7 @@ from app.routers import (
     llm,
     ocr,
     patients,
+    triage,
 )
 
 
@@ -82,6 +83,7 @@ if settings.ENABLE_DEMO_ROUTES:
     app.include_router(encounters.router)
     app.include_router(intake_sessions.router)
     app.include_router(llm.router)
+    app.include_router(triage.router)
     app.include_router(consent.router)
     app.include_router(audit.router)
     app.include_router(clinical_summaries.router)

@@ -1,21 +1,23 @@
 FROM node:22-alpine AS base
-WORKDIR /app
+WORKDIR /workspace/apps/patient-kiosk
 
 FROM base AS deps
-COPY package.json ./
-COPY package-lock.json ./
+COPY apps/patient-kiosk/package.json ./
+COPY apps/patient-kiosk/package-lock.json ./
 RUN npm ci
 
 FROM base AS builder
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY --from=deps /workspace/apps/patient-kiosk/node_modules ./node_modules
+COPY apps/patient-kiosk ./
+COPY packages/ui-system /workspace/packages/ui-system
 RUN npm run build
 
-FROM base AS runner
+FROM node:22-alpine AS runner
+WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /workspace/apps/patient-kiosk/.next/standalone ./
+COPY --from=builder --chown=node:node /workspace/apps/patient-kiosk/.next/static ./.next/static
 
 USER node
 EXPOSE 3000

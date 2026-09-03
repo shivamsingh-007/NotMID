@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     DOCUMENT_UPLOAD_SESSION_TTL_SECONDS: int = 900
     DOCUMENT_UPLOAD_CLEANUP_INTERVAL_SECONDS: int = 60
     DOCUMENT_UPLOAD_CLEANUP_BATCH_SIZE: int = 100
+    CLAMAV_HOST: str = "localhost"
+    CLAMAV_PORT: int = 3310
+    CLAMAV_TIMEOUT_SECONDS: float = 30
     READINESS_TIMEOUT_SECONDS: float = 1.5
     ASR_PROVIDER: str = "mock"  # "mock", "ai4bharat"
     ASR_MODEL_REVISION: str = "e9b71b369c048e2c6b634d4c131061c34e441179"

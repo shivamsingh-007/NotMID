@@ -17,8 +17,8 @@ doctor, health-information staff, clinical-safety owner, and operator
 | --- | --- | --- |
 | 7.0 governance, hazards and evaluation fixtures | Pending owner approval | Requirements and gates are defined below; approval evidence is not yet recorded. |
 | 7.1a registry lifecycle domain contract | Implemented | `app/documents/registry.py` defines fail-closed transitions, optimistic concurrency and immutable upload attachment; focused tests cover the contract. |
-| 7.1b PostgreSQL registry, outbox and authorized API | Not implemented | No migration, repository, transaction or production route exists yet. |
-| 7.1c direct-to-quarantine object upload | Not implemented | No signed upload grant, finalize adapter or object-policy integration exists yet. |
+| 7.1b PostgreSQL registry, outbox and authorized API | Implemented; runtime integration pending | Tenant-isolated migration, idempotent repository, transaction-local tenant context, fail-closed feature flag and staff/facility-scoped registration route are covered by automated tests. The migration has not yet been exercised against a running PostgreSQL service on this device. |
+| 7.1c direct-to-quarantine object upload | Implemented; runtime integration pending | The S3-compatible adapter issues short-lived single-object grants and finalization verifies length, SHA-256 and magic-byte MIME before a transactional `DocumentUploaded.v1` outbox write. Tests use an in-process storage double; live MinIO policy and integration verification remain pending. |
 | 7.2–7.7 processing, review and rollout | Not implemented | Existing OCR endpoints remain synchronous demo routes and are not the Phase 7 workflow. |
 
 This table is the implementation ledger. A later increment may change a row to

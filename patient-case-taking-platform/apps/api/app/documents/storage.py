@@ -3,7 +3,7 @@
 import asyncio
 import hashlib
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from app.config import settings
 from app.documents.registry import DocumentRegistryEntry, DocumentState
@@ -29,6 +29,18 @@ class VerifiedUpload:
     size_bytes: int
     checksum_sha256: str
     detected_mime: str
+
+
+class DocumentStore(Protocol):
+    async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant: ...
+
+    async def verify_upload(
+        self, document: DocumentRegistryEntry, object_key: str
+    ) -> VerifiedUpload: ...
+
+
+def quarantine_object_key(document: DocumentRegistryEntry) -> str:
+    return f"quarantine/{document.tenant_id}/{document.id}/source"
 
 
 def detect_supported_mime(data: bytes) -> str:
@@ -71,7 +83,7 @@ class S3DocumentStore:
 
     @staticmethod
     def object_key(document: DocumentRegistryEntry) -> str:
-        return f"quarantine/{document.tenant_id}/{document.id}/source"
+        return quarantine_object_key(document)
 
     async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant:
         if document.state is not DocumentState.INITIATED:

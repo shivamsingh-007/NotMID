@@ -81,6 +81,17 @@ services:
     depends_on:
       minio: { condition: service_healthy }
 
+  clamav:
+    image: clamav/clamav:1.4.6-debian13-slim
+    ports: ["127.0.0.1:3310:3310"]
+    volumes: ["clamavdata:/var/lib/clamav"]
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "5"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+
   api-migrate:
     build:
       context: ./apps/api
@@ -160,4 +171,5 @@ volumes:
   mongodata:
   redisdata:
   miniodata:
+  clamavdata:
   kafka-data:

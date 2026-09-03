@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.database import close_postgres_pool
 from app.routers import (
     asr,
     audit,
@@ -14,6 +15,7 @@ from app.routers import (
     clinical,
     clinical_summaries,
     consent,
+    documents,
     encounters,
     facilities,
     fhir,
@@ -50,7 +52,10 @@ async def lifespan(_app: FastAPI):
         if settings.ASR_PROVIDER != "mock":
             warmups.append(_warm_provider(lambda: get_provider_for_language("en")))
         await asyncio.gather(*warmups)
-    yield
+    try:
+        yield
+    finally:
+        await close_postgres_pool()
 
 
 app = FastAPI(
@@ -71,6 +76,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(asr.router)  # ASR always available (not behind demo gate)
+app.include_router(documents.router)  # Fails closed unless durable workflow is enabled.
 
 # These in-memory routes are useful for contract and UI prototyping, but they do
 # not yet provide Clerk verification, durable persistence, tenant isolation, or

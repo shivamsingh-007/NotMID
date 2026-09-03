@@ -1,7 +1,7 @@
 """PostgreSQL persistence for the Phase 7 document registry."""
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from app.documents.registry import DocumentRegistryEntry
 
@@ -45,6 +45,10 @@ class IdempotencyConflict(ValueError):
 class DocumentCreateResult:
     document: DocumentRegistryEntry
     created: bool
+
+
+class DocumentRepository(Protocol):
+    async def create(self, document: DocumentRegistryEntry) -> DocumentCreateResult: ...
 
 
 class PostgresDocumentRepository:

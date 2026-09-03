@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from app.config import settings
+from app.documents.normalization import NormalizedPage
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 
 _READ_CHUNK_BYTES = 64 * 1024
@@ -32,6 +33,18 @@ class VerifiedUpload:
     detected_mime: str
 
 
+@dataclass(frozen=True)
+class StoredPage:
+    page_number: int
+    object_key: str
+    checksum_sha256: str
+    mime: str
+    width: int
+    height: int
+    preprocessing_version: str
+    operations: tuple[str, ...]
+
+
 class DocumentStore(Protocol):
     async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant: ...
 
@@ -44,6 +57,15 @@ class DocumentStore(Protocol):
     async def promote_after_clean_scan(
         self, document: DocumentRegistryEntry, processing_run_id: str
     ) -> str: ...
+
+    async def read_processing_source(self, document: DocumentRegistryEntry) -> bytes: ...
+
+    async def store_normalized_pages(
+        self,
+        document: DocumentRegistryEntry,
+        normalization_run_id: str,
+        pages: list[NormalizedPage],
+    ) -> list[StoredPage]: ...
 
 
 def quarantine_object_key(document: DocumentRegistryEntry) -> str:
@@ -241,3 +263,77 @@ class S3DocumentStore:
             params["ServerSideEncryption"] = self._server_side_encryption
         await asyncio.to_thread(self._client().copy_object, **params)
         return destination
+
+    async def read_processing_source(self, document: DocumentRegistryEntry) -> bytes:
+        if document.state is not DocumentState.PROCESSING or not document.processing_object_key:
+            raise ObjectVerificationError("Document is not ready for page normalization")
+        expected_prefix = f"clinical-processing/{document.tenant_id}/{document.id}/"
+        if not document.processing_object_key.startswith(expected_prefix):
+            raise ObjectVerificationError("Processing source is outside document scope")
+        response = await asyncio.to_thread(
+            self._client().get_object,
+            Bucket=self._bucket,
+            Key=document.processing_object_key,
+        )
+        body = response["Body"]
+        payload = bytearray()
+        digest = hashlib.sha256()
+        try:
+            for chunk in body.iter_chunks(chunk_size=_READ_CHUNK_BYTES):
+                if len(payload) + len(chunk) > document.declared_size_bytes:
+                    raise ObjectVerificationError("Processing source exceeds registered size")
+                payload.extend(chunk)
+                digest.update(chunk)
+        finally:
+            body.close()
+        if len(payload) != document.declared_size_bytes:
+            raise ObjectVerificationError("Processing source size changed")
+        if digest.hexdigest() != document.source_checksum_sha256:
+            raise ObjectVerificationError("Processing source checksum changed")
+        return bytes(payload)
+
+    async def store_normalized_pages(
+        self,
+        document: DocumentRegistryEntry,
+        normalization_run_id: str,
+        pages: list[NormalizedPage],
+    ) -> list[StoredPage]:
+        if document.state is not DocumentState.PROCESSING:
+            raise ObjectVerificationError("Document is not in processing state")
+        if not pages or not normalization_run_id:
+            raise ObjectVerificationError("Normalized pages and run identity are required")
+        stored: list[StoredPage] = []
+        client = self._client()
+        for page in pages:
+            object_key = (
+                f"derived/{document.tenant_id}/{document.id}/{normalization_run_id}/"
+                f"pages/{page.page_number:04d}.png"
+            )
+            params: dict[str, Any] = {
+                "Bucket": self._bucket,
+                "Key": object_key,
+                "Body": page.data,
+                "ContentType": page.mime,
+                "Metadata": {
+                    "document-id": str(document.id),
+                    "source-checksum": document.source_checksum_sha256 or "",
+                    "normalization-run-id": normalization_run_id,
+                    "preprocessing-version": page.preprocessing_version,
+                },
+            }
+            if self._server_side_encryption:
+                params["ServerSideEncryption"] = self._server_side_encryption
+            await asyncio.to_thread(client.put_object, **params)
+            stored.append(
+                StoredPage(
+                    page_number=page.page_number,
+                    object_key=object_key,
+                    checksum_sha256=page.checksum_sha256,
+                    mime=page.mime,
+                    width=page.width,
+                    height=page.height,
+                    preprocessing_version=page.preprocessing_version,
+                    operations=page.operations,
+                )
+            )
+        return stored

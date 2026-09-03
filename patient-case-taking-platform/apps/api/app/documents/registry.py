@@ -89,7 +89,15 @@ class DocumentRegistryEntry(BaseRecord):
     source_checksum_sha256: str | None = None
     detected_mime: str | None = None
     active_processing_run_id: UUID | None = None
+    active_normalization_run_id: UUID | None = None
     processing_object_key: str | None = None
+
+    def record_processing_progress(self, *, expected_version: int) -> None:
+        self._assert_version(expected_version)
+        if self.state is not DocumentState.PROCESSING:
+            raise InvalidDocumentTransition("Processing progress requires processing state")
+        self.version += 1
+        self.updated_at = datetime.now(UTC)
 
     def _assert_version(self, expected_version: int) -> None:
         if expected_version != self.version:

@@ -160,3 +160,24 @@ async def test_finalize_fails_closed_when_document_is_not_visible_to_tenant() ->
         )
 
     assert all("INSERT INTO document_outbox" not in query for query, _ in connection.executions)
+
+
+@pytest.mark.asyncio
+async def test_get_returns_only_the_document_visible_in_tenant_context() -> None:
+    document = _document()
+    connection = _Connection([document.model_dump()])
+    repository = PostgresDocumentRepository(_Pool(connection))
+
+    result = await repository.get(document.tenant_id, document.id)
+
+    assert result == document
+    assert connection.tenant_context == str(document.tenant_id)
+
+
+@pytest.mark.asyncio
+async def test_get_does_not_distinguish_missing_from_tenant_hidden_document() -> None:
+    document = _document()
+    repository = PostgresDocumentRepository(_Pool(_Connection([None])))
+
+    with pytest.raises(DocumentNotFound, match="not found"):
+        await repository.get(document.tenant_id, document.id)

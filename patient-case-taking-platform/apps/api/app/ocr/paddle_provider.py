@@ -43,6 +43,14 @@ class PaddleOCRProvider(OCRProvider):
     def provider_name(self) -> str:
         return "paddleocr_vl"
 
+    @property
+    def model_version(self) -> str:
+        return "PaddleOCR-VL-v1"
+
+    @property
+    def language_pack_version(self) -> str:
+        return "paddleocr-multilingual-109"
+
     def _ensure_pipeline(self):
         """Lazy-load PaddleOCRVL pipeline on first use."""
         if self._pipeline is not None:
@@ -81,6 +89,8 @@ class PaddleOCRProvider(OCRProvider):
             regions=regions,
             confidence=avg_conf,
             provider="paddleocr_vl",
+            model_version=self.model_version,
+            language_pack_version=self.language_pack_version,
             duration_ms=duration_ms,
         )
 
@@ -96,8 +106,8 @@ class PaddleOCRProvider(OCRProvider):
             if pipeline is None:
                 raise RuntimeError("PaddleOCR-VL pipeline is not initialized")
             output = pipeline.predict(tmp.name)
-            text_parts = []
-            regions = []
+            text_parts: list[str] = []
+            regions: list[OCRRegion] = []
 
             for result in output:
                 res = result.get("res", result) if isinstance(result, dict) else result
@@ -116,12 +126,18 @@ class PaddleOCRProvider(OCRProvider):
                                     int(bbox[2]),
                                     int(bbox[3]),
                                 )
+                            polygon = None
+                            if normalized_bbox is not None:
+                                x1, y1, x2, y2 = normalized_bbox
+                                polygon = ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
                             regions.append(
                                 OCRRegion(
                                     text=content,
                                     confidence=None,
                                     bbox=normalized_bbox,
                                     language=None,
+                                    polygon=polygon,
+                                    reading_order=len(regions) + 1,
                                 )
                             )
                 elif hasattr(res, "rec_texts") and res.rec_texts:
@@ -129,7 +145,11 @@ class PaddleOCRProvider(OCRProvider):
                         text_parts.append(txt)
                         conf = res.rec_scores[i] if hasattr(res, "rec_scores") and i < len(res.rec_scores) else None
                         regions.append(
-                            OCRRegion(text=txt, confidence=float(conf) if conf is not None else None)
+                            OCRRegion(
+                                text=txt,
+                                confidence=float(conf) if conf is not None else None,
+                                reading_order=len(regions) + 1,
+                            )
                         )
 
             full_text = "\n".join(text_parts) if text_parts else ""

@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     OCR_PROVIDER: str = "mock"  # "mock", "paddleocr_fast", "paddleocr_vl"
     OCR_LANGUAGE: str = "en"
     OCR_ENABLE_MKLDNN: bool = False
+    OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER: bool = False
     MODEL_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
 

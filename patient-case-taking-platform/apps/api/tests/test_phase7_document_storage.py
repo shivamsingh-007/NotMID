@@ -1,6 +1,7 @@
 """Private quarantine object-store contract tests."""
 
 import hashlib
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -99,6 +100,21 @@ async def test_upload_grant_requires_encryption_outside_development(monkeypatch)
     monkeypatch.setattr("app.documents.storage.settings.APP_ENV", "production")
 
     with pytest.raises(ObjectVerificationError, match="encryption"):
+        await store.create_upload_grant(document)
+
+
+@pytest.mark.asyncio
+async def test_upload_grant_is_denied_after_session_expiry() -> None:
+    data = b"\xff\xd8\xff" + b"safe-image"
+    document = _document(size=len(data)).model_copy(
+        update={"upload_expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+    store = S3DocumentStore(
+        client=_Client(data, "image/jpeg"),
+        bucket="clinical-private",
+    )
+
+    with pytest.raises(ObjectVerificationError, match="expired"):
         await store.create_upload_grant(document)
 
 

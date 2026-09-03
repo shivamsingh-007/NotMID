@@ -1,5 +1,6 @@
 """Authorized document-registry endpoints."""
 
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
@@ -7,7 +8,13 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from app.audit.emitter import audit_emitter
 from app.auth.dependencies import get_current_user
 from app.auth.token import TokenPayload
-from app.documents.dependencies import get_document_repository, get_document_store
+from app.config import settings
+from app.documents.authorization import ConsentAuthorizationDenied, DocumentPurposeAuthorizer
+from app.documents.dependencies import (
+    get_document_purpose_authorizer,
+    get_document_repository,
+    get_document_store,
+)
 from app.documents.registry import (
     ConcurrentDocumentUpdate,
     DocumentRegistryEntry,
@@ -28,6 +35,7 @@ from app.schemas.document import (
     DocumentInitiateRequest,
     DocumentResponse,
     DocumentUploadGrantResponse,
+    DocumentVersionRequest,
 )
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
@@ -65,8 +73,24 @@ async def initiate_document(
     ),
     user: TokenPayload = Depends(get_current_user),
     repository: DocumentRepository = Depends(get_document_repository),
+    purpose_authorizer: DocumentPurposeAuthorizer = Depends(
+        get_document_purpose_authorizer
+    ),
 ) -> DocumentRegistryEntry:
     tenant_id, actor_id = _authorized_ids(user, body.facility_id)
+    try:
+        await purpose_authorizer.authorize(
+            tenant_id=tenant_id,
+            patient_id=body.patient_id,
+            encounter_id=body.encounter_id,
+            purpose=body.purpose,
+            consent_reference=body.consent_reference,
+        )
+    except ConsentAuthorizationDenied as exc:
+        raise HTTPException(
+            status_code=403,
+            detail="Active consent does not authorize this upload",
+        ) from exc
     document = DocumentRegistryEntry(
         tenant_id=tenant_id,
         facility_id=body.facility_id,
@@ -79,6 +103,8 @@ async def initiate_document(
         declared_mime=body.declared_mime,
         declared_size_bytes=body.declared_size_bytes,
         idempotency_key=idempotency_key,
+        upload_expires_at=datetime.now(UTC)
+        + timedelta(seconds=settings.DOCUMENT_UPLOAD_SESSION_TTL_SECONDS),
     )
     try:
         result = await repository.create(document)
@@ -99,6 +125,47 @@ async def initiate_document(
         audit_metadata={"state": result.document.state.value},
     )
     return result.document
+
+
+@router.get("/{document_id}", response_model=DocumentResponse)
+async def get_document_status(
+    document_id: UUID,
+    user: TokenPayload = Depends(get_current_user),
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> DocumentRegistryEntry:
+    document, _actor_id = await _authorized_document(document_id, user, repository)
+    return document
+
+
+@router.post("/{document_id}/cancel", response_model=DocumentResponse)
+async def cancel_document_upload(
+    document_id: UUID,
+    body: DocumentVersionRequest,
+    user: TokenPayload = Depends(get_current_user),
+    repository: DocumentRepository = Depends(get_document_repository),
+) -> DocumentRegistryEntry:
+    document, actor_id = await _authorized_document(document_id, user, repository)
+    try:
+        cancelled = await repository.cancel(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=body.expected_version,
+        )
+    except (ConcurrentDocumentUpdate, InvalidDocumentTransition) as exc:
+        raise HTTPException(status_code=409, detail="Document state conflict") from exc
+    audit_emitter.emit(
+        tenant_id=cancelled.tenant_id,
+        facility_id=cancelled.facility_id,
+        actor_id=actor_id,
+        actor_type="staff",
+        actor_role=user.role,
+        action="document_upload_cancel",
+        resource_type="document",
+        resource_id=cancelled.id,
+        purpose=cancelled.purpose,
+        audit_metadata={"state": cancelled.state.value, "version": cancelled.version},
+    )
+    return cancelled
 
 
 async def _authorized_document(

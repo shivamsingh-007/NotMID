@@ -91,6 +91,18 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
+  document-upload-cleanup:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.documents.cleanup", "forever"]
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      DOCUMENT_UPLOAD_CLEANUP_INTERVAL_SECONDS: ${DOCUMENT_UPLOAD_CLEANUP_INTERVAL_SECONDS:-60}
+      DOCUMENT_UPLOAD_CLEANUP_BATCH_SIZE: ${DOCUMENT_UPLOAD_CLEANUP_BATCH_SIZE:-100}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+
   api:
     build:
       context: ./apps/api

@@ -46,7 +46,7 @@ class _Connection:
             self.tenant_context = str(args[0])
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
-        del query, args
+        self.executions.append((query, args))
         return self.rows.pop(0)
 
 
@@ -181,3 +181,23 @@ async def test_get_does_not_distinguish_missing_from_tenant_hidden_document() ->
 
     with pytest.raises(DocumentNotFound, match="not found"):
         await repository.get(document.tenant_id, document.id)
+
+
+@pytest.mark.asyncio
+async def test_cancel_uses_optimistic_concurrency_and_persists_state() -> None:
+    document = _document()
+    cancelled = document.model_copy(update={"state": DocumentState.CANCELLED, "version": 2})
+    connection = _Connection([document.model_dump(), cancelled.model_dump()])
+    repository = PostgresDocumentRepository(_Pool(connection))
+
+    result = await repository.cancel(
+        tenant_id=document.tenant_id,
+        document_id=document.id,
+        expected_version=1,
+    )
+
+    assert result.state is DocumentState.CANCELLED
+    assert result.version == 2
+    update_query, update_args = connection.executions[-1]
+    assert "UPDATE document_registry" in update_query
+    assert DocumentState.CANCELLED.value in update_args

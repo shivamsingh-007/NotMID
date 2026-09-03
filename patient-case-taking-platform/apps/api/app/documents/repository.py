@@ -24,6 +24,11 @@ SELECT * FROM document_registry
 WHERE tenant_id = $1 AND idempotency_key = $2
 """
 
+_GET_BY_ID = """
+SELECT * FROM document_registry
+WHERE tenant_id = $1 AND id = $2
+"""
+
 _GET_FOR_UPDATE = """
 SELECT * FROM document_registry
 WHERE tenant_id = $1 AND id = $2
@@ -76,6 +81,8 @@ class DocumentCreateResult:
 
 class DocumentRepository(Protocol):
     async def create(self, document: DocumentRegistryEntry) -> DocumentCreateResult: ...
+
+    async def get(self, tenant_id: UUID, document_id: UUID) -> DocumentRegistryEntry: ...
 
     async def finalize_upload(
         self,
@@ -147,6 +154,17 @@ class PostgresDocumentRepository:
                         "Idempotency key is already used by a different document registration"
                     )
                 return DocumentCreateResult(document=existing, created=False)
+
+    async def get(self, tenant_id: UUID, document_id: UUID) -> DocumentRegistryEntry:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
+                )
+                row = await connection.fetchrow(_GET_BY_ID, tenant_id, document_id)
+                if row is None:
+                    raise DocumentNotFound("Document not found")
+                return DocumentRegistryEntry.model_validate(dict(row))
 
     async def finalize_upload(
         self,

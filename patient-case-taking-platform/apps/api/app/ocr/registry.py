@@ -18,6 +18,8 @@ def get_active_provider() -> OCRProvider:
 
         _provider = FastPaddleOCRProvider()
     elif settings.OCR_PROVIDER == "paddleocr_vl":
+        if not settings.OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER:
+            raise RuntimeError("PaddleOCR-VL is not approved for automatic routing")
         from app.ocr.paddle_provider import PaddleOCRProvider
 
         _provider = PaddleOCRProvider()

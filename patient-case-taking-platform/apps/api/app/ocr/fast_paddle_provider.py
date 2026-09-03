@@ -40,7 +40,19 @@ def _regions_from_payload(payload: dict) -> list[OCRRegion]:
         bbox = None
         if raw_box is not None and len(raw_box) == 4:
             bbox = (int(raw_box[0]), int(raw_box[1]), int(raw_box[2]), int(raw_box[3]))
-        regions.append(OCRRegion(text=text, confidence=score, bbox=bbox))
+        polygon = None
+        if bbox is not None:
+            x1, y1, x2, y2 = bbox
+            polygon = ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+        regions.append(
+            OCRRegion(
+                text=text,
+                confidence=score,
+                bbox=bbox,
+                polygon=polygon,
+                reading_order=len(regions) + 1,
+            )
+        )
     return regions
 
 
@@ -56,6 +68,14 @@ class FastPaddleOCRProvider(OCRProvider):
     @property
     def provider_name(self) -> str:
         return "paddleocr_fast"
+
+    @property
+    def model_version(self) -> str:
+        return "PP-OCRv5"
+
+    @property
+    def language_pack_version(self) -> str:
+        return f"paddleocr-{self.language}"
 
     def _ensure_pipeline(self) -> None:
         if self._pipeline is not None:
@@ -97,6 +117,8 @@ class FastPaddleOCRProvider(OCRProvider):
             regions=regions,
             confidence=sum(scores) / len(scores) if scores else None,
             provider=self.provider_name,
+            model_version=self.model_version,
+            language_pack_version=self.language_pack_version,
             duration_ms=duration_ms,
         )
 

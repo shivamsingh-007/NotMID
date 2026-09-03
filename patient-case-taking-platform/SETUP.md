@@ -14,7 +14,7 @@ This guide is for developers, designers and reviewers starting MediKiosk on a ne
 | Admin console | <http://localhost:3002> | Workforce and facility administration scaffold |
 | API | <http://localhost:8000> | FastAPI application |
 | API documentation | <http://localhost:8000/docs> | Interactive development API reference |
-| MinIO console | <http://localhost:9001> | Local object-storage administration |
+| MinIO console | <http://localhost:9002> | Local object-storage administration |
 
 PostgreSQL, MongoDB, Redis, Kafka and MinIO also run locally through Docker. Their data persists in named Docker volumes.
 
@@ -25,7 +25,7 @@ PostgreSQL, MongoDB, Redis, Kafka and MinIO also run locally through Docker. The
 - Git 2.40 or newer
 - Docker Desktop on Windows/macOS, or Docker Engine with the Compose plugin on Linux
 - At least 8 GB RAM available to Docker
-- Ports `3000`, `3001`, `3002`, `5432`, `6379`, `8000`, `9000`, `9001`, `9092` and `27017` available
+- Ports `3000`, `3001`, `3002`, `5432`, `6379`, `8000`, `9000`, `9002`, `9092` and `27017` available
 
 Verify the tools:
 

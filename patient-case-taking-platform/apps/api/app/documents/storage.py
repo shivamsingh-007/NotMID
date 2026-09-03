@@ -62,11 +62,17 @@ class S3DocumentStore:
         client: Any | None = None,
         bucket: str | None = None,
         grant_ttl_seconds: int | None = None,
+        server_side_encryption: str | None = None,
     ) -> None:
         self._provided_client = client
         self._bucket = bucket or settings.S3_BUCKET
         self._grant_ttl_seconds = (
             grant_ttl_seconds or settings.DOCUMENT_UPLOAD_GRANT_TTL_SECONDS
+        )
+        self._server_side_encryption = (
+            settings.S3_SERVER_SIDE_ENCRYPTION
+            if server_side_encryption is None
+            else server_side_encryption
         )
 
     def _client(self) -> Any:
@@ -88,11 +94,14 @@ class S3DocumentStore:
     async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant:
         if document.state is not DocumentState.INITIATED:
             raise ObjectVerificationError("Only initiated documents can receive an upload grant")
+        if settings.APP_ENV != "development" and not self._server_side_encryption:
+            raise ObjectVerificationError(
+                "Server-side encryption must be configured outside development"
+            )
         object_key = self.object_key(document)
         required_headers = {
             "Content-Type": document.declared_mime,
             "Content-Length": str(document.declared_size_bytes),
-            "x-amz-server-side-encryption": "AES256",
             "x-amz-meta-document-id": str(document.id),
         }
         params = {
@@ -100,9 +109,11 @@ class S3DocumentStore:
             "Key": object_key,
             "ContentType": document.declared_mime,
             "ContentLength": document.declared_size_bytes,
-            "ServerSideEncryption": "AES256",
             "Metadata": {"document-id": str(document.id)},
         }
+        if self._server_side_encryption:
+            required_headers["x-amz-server-side-encryption"] = self._server_side_encryption
+            params["ServerSideEncryption"] = self._server_side_encryption
         url = await asyncio.to_thread(
             self._client().generate_presigned_url,
             "put_object",

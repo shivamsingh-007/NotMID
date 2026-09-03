@@ -1,9 +1,11 @@
 """PostgreSQL persistence for the Phase 7 document registry."""
 
+import json
 from dataclasses import dataclass
 from typing import Any, Protocol
+from uuid import UUID, uuid4
 
-from app.documents.registry import DocumentRegistryEntry
+from app.documents.registry import DocumentRegistryEntry, DocumentState
 
 _INSERT_DOCUMENT = """
 INSERT INTO document_registry (
@@ -20,6 +22,27 @@ RETURNING *
 _GET_BY_IDEMPOTENCY_KEY = """
 SELECT * FROM document_registry
 WHERE tenant_id = $1 AND idempotency_key = $2
+"""
+
+_GET_FOR_UPDATE = """
+SELECT * FROM document_registry
+WHERE tenant_id = $1 AND id = $2
+FOR UPDATE
+"""
+
+_FINALIZE_UPLOAD = """
+UPDATE document_registry
+SET state = $4, object_key = $5, source_checksum_sha256 = $6,
+    detected_mime = $7, version = $8, updated_at = $9
+WHERE tenant_id = $1 AND id = $2 AND version = $3
+RETURNING *
+"""
+
+_INSERT_OUTBOX_EVENT = """
+INSERT INTO document_outbox (
+    event_id, tenant_id, aggregate_id, event_type, event_version, producer,
+    correlation_id, data_classification, idempotency_key, artifact_refs, payload
+) VALUES ($1, $2, $3, $4, 1, 'document-registry', $3, 'restricted', $5, $6, $7)
 """
 
 _INITIATION_FIELDS = (
@@ -41,6 +64,10 @@ class IdempotencyConflict(ValueError):
     """Raised when a key is reused for a different document registration."""
 
 
+class DocumentNotFound(LookupError):
+    """Raised when row-level security hides or cannot find a document."""
+
+
 @dataclass(frozen=True)
 class DocumentCreateResult:
     document: DocumentRegistryEntry
@@ -49,6 +76,17 @@ class DocumentCreateResult:
 
 class DocumentRepository(Protocol):
     async def create(self, document: DocumentRegistryEntry) -> DocumentCreateResult: ...
+
+    async def finalize_upload(
+        self,
+        *,
+        tenant_id: UUID,
+        document_id: UUID,
+        expected_version: int,
+        object_key: str,
+        checksum_sha256: str,
+        detected_mime: str,
+    ) -> DocumentRegistryEntry: ...
 
 
 class PostgresDocumentRepository:
@@ -109,3 +147,63 @@ class PostgresDocumentRepository:
                         "Idempotency key is already used by a different document registration"
                     )
                 return DocumentCreateResult(document=existing, created=False)
+
+    async def finalize_upload(
+        self,
+        *,
+        tenant_id: UUID,
+        document_id: UUID,
+        expected_version: int,
+        object_key: str,
+        checksum_sha256: str,
+        detected_mime: str,
+    ) -> DocumentRegistryEntry:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
+                )
+                row = await connection.fetchrow(_GET_FOR_UPDATE, tenant_id, document_id)
+                if row is None:
+                    raise DocumentNotFound("Document not found")
+
+                document = DocumentRegistryEntry.model_validate(dict(row))
+                document.attach_upload(
+                    object_key=object_key,
+                    checksum_sha256=checksum_sha256,
+                    detected_mime=detected_mime,
+                    expected_version=expected_version,
+                )
+                document.transition(
+                    DocumentState.QUARANTINED,
+                    expected_version=document.version,
+                )
+                updated_row = await connection.fetchrow(
+                    _FINALIZE_UPLOAD,
+                    tenant_id,
+                    document_id,
+                    expected_version,
+                    document.state.value,
+                    document.object_key,
+                    document.source_checksum_sha256,
+                    document.detected_mime,
+                    document.version,
+                    document.updated_at,
+                )
+                if updated_row is None:
+                    raise RuntimeError("Concurrent document update was not persisted")
+
+                event_type = "DocumentUploaded.v1"
+                await connection.execute(
+                    _INSERT_OUTBOX_EVENT,
+                    uuid4(),
+                    tenant_id,
+                    document_id,
+                    event_type,
+                    f"{document_id}:uploaded:{document.version}",
+                    json.dumps(
+                        [{"artifact_type": "source_document", "artifact_id": str(document_id)}]
+                    ),
+                    json.dumps({"state": document.state.value, "document_version": document.version}),
+                )
+                return DocumentRegistryEntry.model_validate(dict(updated_row))

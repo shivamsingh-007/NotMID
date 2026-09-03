@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
     KAFKA_BROKERS: str = "localhost:9092"
     S3_ENDPOINT: str = "http://localhost:9000"
+    S3_PUBLIC_ENDPOINT: str = ""
     S3_BUCKET: str = "notmid-clinical"
     S3_SERVER_SIDE_ENCRYPTION: str = ""
     CLERK_SECRET_KEY: str = ""

@@ -16,6 +16,7 @@ import pytest_asyncio
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
 from app.documents.storage import S3DocumentStore
+from app.migrations import apply_migrations
 
 pytestmark = pytest.mark.skipif(
     os.getenv("PHASE7_INTEGRATION") != "1",
@@ -43,6 +44,34 @@ def _document() -> DocumentRegistryEntry:
         declared_size_bytes=16,
         idempotency_key="integration-upload-1",
     )
+
+
+@pytest.mark.asyncio
+async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
+    schema = f"phase7_runner_{uuid4().hex}"
+    connection = await asyncpg.connect(DATABASE_URL)
+    try:
+        await connection.execute(f'CREATE SCHEMA "{schema}"')
+        await connection.execute(f'SET search_path TO "{schema}"')
+
+        first_count = await apply_migrations(connection)
+        second_count = await apply_migrations(connection)
+        tables = await connection.fetch(
+            "SELECT tablename FROM pg_tables WHERE schemaname = $1",
+            schema,
+        )
+
+        assert first_count == 1
+        assert second_count == 0
+        assert {row["tablename"] for row in tables} == {
+            "document_registry",
+            "document_outbox",
+            "schema_migration",
+        }
+    finally:
+        await connection.execute("SET search_path TO public")
+        await connection.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        await connection.close()
 
 
 @pytest_asyncio.fixture

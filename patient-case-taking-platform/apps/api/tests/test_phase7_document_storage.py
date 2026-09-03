@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from app.documents.registry import DocumentRegistryEntry
+from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.storage import ObjectVerificationError, S3DocumentStore
 
 
@@ -29,6 +29,7 @@ class _Client:
         self.content_type = content_type
         self.presign_params: dict[str, Any] | None = None
         self.body = _Body(data)
+        self.copy_params: dict[str, Any] | None = None
 
     def generate_presigned_url(self, operation: str, **kwargs: Any) -> str:
         self.presign_params = {"operation": operation, **kwargs}
@@ -41,6 +42,9 @@ class _Client:
     def get_object(self, **kwargs: Any) -> dict[str, Any]:
         del kwargs
         return {"Body": self.body}
+
+    def copy_object(self, **kwargs: Any) -> None:
+        self.copy_params = kwargs
 
 
 def _document(*, size: int, mime: str = "image/jpeg") -> DocumentRegistryEntry:
@@ -157,3 +161,53 @@ async def test_verify_upload_rejects_size_mismatch_before_reading() -> None:
         await store.verify_upload(document, object_key)
 
     assert client.body.closed is False
+
+
+@pytest.mark.asyncio
+async def test_scan_read_reverifies_immutable_source_checksum() -> None:
+    data = b"\xff\xd8\xff" + b"safe-image"
+    document = _document(size=len(data))
+    document.attach_upload(
+        object_key=f"quarantine/{document.tenant_id}/{document.id}/source",
+        checksum_sha256=hashlib.sha256(data).hexdigest(),
+        detected_mime="image/jpeg",
+        expected_version=1,
+    )
+    document.transition(DocumentState.QUARANTINED, expected_version=2)
+    document.transition(DocumentState.SCANNING, expected_version=3)
+    client = _Client(data, "image/jpeg")
+    store = S3DocumentStore(client=client, bucket="clinical-private")
+
+    payload = await store.read_for_scan(document)
+
+    assert payload == data
+    assert client.body.closed is True
+
+
+@pytest.mark.asyncio
+async def test_only_scanning_document_can_be_promoted_to_processing_prefix() -> None:
+    data = b"\xff\xd8\xff" + b"safe-image"
+    document = _document(size=len(data))
+    document.attach_upload(
+        object_key=f"quarantine/{document.tenant_id}/{document.id}/source",
+        checksum_sha256=hashlib.sha256(data).hexdigest(),
+        detected_mime="image/jpeg",
+        expected_version=1,
+    )
+    document.transition(DocumentState.QUARANTINED, expected_version=2)
+    document.transition(DocumentState.SCANNING, expected_version=3)
+    client = _Client(data, "image/jpeg")
+    store = S3DocumentStore(
+        client=client,
+        bucket="clinical-private",
+        server_side_encryption="AES256",
+    )
+
+    destination = await store.promote_after_clean_scan(document, "run-1")
+
+    assert destination.startswith(
+        f"clinical-processing/{document.tenant_id}/{document.id}/run-1/"
+    )
+    assert client.copy_params is not None
+    assert client.copy_params["CopySource"]["Key"] == document.object_key
+    assert client.copy_params["ServerSideEncryption"] == "AES256"

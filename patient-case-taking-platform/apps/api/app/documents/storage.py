@@ -39,6 +39,12 @@ class DocumentStore(Protocol):
         self, document: DocumentRegistryEntry, object_key: str
     ) -> VerifiedUpload: ...
 
+    async def read_for_scan(self, document: DocumentRegistryEntry) -> bytes: ...
+
+    async def promote_after_clean_scan(
+        self, document: DocumentRegistryEntry, processing_run_id: str
+    ) -> str: ...
+
 
 def quarantine_object_key(document: DocumentRegistryEntry) -> str:
     return f"quarantine/{document.tenant_id}/{document.id}/source"
@@ -186,3 +192,52 @@ class S3DocumentStore:
         if detected_mime != document.declared_mime:
             raise ObjectVerificationError("Detected object type does not match registration")
         return VerifiedUpload(object_key, total, digest.hexdigest(), detected_mime)
+
+    async def read_for_scan(self, document: DocumentRegistryEntry) -> bytes:
+        if document.state is not DocumentState.SCANNING or not document.object_key:
+            raise ObjectVerificationError("Document is not ready for malware scanning")
+        if document.object_key != self.object_key(document):
+            raise ObjectVerificationError("Source object is outside quarantine scope")
+        response = await asyncio.to_thread(
+            self._client().get_object,
+            Bucket=self._bucket,
+            Key=document.object_key,
+        )
+        body = response["Body"]
+        payload = bytearray()
+        digest = hashlib.sha256()
+        try:
+            for chunk in body.iter_chunks(chunk_size=_READ_CHUNK_BYTES):
+                if len(payload) + len(chunk) > document.declared_size_bytes:
+                    raise ObjectVerificationError("Source object exceeds registered size")
+                payload.extend(chunk)
+                digest.update(chunk)
+        finally:
+            body.close()
+        if len(payload) != document.declared_size_bytes:
+            raise ObjectVerificationError("Source object size changed before scanning")
+        if digest.hexdigest() != document.source_checksum_sha256:
+            raise ObjectVerificationError("Source object checksum changed before scanning")
+        return bytes(payload)
+
+    async def promote_after_clean_scan(
+        self, document: DocumentRegistryEntry, processing_run_id: str
+    ) -> str:
+        if document.state is not DocumentState.SCANNING or not document.object_key:
+            raise ObjectVerificationError("Document is not ready for scan promotion")
+        if not processing_run_id:
+            raise ObjectVerificationError("Processing run identity is required")
+        destination = (
+            f"clinical-processing/{document.tenant_id}/{document.id}/"
+            f"{processing_run_id}/source"
+        )
+        params: dict[str, Any] = {
+            "Bucket": self._bucket,
+            "Key": destination,
+            "CopySource": {"Bucket": self._bucket, "Key": document.object_key},
+            "MetadataDirective": "COPY",
+        }
+        if self._server_side_encryption:
+            params["ServerSideEncryption"] = self._server_side_encryption
+        await asyncio.to_thread(self._client().copy_object, **params)
+        return destination

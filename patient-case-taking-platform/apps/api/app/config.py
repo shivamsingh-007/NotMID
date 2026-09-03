@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     CLAMAV_HOST: str = "localhost"
     CLAMAV_PORT: int = 3310
     CLAMAV_TIMEOUT_SECONDS: float = 30
+    DOCUMENT_SCAN_MAX_BYTES: int = 10 * 1024 * 1024
+    DOCUMENT_SCAN_BATCH_SIZE: int = 10
+    DOCUMENT_SCAN_POLL_INTERVAL_SECONDS: float = 2
     READINESS_TIMEOUT_SECONDS: float = 1.5
     ASR_PROVIDER: str = "mock"  # "mock", "ai4bharat"
     ASR_MODEL_REVISION: str = "e9b71b369c048e2c6b634d4c131061c34e441179"

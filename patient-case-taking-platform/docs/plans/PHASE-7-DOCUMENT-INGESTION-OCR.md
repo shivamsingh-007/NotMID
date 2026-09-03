@@ -1,6 +1,7 @@
 # Phase 7 — Safe document ingestion, OCR and reviewed extraction
 
-**Status:** Proposed; existing OCR adapters only, not an implemented document workflow
+**Status:** In progress; registry lifecycle domain contract implemented, durable
+document workflow not yet implemented
 
 **Depends on:** authenticated tenant/actor context, consent and purpose checks,
 durable PostgreSQL workflow state, transactional outbox, private object storage,
@@ -9,6 +10,19 @@ become clinical truth
 
 **Primary users:** patient/caregiver, assisted kiosk operator, triage nurse,
 doctor, health-information staff, clinical-safety owner, and operator
+
+## Delivery status
+
+| Increment | Status | Evidence |
+| --- | --- | --- |
+| 7.0 governance, hazards and evaluation fixtures | Pending owner approval | Requirements and gates are defined below; approval evidence is not yet recorded. |
+| 7.1a registry lifecycle domain contract | Implemented | `app/documents/registry.py` defines fail-closed transitions, optimistic concurrency and immutable upload attachment; focused tests cover the contract. |
+| 7.1b PostgreSQL registry, outbox and authorized API | Not implemented | No migration, repository, transaction or production route exists yet. |
+| 7.1c direct-to-quarantine object upload | Not implemented | No signed upload grant, finalize adapter or object-policy integration exists yet. |
+| 7.2–7.7 processing, review and rollout | Not implemented | Existing OCR endpoints remain synchronous demo routes and are not the Phase 7 workflow. |
+
+This table is the implementation ledger. A later increment may change a row to
+implemented only when its code and verification evidence are committed.
 
 ## 1. Outcome
 

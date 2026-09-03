@@ -65,7 +65,12 @@ async def test_upload_grant_is_scoped_to_one_quarantine_object() -> None:
     data = b"\xff\xd8\xff" + b"safe-image"
     document = _document(size=len(data))
     client = _Client(data, "image/jpeg")
-    store = S3DocumentStore(client=client, bucket="clinical-private", grant_ttl_seconds=300)
+    store = S3DocumentStore(
+        client=client,
+        bucket="clinical-private",
+        grant_ttl_seconds=300,
+        server_side_encryption="AES256",
+    )
 
     grant = await store.create_upload_grant(document)
 
@@ -76,6 +81,22 @@ async def test_upload_grant_is_scoped_to_one_quarantine_object() -> None:
     assert client.presign_params is not None
     assert client.presign_params["Params"]["Key"] == expected_key
     assert client.presign_params["Params"]["ContentLength"] == len(data)
+    assert grant.required_headers["x-amz-server-side-encryption"] == "AES256"
+
+
+@pytest.mark.asyncio
+async def test_upload_grant_requires_encryption_outside_development(monkeypatch) -> None:
+    data = b"\xff\xd8\xff" + b"safe-image"
+    document = _document(size=len(data))
+    store = S3DocumentStore(
+        client=_Client(data, "image/jpeg"),
+        bucket="clinical-private",
+        server_side_encryption="",
+    )
+    monkeypatch.setattr("app.documents.storage.settings.APP_ENV", "production")
+
+    with pytest.raises(ObjectVerificationError, match="encryption"):
+        await store.create_upload_grant(document)
 
 
 @pytest.mark.asyncio

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     KAFKA_BROKERS: str = "localhost:9092"
     S3_ENDPOINT: str = "http://localhost:9000"
     S3_BUCKET: str = "notmid-clinical"
+    S3_SERVER_SIDE_ENCRYPTION: str = ""
     CLERK_SECRET_KEY: str = ""
     CLERK_PUBLISHABLE_KEY: str = ""
     CORS_ALLOWED_ORIGINS: str = (

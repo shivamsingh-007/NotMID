@@ -61,6 +61,35 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-notmid-local}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
     volumes: ["miniodata:/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio-init:
+    image: minio/minio:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >-
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}" &&
+        mc mb --ignore-existing local/notmid-clinical &&
+        mc anonymous set none local/notmid-clinical
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-notmid-local}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
+    depends_on:
+      minio: { condition: service_healthy }
+
+  api-migrate:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.migrations", "up"]
+    environment:
+      DATABASE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+    depends_on:
+      postgres: { condition: service_healthy }
 
   api:
     build:
@@ -74,18 +103,21 @@ services:
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:29092
       S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
       S3_BUCKET: notmid-clinical
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-notmid-local}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002
       ENABLE_DEMO_ROUTES: ${ENABLE_DEMO_ROUTES:-false}
+      DOCUMENT_WORKFLOW_ENABLED: ${DOCUMENT_WORKFLOW_ENABLED:-false}
+      S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
       LLM_PROVIDER: mock
     depends_on:
-      postgres: { condition: service_healthy }
+      api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }
       redis: { condition: service_healthy }
       kafka: { condition: service_started }
-      minio: { condition: service_started }
+      minio-init: { condition: service_completed_successfully }
 
   patient-kiosk:
     build:

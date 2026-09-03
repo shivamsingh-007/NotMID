@@ -1,5 +1,3 @@
-BEGIN;
-
 CREATE TABLE document_registry (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,
@@ -83,5 +81,3 @@ CREATE INDEX document_registry_review_queue_idx
 CREATE INDEX document_outbox_unpublished_idx
     ON document_outbox (occurred_at)
     WHERE published_at IS NULL;
-
-COMMIT;

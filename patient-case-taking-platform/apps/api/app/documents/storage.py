@@ -60,11 +60,13 @@ class S3DocumentStore:
         self,
         *,
         client: Any | None = None,
+        presign_client: Any | None = None,
         bucket: str | None = None,
         grant_ttl_seconds: int | None = None,
         server_side_encryption: str | None = None,
     ) -> None:
         self._provided_client = client
+        self._provided_presign_client = presign_client
         self._bucket = bucket or settings.S3_BUCKET
         self._grant_ttl_seconds = (
             grant_ttl_seconds or settings.DOCUMENT_UPLOAD_GRANT_TTL_SECONDS
@@ -83,6 +85,20 @@ class S3DocumentStore:
         return boto3.client(
             "s3",
             endpoint_url=settings.S3_ENDPOINT,
+            aws_access_key_id=settings.S3_ACCESS_KEY,
+            aws_secret_access_key=settings.S3_SECRET_KEY,
+        )
+
+    def _presign_client(self) -> Any:
+        if self._provided_presign_client is not None:
+            return self._provided_presign_client
+        if not settings.S3_PUBLIC_ENDPOINT:
+            return self._client()
+        import boto3
+
+        return boto3.client(
+            "s3",
+            endpoint_url=settings.S3_PUBLIC_ENDPOINT,
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
         )
@@ -115,7 +131,7 @@ class S3DocumentStore:
             required_headers["x-amz-server-side-encryption"] = self._server_side_encryption
             params["ServerSideEncryption"] = self._server_side_encryption
         url = await asyncio.to_thread(
-            self._client().generate_presigned_url,
+            self._presign_client().generate_presigned_url,
             "put_object",
             Params=params,
             ExpiresIn=self._grant_ttl_seconds,

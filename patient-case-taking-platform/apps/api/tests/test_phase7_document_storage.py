@@ -65,8 +65,10 @@ async def test_upload_grant_is_scoped_to_one_quarantine_object() -> None:
     data = b"\xff\xd8\xff" + b"safe-image"
     document = _document(size=len(data))
     client = _Client(data, "image/jpeg")
+    presign_client = _Client(data, "image/jpeg")
     store = S3DocumentStore(
         client=client,
+        presign_client=presign_client,
         bucket="clinical-private",
         grant_ttl_seconds=300,
         server_side_encryption="AES256",
@@ -78,9 +80,10 @@ async def test_upload_grant_is_scoped_to_one_quarantine_object() -> None:
     assert grant.object_key == expected_key
     assert grant.expires_in_seconds == 300
     assert grant.required_headers["Content-Type"] == "image/jpeg"
-    assert client.presign_params is not None
-    assert client.presign_params["Params"]["Key"] == expected_key
-    assert client.presign_params["Params"]["ContentLength"] == len(data)
+    assert client.presign_params is None
+    assert presign_client.presign_params is not None
+    assert presign_client.presign_params["Params"]["Key"] == expected_key
+    assert presign_client.presign_params["Params"]["ContentLength"] == len(data)
     assert grant.required_headers["x-amz-server-side-encryption"] == "AES256"
 
 

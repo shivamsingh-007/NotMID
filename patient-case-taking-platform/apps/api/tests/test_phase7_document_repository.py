@@ -7,8 +7,12 @@ from uuid import uuid4
 
 import pytest
 
-from app.documents.registry import DocumentRegistryEntry
-from app.documents.repository import IdempotencyConflict, PostgresDocumentRepository
+from app.documents.registry import DocumentRegistryEntry, DocumentState
+from app.documents.repository import (
+    DocumentNotFound,
+    IdempotencyConflict,
+    PostgresDocumentRepository,
+)
 
 
 class _AsyncContext(AbstractAsyncContextManager):
@@ -31,13 +35,15 @@ class _Connection:
     def __init__(self, rows: list[dict[str, Any] | None]):
         self.rows = rows
         self.tenant_context: str | None = None
+        self.executions: list[tuple[str, tuple[Any, ...]]] = []
 
     def transaction(self) -> _AsyncContext:
         return _AsyncContext(self)
 
-    async def execute(self, query: str, tenant_id: str) -> None:
-        assert "set_config('app.tenant_id'" in query
-        self.tenant_context = tenant_id
+    async def execute(self, query: str, *args: Any) -> None:
+        self.executions.append((query, args))
+        if "set_config('app.tenant_id'" in query:
+            self.tenant_context = str(args[0])
 
     async def fetchrow(self, query: str, *args: Any) -> dict[str, Any] | None:
         del query, args
@@ -102,3 +108,55 @@ async def test_create_rejects_conflicting_idempotency_key_reuse() -> None:
 
     with pytest.raises(IdempotencyConflict):
         await repository.create(document)
+
+
+@pytest.mark.asyncio
+async def test_finalize_moves_verified_upload_to_quarantine_and_writes_safe_outbox() -> None:
+    document = _document()
+    updated = document.model_copy(
+        update={
+            "state": DocumentState.QUARANTINED,
+            "version": 3,
+            "object_key": f"quarantine/{document.tenant_id}/{document.id}/source",
+            "source_checksum_sha256": "a" * 64,
+            "detected_mime": "image/jpeg",
+        }
+    )
+    connection = _Connection([document.model_dump(), updated.model_dump()])
+    repository = PostgresDocumentRepository(_Pool(connection))
+
+    result = await repository.finalize_upload(
+        tenant_id=document.tenant_id,
+        document_id=document.id,
+        expected_version=1,
+        object_key=updated.object_key or "",
+        checksum_sha256="a" * 64,
+        detected_mime="image/jpeg",
+    )
+
+    assert result.state is DocumentState.QUARANTINED
+    assert result.version == 3
+    outbox_query, outbox_args = connection.executions[-1]
+    assert "INSERT INTO document_outbox" in outbox_query
+    assert "DocumentUploaded.v1" in outbox_args
+    assert document.original_filename not in str(outbox_args)
+    assert str(document.patient_id) not in str(outbox_args)
+
+
+@pytest.mark.asyncio
+async def test_finalize_fails_closed_when_document_is_not_visible_to_tenant() -> None:
+    document = _document()
+    connection = _Connection([None])
+    repository = PostgresDocumentRepository(_Pool(connection))
+
+    with pytest.raises(DocumentNotFound):
+        await repository.finalize_upload(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=1,
+            object_key=f"quarantine/{document.tenant_id}/{document.id}/source",
+            checksum_sha256="a" * 64,
+            detected_mime="image/jpeg",
+        )
+
+    assert all("INSERT INTO document_outbox" not in query for query, _ in connection.executions)

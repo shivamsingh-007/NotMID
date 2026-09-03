@@ -3,6 +3,7 @@
 import asyncio
 import hashlib
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any, Protocol
 
 from app.config import settings
@@ -110,6 +111,8 @@ class S3DocumentStore:
     async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant:
         if document.state is not DocumentState.INITIATED:
             raise ObjectVerificationError("Only initiated documents can receive an upload grant")
+        if document.upload_expires_at <= datetime.now(UTC):
+            raise ObjectVerificationError("Upload session has expired")
         if settings.APP_ENV != "development" and not self._server_side_encryption:
             raise ObjectVerificationError(
                 "Server-side encryption must be configured outside development"

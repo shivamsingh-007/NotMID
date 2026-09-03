@@ -11,9 +11,10 @@ _INSERT_DOCUMENT = """
 INSERT INTO document_registry (
     id, tenant_id, facility_id, patient_id, encounter_id, uploader_actor_id,
     purpose, consent_reference, original_filename, declared_mime,
-    declared_size_bytes, idempotency_key, state, version, created_at, updated_at
+    declared_size_bytes, idempotency_key, upload_expires_at, state, version,
+    created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
 )
 ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
 RETURNING *
@@ -39,6 +40,13 @@ _FINALIZE_UPLOAD = """
 UPDATE document_registry
 SET state = $4, object_key = $5, source_checksum_sha256 = $6,
     detected_mime = $7, version = $8, updated_at = $9
+WHERE tenant_id = $1 AND id = $2 AND version = $3
+RETURNING *
+"""
+
+_UPDATE_STATE = """
+UPDATE document_registry
+SET state = $4, version = $5, updated_at = $6
 WHERE tenant_id = $1 AND id = $2 AND version = $3
 RETURNING *
 """
@@ -95,6 +103,10 @@ class DocumentRepository(Protocol):
         detected_mime: str,
     ) -> DocumentRegistryEntry: ...
 
+    async def cancel(
+        self, *, tenant_id: UUID, document_id: UUID, expected_version: int
+    ) -> DocumentRegistryEntry: ...
+
 
 class PostgresDocumentRepository:
     """Tenant-scoped registry repository backed by an asyncpg-compatible pool."""
@@ -126,6 +138,7 @@ class PostgresDocumentRepository:
                     document.declared_mime,
                     document.declared_size_bytes,
                     document.idempotency_key,
+                    document.upload_expires_at,
                     document.state.value,
                     document.version,
                     document.created_at,
@@ -224,4 +237,30 @@ class PostgresDocumentRepository:
                     ),
                     json.dumps({"state": document.state.value, "document_version": document.version}),
                 )
+                return DocumentRegistryEntry.model_validate(dict(updated_row))
+
+    async def cancel(
+        self, *, tenant_id: UUID, document_id: UUID, expected_version: int
+    ) -> DocumentRegistryEntry:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
+                )
+                row = await connection.fetchrow(_GET_FOR_UPDATE, tenant_id, document_id)
+                if row is None:
+                    raise DocumentNotFound("Document not found")
+                document = DocumentRegistryEntry.model_validate(dict(row))
+                document.transition(DocumentState.CANCELLED, expected_version=expected_version)
+                updated_row = await connection.fetchrow(
+                    _UPDATE_STATE,
+                    tenant_id,
+                    document_id,
+                    expected_version,
+                    document.state.value,
+                    document.version,
+                    document.updated_at,
+                )
+                if updated_row is None:
+                    raise RuntimeError("Concurrent document cancellation was not persisted")
                 return DocumentRegistryEntry.model_validate(dict(updated_row))

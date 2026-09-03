@@ -1,5 +1,6 @@
 """Phase 7 document-registry domain contract tests."""
 
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -140,3 +141,19 @@ def test_rejected_second_upload_does_not_replace_the_immutable_source() -> None:
     assert document.object_key == original_key
     assert document.source_checksum_sha256 == "a" * 64
     assert document.detected_mime == "image/jpeg"
+
+
+def test_expired_upload_session_cannot_attach_an_object() -> None:
+    document = _document().model_copy(
+        update={"upload_expires_at": datetime.now(UTC) - timedelta(seconds=1)}
+    )
+
+    with pytest.raises(InvalidDocumentTransition, match="expired"):
+        document.attach_upload(
+            object_key=f"quarantine/{document.tenant_id}/{document.id}/source",
+            checksum_sha256="a" * 64,
+            detected_mime="image/jpeg",
+            expected_version=1,
+        )
+
+    assert document.state is DocumentState.INITIATED

@@ -157,3 +157,12 @@ def test_expired_upload_session_cannot_attach_an_object() -> None:
         )
 
     assert document.state is DocumentState.INITIATED
+
+
+def test_processing_artifact_progress_advances_version_without_changing_state() -> None:
+    document = _document().model_copy(update={"state": DocumentState.PROCESSING, "version": 6})
+
+    document.record_processing_progress(expected_version=6)
+
+    assert document.state is DocumentState.PROCESSING
+    assert document.version == 7

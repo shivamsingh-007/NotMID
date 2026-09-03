@@ -3,7 +3,7 @@
 import asyncio
 import json
 import os
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import AsyncIterator
 from uuid import uuid4
 
@@ -13,6 +13,11 @@ import httpx
 import pytest
 import pytest_asyncio
 
+from app.documents.authorization import (
+    ConsentAuthorizationDenied,
+    PostgresDocumentPurposeAuthorizer,
+)
+from app.documents.cleanup import PostgresAbandonedUploadCleaner
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
 from app.documents.storage import S3DocumentStore
@@ -27,9 +32,6 @@ DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",
     "postgresql://notmid:notmid-local-only@localhost:5432/notmid",
 )
-MIGRATION = Path(__file__).parents[1] / "migrations" / "0001_phase7_documents.up.sql"
-
-
 def _document() -> DocumentRegistryEntry:
     return DocumentRegistryEntry(
         tenant_id=uuid4(),
@@ -61,11 +63,12 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 1
+        assert first_count == 3
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
             "document_outbox",
+            "consent_artifact",
             "schema_migration",
         }
     finally:
@@ -84,7 +87,7 @@ async def postgres_repository() -> AsyncIterator[tuple[PostgresDocumentRepositor
     try:
         await admin.execute(f'CREATE SCHEMA "{schema}"')
         await admin.execute(f'SET search_path TO "{schema}"')
-        await admin.execute(MIGRATION.read_text(encoding="utf-8"))
+        await apply_migrations(admin)
         await admin.execute(f'CREATE ROLE "{role}" NOLOGIN NOSUPERUSER NOBYPASSRLS')
         await admin.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"')
         await admin.execute(f'GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA "{schema}" TO "{role}"')
@@ -121,6 +124,128 @@ async def test_postgres_repository_enforces_rls_and_idempotent_registration(
     assert replay.document.id == document.id
     with pytest.raises(DocumentNotFound):
         await repository.get(uuid4(), document.id)
+
+
+@pytest.mark.asyncio
+async def test_postgres_consent_authorization_is_active_and_tenant_scoped() -> None:
+    suffix = uuid4().hex
+    schema = f"phase7_consent_{suffix}"
+    role = f"phase7_consent_role_{suffix}"
+    tenant_id = uuid4()
+    patient_id = uuid4()
+    encounter_id = uuid4()
+    consent_id = uuid4()
+    admin = await asyncpg.connect(DATABASE_URL)
+    pool = None
+    try:
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        await admin.execute(f'SET search_path TO "{schema}"')
+        await apply_migrations(admin)
+        await admin.execute(
+            """
+            INSERT INTO consent_artifact (
+                id, tenant_id, patient_id, encounter_id, purpose, scope, status
+            ) VALUES ($1, $2, $3, $4, 'treatment', '{"document_upload": true}', 'granted')
+            """,
+            consent_id,
+            tenant_id,
+            patient_id,
+            encounter_id,
+        )
+        await admin.execute(f'CREATE ROLE "{role}" NOLOGIN NOSUPERUSER NOBYPASSRLS')
+        await admin.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"')
+        await admin.execute(f'GRANT SELECT ON consent_artifact TO "{role}"')
+
+        async def initialize(connection: asyncpg.Connection) -> None:
+            await connection.execute(f'SET ROLE "{role}"')
+            await connection.execute(f'SET search_path TO "{schema}"')
+
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=2, setup=initialize)
+        authorizer = PostgresDocumentPurposeAuthorizer(pool)
+        scope = {
+            "tenant_id": tenant_id,
+            "patient_id": patient_id,
+            "encounter_id": encounter_id,
+            "purpose": "treatment",
+            "consent_reference": str(consent_id),
+        }
+
+        await authorizer.authorize(**scope)
+        with pytest.raises(ConsentAuthorizationDenied):
+            await authorizer.authorize(**(scope | {"tenant_id": uuid4()}))
+    finally:
+        if pool is not None:
+            await pool.close()
+        await admin.execute("RESET ROLE")
+        await admin.execute("SET search_path TO public")
+        await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        await admin.execute(f'DROP ROLE IF EXISTS "{role}"')
+        await admin.close()
+
+
+@pytest.mark.asyncio
+async def test_abandoned_upload_cleanup_is_durable_and_emits_safe_event() -> None:
+    schema = f"phase7_cleanup_{uuid4().hex}"
+    document = _document()
+    admin = await asyncpg.connect(DATABASE_URL)
+    pool = None
+    try:
+        await admin.execute(f'CREATE SCHEMA "{schema}"')
+        await admin.execute(f'SET search_path TO "{schema}"')
+        await apply_migrations(admin)
+        await admin.execute(
+            """
+            INSERT INTO document_registry (
+                id, tenant_id, facility_id, patient_id, encounter_id,
+                uploader_actor_id, purpose, consent_reference, original_filename,
+                declared_mime, declared_size_bytes, idempotency_key,
+                upload_expires_at, state, version, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
+                CURRENT_TIMESTAMP - INTERVAL '1 minute', 'initiated', 1,
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
+            """,
+            document.id,
+            document.tenant_id,
+            document.facility_id,
+            document.patient_id,
+            document.encounter_id,
+            document.uploader_actor_id,
+            document.purpose,
+            document.consent_reference,
+            document.original_filename,
+            document.declared_mime,
+            document.declared_size_bytes,
+            document.idempotency_key,
+        )
+
+        async def initialize(connection: asyncpg.Connection) -> None:
+            await connection.execute(f'SET search_path TO "{schema}"')
+
+        pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=2, setup=initialize)
+        expired = await PostgresAbandonedUploadCleaner(pool).expire(
+            now=datetime.now(UTC),
+            limit=10,
+        )
+
+        assert [item.document_id for item in expired] == [document.id]
+        row = await admin.fetchrow(
+            "SELECT state, version FROM document_registry WHERE id = $1", document.id
+        )
+        event = await admin.fetchrow(
+            "SELECT event_type, payload FROM document_outbox WHERE aggregate_id = $1",
+            document.id,
+        )
+        assert row is not None and dict(row) == {"state": "cancelled", "version": 2}
+        assert event is not None and event["event_type"] == "DocumentUploadExpired.v1"
+        assert str(document.patient_id) not in str(dict(event))
+    finally:
+        if pool is not None:
+            await pool.close()
+        await admin.execute("SET search_path TO public")
+        await admin.execute(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE')
+        await admin.close()
 
 
 @pytest.mark.asyncio

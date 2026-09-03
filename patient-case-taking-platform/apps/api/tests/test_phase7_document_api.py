@@ -7,7 +7,12 @@ from fastapi.testclient import TestClient
 
 from app.audit.emitter import audit_emitter
 from app.auth.token import create_dev_token
-from app.documents.dependencies import get_document_repository, get_document_store
+from app.documents.authorization import ConsentAuthorizationDenied
+from app.documents.dependencies import (
+    get_document_purpose_authorizer,
+    get_document_repository,
+    get_document_store,
+)
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import (
     DocumentCreateResult,
@@ -62,6 +67,13 @@ class _Repository:
         document.transition(DocumentState.QUARANTINED, expected_version=document.version)
         return document
 
+    async def cancel(
+        self, *, tenant_id: UUID, document_id: UUID, expected_version: int
+    ) -> DocumentRegistryEntry:
+        document = await self.get(tenant_id, document_id)
+        document.transition(DocumentState.CANCELLED, expected_version=expected_version)
+        return document
+
 
 class _Store:
     def __init__(self) -> None:
@@ -92,12 +104,31 @@ class _Store:
         )
 
 
+class _PurposeAuthorizer:
+    def __init__(self) -> None:
+        self.denial: ConsentAuthorizationDenied | None = None
+        self.calls = 0
+
+    async def authorize(self, **_scope: object) -> None:
+        self.calls += 1
+        if self.denial is not None:
+            raise self.denial
+
+
 @pytest.fixture
 def repository() -> _Repository:
     value = _Repository()
     app.dependency_overrides[get_document_repository] = lambda: value
     yield value
     app.dependency_overrides.pop(get_document_repository, None)
+
+
+@pytest.fixture(autouse=True)
+def purpose_authorizer() -> _PurposeAuthorizer:
+    value = _PurposeAuthorizer()
+    app.dependency_overrides[get_document_purpose_authorizer] = lambda: value
+    yield value
+    app.dependency_overrides.pop(get_document_purpose_authorizer, None)
 
 
 @pytest.fixture
@@ -189,6 +220,25 @@ def test_cross_facility_registration_is_denied_before_repository_access(
     assert repository.create_calls == 0
 
 
+def test_registration_fails_closed_when_consent_is_not_active(
+    repository: _Repository,
+    purpose_authorizer: _PurposeAuthorizer,
+) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    purpose_authorizer.denial = ConsentAuthorizationDenied()
+
+    response = client.post(
+        "/api/v1/documents",
+        json=_body(facility_id),
+        headers=_headers(tenant_id, facility_id),
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Active consent does not authorize this upload"}
+    assert repository.create_calls == 0
+
+
 def test_unapproved_role_cannot_register_a_document(repository: _Repository) -> None:
     tenant_id = uuid4()
     facility_id = uuid4()
@@ -264,6 +314,54 @@ def test_authorized_user_gets_a_short_lived_upload_grant(
     assert response.json()["expires_in_seconds"] == 300
     assert "object_key" not in response.json()
     assert store.grant_calls == 1
+
+
+def test_authorized_user_can_read_document_status(repository: _Repository) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+
+    response = client.get(
+        f"/api/v1/documents/{created.json()['id']}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "initiated"
+    assert "upload_expires_at" in response.json()
+
+
+def test_authorized_user_can_cancel_an_initiated_upload(repository: _Repository) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+
+    response = client.post(
+        f"/api/v1/documents/{created.json()['id']}/cancel",
+        json={"expected_version": 1},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "cancelled"
+    assert response.json()["version"] == 2
+
+
+def test_cancel_rejects_a_stale_version(repository: _Repository) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+
+    response = client.post(
+        f"/api/v1/documents/{created.json()['id']}/cancel",
+        json={"expected_version": 2},
+        headers=headers,
+    )
+
+    assert response.status_code == 409
 
 
 def test_finalize_verifies_object_then_moves_document_to_quarantine(

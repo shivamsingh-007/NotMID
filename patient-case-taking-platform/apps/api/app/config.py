@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     DATABASE_URL: str = "postgresql://notmid:notmid-local-only@localhost:5432/notmid"
+    DATABASE_MAINTENANCE_URL: str = ""
     MONGODB_URL: str = "mongodb://localhost:27017"
     REDIS_URL: str = "redis://localhost:6379"
     KAFKA_BROKERS: str = "localhost:9092"
@@ -25,6 +26,9 @@ class Settings(BaseSettings):
     ENABLE_DEMO_ROUTES: bool = False
     DOCUMENT_WORKFLOW_ENABLED: bool = False
     DOCUMENT_UPLOAD_GRANT_TTL_SECONDS: int = 300
+    DOCUMENT_UPLOAD_SESSION_TTL_SECONDS: int = 900
+    DOCUMENT_UPLOAD_CLEANUP_INTERVAL_SECONDS: int = 60
+    DOCUMENT_UPLOAD_CLEANUP_BATCH_SIZE: int = 100
     READINESS_TIMEOUT_SECONDS: float = 1.5
     ASR_PROVIDER: str = "mock"  # "mock", "ai4bharat"
     ASR_MODEL_REVISION: str = "e9b71b369c048e2c6b634d4c131061c34e441179"

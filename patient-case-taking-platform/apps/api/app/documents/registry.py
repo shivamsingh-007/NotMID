@@ -4,7 +4,7 @@ This module deliberately contains no object-store or database adapter. It is the
 state and concurrency contract those Phase 7 adapters must enforce.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from uuid import UUID
 
@@ -81,6 +81,9 @@ class DocumentRegistryEntry(BaseRecord):
     declared_mime: str = Field(min_length=1, max_length=127)
     declared_size_bytes: int = Field(gt=0)
     idempotency_key: str = Field(min_length=1, max_length=128)
+    upload_expires_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC) + timedelta(minutes=15)
+    )
     state: DocumentState = DocumentState.INITIATED
     object_key: str | None = None
     source_checksum_sha256: str | None = None
@@ -111,6 +114,8 @@ class DocumentRegistryEntry(BaseRecord):
         detected_mime: str,
         expected_version: int,
     ) -> None:
+        if self.upload_expires_at <= datetime.now(UTC):
+            raise InvalidDocumentTransition("Upload session has expired")
         self._assert_transition(DocumentState.UPLOADED, expected_version)
         expected_prefix = f"quarantine/{self.tenant_id}/{self.id}/"
         if not object_key.startswith(expected_prefix):

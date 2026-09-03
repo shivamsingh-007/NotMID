@@ -35,6 +35,7 @@ class DocumentResponse(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+    upload_expires_at: datetime
 
 
 class DocumentUploadGrantResponse(BaseModel):
@@ -44,6 +45,12 @@ class DocumentUploadGrantResponse(BaseModel):
 
 
 class DocumentFinalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(gt=0)
+
+
+class DocumentVersionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected_version: int = Field(gt=0)

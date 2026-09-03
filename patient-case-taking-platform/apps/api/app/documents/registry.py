@@ -88,6 +88,8 @@ class DocumentRegistryEntry(BaseRecord):
     object_key: str | None = None
     source_checksum_sha256: str | None = None
     detected_mime: str | None = None
+    active_processing_run_id: UUID | None = None
+    processing_object_key: str | None = None
 
     def _assert_version(self, expected_version: int) -> None:
         if expected_version != self.version:

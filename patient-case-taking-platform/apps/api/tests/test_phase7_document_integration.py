@@ -20,6 +20,8 @@ from app.documents.authorization import (
 from app.documents.cleanup import PostgresAbandonedUploadCleaner
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
+from app.documents.scan_repository import PostgresDocumentScanRepository
+from app.documents.scan_service import DocumentScanService
 from app.documents.scanning import ClamAVScanner, MalwareScanOutcome
 from app.documents.storage import S3DocumentStore
 from app.migrations import apply_migrations
@@ -64,12 +66,13 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 3
+        assert first_count == 4
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
             "document_outbox",
             "consent_artifact",
+            "document_scan_run",
             "schema_migration",
         }
     finally:
@@ -79,7 +82,9 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
 
 
 @pytest_asyncio.fixture
-async def postgres_repository() -> AsyncIterator[tuple[PostgresDocumentRepository, str]]:
+async def postgres_repository() -> AsyncIterator[
+    tuple[PostgresDocumentRepository, str, asyncpg.Pool]
+]:
     suffix = uuid4().hex
     schema = f"phase7_{suffix}"
     role = f"phase7_role_{suffix}"
@@ -99,7 +104,7 @@ async def postgres_repository() -> AsyncIterator[tuple[PostgresDocumentRepositor
 
         pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=2, setup=initialize)
         assert pool is not None
-        yield PostgresDocumentRepository(pool), schema
+        yield PostgresDocumentRepository(pool), schema, pool
     finally:
         if pool is not None:
             await pool.close()
@@ -112,9 +117,9 @@ async def postgres_repository() -> AsyncIterator[tuple[PostgresDocumentRepositor
 
 @pytest.mark.asyncio
 async def test_postgres_repository_enforces_rls_and_idempotent_registration(
-    postgres_repository: tuple[PostgresDocumentRepository, str],
+    postgres_repository: tuple[PostgresDocumentRepository, str, asyncpg.Pool],
 ) -> None:
-    repository, _schema = postgres_repository
+    repository, _schema, _pool = postgres_repository
     document = _document()
 
     created = await repository.create(document)
@@ -251,9 +256,9 @@ async def test_abandoned_upload_cleanup_is_durable_and_emits_safe_event() -> Non
 
 @pytest.mark.asyncio
 async def test_postgres_finalize_commits_quarantine_state_and_safe_outbox(
-    postgres_repository: tuple[PostgresDocumentRepository, str],
+    postgres_repository: tuple[PostgresDocumentRepository, str, asyncpg.Pool],
 ) -> None:
-    repository, schema = postgres_repository
+    repository, schema, _pool = postgres_repository
     document = _document()
     await repository.create(document)
     object_key = f"quarantine/{document.tenant_id}/{document.id}/source"
@@ -337,3 +342,84 @@ async def test_clamav_detects_eicar_and_accepts_clean_synthetic_bytes() -> None:
     assert clean.outcome is MalwareScanOutcome.CLEAN
     assert infected.outcome is MalwareScanOutcome.INFECTED
     assert infected.threat_name
+
+
+@pytest.mark.asyncio
+async def test_clean_document_scan_persists_run_and_promotes_private_source(
+    postgres_repository: tuple[PostgresDocumentRepository, str, asyncpg.Pool],
+) -> None:
+    repository, schema, pool = postgres_repository
+    endpoint = os.getenv("TEST_S3_ENDPOINT", "http://127.0.0.1:9000")
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=os.getenv("TEST_S3_ACCESS_KEY", "notmid-local"),
+        aws_secret_access_key=os.getenv(
+            "TEST_S3_SECRET_KEY", "notmid-local-only-change-me"
+        ),
+        region_name="us-east-1",
+    )
+    bucket = f"phase7-scan-{uuid4().hex}"
+    await asyncio.to_thread(client.create_bucket, Bucket=bucket)
+    data = b"\xff\xd8\xffMediKiosk synthetic clean image"
+    document = _document().model_copy(
+        update={
+            "declared_size_bytes": len(data),
+            "idempotency_key": f"scan-{uuid4()}",
+        }
+    )
+    store = S3DocumentStore(client=client, bucket=bucket, server_side_encryption="")
+    try:
+        await repository.create(document)
+        grant = await store.create_upload_grant(document)
+        async with httpx.AsyncClient() as http:
+            upload = await http.put(grant.url, content=data, headers=grant.required_headers)
+        assert upload.status_code == 200
+        verified = await store.verify_upload(document, grant.object_key)
+        quarantined = await repository.finalize_upload(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=1,
+            object_key=verified.object_key,
+            checksum_sha256=verified.checksum_sha256,
+            detected_mime=verified.detected_mime,
+        )
+        scanner = ClamAVScanner(
+            host=os.getenv("TEST_CLAMAV_HOST", "127.0.0.1"),
+            port=int(os.getenv("TEST_CLAMAV_PORT", "3310")),
+            timeout_seconds=30,
+        )
+        await DocumentScanService(
+            PostgresDocumentScanRepository(pool),
+            store,
+            scanner,
+        ).process(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=quarantined.version,
+        )
+
+        completed = await repository.get(document.tenant_id, document.id)
+        assert completed.state is DocumentState.SCAN_PASSED
+        assert completed.processing_object_key is not None
+        head = await asyncio.to_thread(
+            client.head_object,
+            Bucket=bucket,
+            Key=completed.processing_object_key,
+        )
+        assert head["ContentLength"] == len(data)
+        admin = await asyncpg.connect(DATABASE_URL)
+        try:
+            scan = await admin.fetchrow(
+                f'SELECT status, outcome, engine_version FROM "{schema}".document_scan_run'
+            )
+        finally:
+            await admin.close()
+        assert scan is not None
+        assert dict(scan)["status"] == "completed"
+        assert dict(scan)["outcome"] == "clean"
+    finally:
+        objects = await asyncio.to_thread(client.list_objects_v2, Bucket=bucket)
+        for item in objects.get("Contents", []):
+            await asyncio.to_thread(client.delete_object, Bucket=bucket, Key=item["Key"])
+        await asyncio.to_thread(client.delete_bucket, Bucket=bucket)

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
         "http://localhost:3000,http://localhost:3001,http://localhost:3002"
     )
     ENABLE_DEMO_ROUTES: bool = False
+    DOCUMENT_WORKFLOW_ENABLED: bool = False
     READINESS_TIMEOUT_SECONDS: float = 1.5
     ASR_PROVIDER: str = "mock"  # "mock", "ai4bharat"
     ASR_MODEL_REVISION: str = "e9b71b369c048e2c6b634d4c131061c34e441179"

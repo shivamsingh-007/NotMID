@@ -152,6 +152,9 @@ async def test_minio_presigned_upload_is_verified_from_stored_bytes() -> None:
         verified = await store.verify_upload(document, grant.object_key)
         assert verified.detected_mime == "image/jpeg"
         assert verified.size_bytes == len(data)
+        async with httpx.AsyncClient() as http:
+            anonymous = await http.get(f"{endpoint}/{bucket}/{grant.object_key}")
+        assert anonymous.status_code == 403
     finally:
         await asyncio.to_thread(
             client.delete_object,

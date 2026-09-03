@@ -7,9 +7,14 @@ from fastapi.testclient import TestClient
 
 from app.audit.emitter import audit_emitter
 from app.auth.token import create_dev_token
-from app.documents.dependencies import get_document_repository
-from app.documents.registry import DocumentRegistryEntry
-from app.documents.repository import DocumentCreateResult, IdempotencyConflict
+from app.documents.dependencies import get_document_repository, get_document_store
+from app.documents.registry import DocumentRegistryEntry, DocumentState
+from app.documents.repository import (
+    DocumentCreateResult,
+    DocumentNotFound,
+    IdempotencyConflict,
+)
+from app.documents.storage import ObjectVerificationError, UploadGrant, VerifiedUpload
 from app.main import app
 
 client = TestClient(app)
@@ -31,6 +36,61 @@ class _Repository:
             raise IdempotencyConflict("conflicting registration")
         return DocumentCreateResult(document=existing, created=False)
 
+    async def get(self, tenant_id: UUID, document_id: UUID) -> DocumentRegistryEntry:
+        for document in self.documents.values():
+            if document.tenant_id == tenant_id and document.id == document_id:
+                return document
+        raise DocumentNotFound("Document not found")
+
+    async def finalize_upload(
+        self,
+        *,
+        tenant_id: UUID,
+        document_id: UUID,
+        expected_version: int,
+        object_key: str,
+        checksum_sha256: str,
+        detected_mime: str,
+    ) -> DocumentRegistryEntry:
+        document = await self.get(tenant_id, document_id)
+        document.attach_upload(
+            object_key=object_key,
+            checksum_sha256=checksum_sha256,
+            detected_mime=detected_mime,
+            expected_version=expected_version,
+        )
+        document.transition(DocumentState.QUARANTINED, expected_version=document.version)
+        return document
+
+
+class _Store:
+    def __init__(self) -> None:
+        self.verify_error: ObjectVerificationError | None = None
+        self.grant_calls = 0
+        self.verify_calls = 0
+
+    async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant:
+        self.grant_calls += 1
+        return UploadGrant(
+            url="https://object-store.invalid/signed-upload",
+            object_key=f"quarantine/{document.tenant_id}/{document.id}/source",
+            expires_in_seconds=300,
+            required_headers={"Content-Type": document.declared_mime},
+        )
+
+    async def verify_upload(
+        self, document: DocumentRegistryEntry, object_key: str
+    ) -> VerifiedUpload:
+        self.verify_calls += 1
+        if self.verify_error is not None:
+            raise self.verify_error
+        return VerifiedUpload(
+            object_key=object_key,
+            size_bytes=document.declared_size_bytes,
+            checksum_sha256="a" * 64,
+            detected_mime=document.declared_mime,
+        )
+
 
 @pytest.fixture
 def repository() -> _Repository:
@@ -38,6 +98,14 @@ def repository() -> _Repository:
     app.dependency_overrides[get_document_repository] = lambda: value
     yield value
     app.dependency_overrides.pop(get_document_repository, None)
+
+
+@pytest.fixture
+def store() -> _Store:
+    value = _Store()
+    app.dependency_overrides[get_document_store] = lambda: value
+    yield value
+    app.dependency_overrides.pop(get_document_store, None)
 
 
 def _headers(tenant_id: UUID, facility_id: UUID, *, role: str = "nurse") -> dict[str, str]:
@@ -176,3 +244,63 @@ def test_document_workflow_fails_closed_when_not_enabled() -> None:
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Document workflow is not enabled"}
+
+
+def test_authorized_user_gets_a_short_lived_upload_grant(
+    repository: _Repository, store: _Store
+) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+
+    response = client.post(
+        f"/api/v1/documents/{created.json()['id']}/upload-session",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["url"].startswith("https://")
+    assert response.json()["expires_in_seconds"] == 300
+    assert "object_key" not in response.json()
+    assert store.grant_calls == 1
+
+
+def test_finalize_verifies_object_then_moves_document_to_quarantine(
+    repository: _Repository, store: _Store
+) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+
+    response = client.post(
+        f"/api/v1/documents/{created.json()['id']}/finalize",
+        json={"expected_version": 1},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "quarantined"
+    assert response.json()["version"] == 3
+    assert store.verify_calls == 1
+
+
+def test_finalize_rejects_unverified_object_without_changing_registry(
+    repository: _Repository, store: _Store
+) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    headers = _headers(tenant_id, facility_id)
+    created = client.post("/api/v1/documents", json=_body(facility_id), headers=headers)
+    store.verify_error = ObjectVerificationError("size mismatch")
+
+    response = client.post(
+        f"/api/v1/documents/{created.json()['id']}/finalize",
+        json={"expected_version": 1},
+        headers=headers,
+    )
+
+    assert response.status_code == 422
+    document = next(iter(repository.documents.values()))
+    assert document.state is DocumentState.INITIATED

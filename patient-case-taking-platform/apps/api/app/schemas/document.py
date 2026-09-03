@@ -35,3 +35,15 @@ class DocumentResponse(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+
+
+class DocumentUploadGrantResponse(BaseModel):
+    url: str
+    expires_in_seconds: int
+    required_headers: dict[str, str]
+
+
+class DocumentFinalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_version: int = Field(gt=0)

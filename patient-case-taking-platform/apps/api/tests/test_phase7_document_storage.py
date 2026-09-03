@@ -30,6 +30,7 @@ class _Client:
         self.presign_params: dict[str, Any] | None = None
         self.body = _Body(data)
         self.copy_params: dict[str, Any] | None = None
+        self.put_params: list[dict[str, Any]] = []
 
     def generate_presigned_url(self, operation: str, **kwargs: Any) -> str:
         self.presign_params = {"operation": operation, **kwargs}
@@ -45,6 +46,9 @@ class _Client:
 
     def copy_object(self, **kwargs: Any) -> None:
         self.copy_params = kwargs
+
+    def put_object(self, **kwargs: Any) -> None:
+        self.put_params.append(kwargs)
 
 
 def _document(*, size: int, mime: str = "image/jpeg") -> DocumentRegistryEntry:
@@ -211,3 +215,43 @@ async def test_only_scanning_document_can_be_promoted_to_processing_prefix() -> 
     assert client.copy_params is not None
     assert client.copy_params["CopySource"]["Key"] == document.object_key
     assert client.copy_params["ServerSideEncryption"] == "AES256"
+
+
+@pytest.mark.asyncio
+async def test_normalized_pages_are_stored_under_versioned_derived_prefix() -> None:
+    from app.documents.normalization import NormalizedPage
+
+    data = b"\xff\xd8\xff" + b"safe-image"
+    document = _document(size=len(data)).model_copy(
+        update={
+            "state": DocumentState.PROCESSING,
+            "version": 6,
+            "processing_object_key": "clinical-processing/source",
+            "source_checksum_sha256": hashlib.sha256(data).hexdigest(),
+        }
+    )
+    page_data = b"\x89PNG\r\n\x1a\nsynthetic"
+    page = NormalizedPage(
+        page_number=1,
+        width=20,
+        height=30,
+        mime="image/png",
+        data=page_data,
+        checksum_sha256=hashlib.sha256(page_data).hexdigest(),
+    )
+    client = _Client(data, "image/jpeg")
+    store = S3DocumentStore(
+        client=client,
+        bucket="clinical-private",
+        server_side_encryption="AES256",
+    )
+
+    stored = await store.store_normalized_pages(document, "normalize-run-1", [page])
+
+    assert stored[0].object_key == (
+        f"derived/{document.tenant_id}/{document.id}/normalize-run-1/pages/0001.png"
+    )
+    assert client.put_params[0]["Body"] == page_data
+    assert client.put_params[0]["Metadata"]["source-checksum"] == (
+        document.source_checksum_sha256
+    )

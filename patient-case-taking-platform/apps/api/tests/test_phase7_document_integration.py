@@ -4,6 +4,7 @@ import asyncio
 import json
 import os
 from datetime import UTC, datetime
+from io import BytesIO
 from typing import AsyncIterator
 from uuid import uuid4
 
@@ -12,12 +13,18 @@ import boto3
 import httpx
 import pytest
 import pytest_asyncio
+from PIL import Image
 
 from app.documents.authorization import (
     ConsentAuthorizationDenied,
     PostgresDocumentPurposeAuthorizer,
 )
 from app.documents.cleanup import PostgresAbandonedUploadCleaner
+from app.documents.normalization import DocumentNormalizer
+from app.documents.normalization_repository import (
+    PostgresDocumentNormalizationRepository,
+)
+from app.documents.normalization_service import DocumentNormalizationService
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
 from app.documents.scan_repository import PostgresDocumentScanRepository
@@ -66,13 +73,15 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 4
+        assert first_count == 5
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
             "document_outbox",
             "consent_artifact",
             "document_scan_run",
+            "document_normalization_run",
+            "document_page_artifact",
             "schema_migration",
         }
     finally:
@@ -418,6 +427,124 @@ async def test_clean_document_scan_persists_run_and_promotes_private_source(
         assert scan is not None
         assert dict(scan)["status"] == "completed"
         assert dict(scan)["outcome"] == "clean"
+    finally:
+        objects = await asyncio.to_thread(client.list_objects_v2, Bucket=bucket)
+        for item in objects.get("Contents", []):
+            await asyncio.to_thread(client.delete_object, Bucket=bucket, Key=item["Key"])
+        await asyncio.to_thread(client.delete_bucket, Bucket=bucket)
+
+
+@pytest.mark.asyncio
+async def test_clean_document_is_normalized_to_durable_private_page_artifact(
+    postgres_repository: tuple[PostgresDocumentRepository, str, asyncpg.Pool],
+) -> None:
+    repository, schema, pool = postgres_repository
+    endpoint = os.getenv("TEST_S3_ENDPOINT", "http://127.0.0.1:9000")
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        aws_access_key_id=os.getenv("TEST_S3_ACCESS_KEY", "notmid-local"),
+        aws_secret_access_key=os.getenv(
+            "TEST_S3_SECRET_KEY", "notmid-local-only-change-me"
+        ),
+        region_name="us-east-1",
+    )
+    bucket = f"phase7-normalize-{uuid4().hex}"
+    await asyncio.to_thread(client.create_bucket, Bucket=bucket)
+    source = BytesIO()
+    Image.new("RGB", (8, 6), "white").save(source, format="PNG")
+    data = source.getvalue()
+    document = _document().model_copy(
+        update={
+            "declared_mime": "image/png",
+            "declared_size_bytes": len(data),
+            "idempotency_key": f"normalize-{uuid4()}",
+        }
+    )
+    store = S3DocumentStore(client=client, bucket=bucket, server_side_encryption="")
+    try:
+        await repository.create(document)
+        grant = await store.create_upload_grant(document)
+        async with httpx.AsyncClient() as http:
+            upload = await http.put(grant.url, content=data, headers=grant.required_headers)
+        assert upload.status_code == 200
+        verified = await store.verify_upload(document, grant.object_key)
+        quarantined = await repository.finalize_upload(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=1,
+            object_key=verified.object_key,
+            checksum_sha256=verified.checksum_sha256,
+            detected_mime=verified.detected_mime,
+        )
+        await DocumentScanService(
+            PostgresDocumentScanRepository(pool),
+            store,
+            ClamAVScanner(
+                host=os.getenv("TEST_CLAMAV_HOST", "127.0.0.1"),
+                port=int(os.getenv("TEST_CLAMAV_PORT", "3310")),
+                timeout_seconds=30,
+            ),
+        ).process(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=quarantined.version,
+        )
+        scan_passed = await repository.get(document.tenant_id, document.id)
+        await DocumentNormalizationService(
+            PostgresDocumentNormalizationRepository(pool),
+            store,
+            DocumentNormalizer(
+                max_pages=20,
+                max_pixels_per_page=1_000_000,
+                max_total_pixels=1_000_000,
+            ),
+        ).process(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=scan_passed.version,
+        )
+
+        normalized = await repository.get(document.tenant_id, document.id)
+        assert normalized.state is DocumentState.PROCESSING
+        assert normalized.version == 7
+        admin = await asyncpg.connect(DATABASE_URL)
+        try:
+            run = await admin.fetchrow(
+                f'SELECT status, preprocessing_version FROM "{schema}".document_normalization_run'
+            )
+            page = await admin.fetchrow(
+                f'SELECT * FROM "{schema}".document_page_artifact'
+            )
+            event = await admin.fetchrow(
+                f'''SELECT artifact_refs, payload FROM "{schema}".document_outbox
+                    WHERE event_type = 'DocumentPagesNormalized.v1' '''
+            )
+        finally:
+            await admin.close()
+        assert run is not None and dict(run) == {
+            "status": "completed",
+            "preprocessing_version": "normalize.v1",
+        }
+        assert page is not None
+        assert page["page_number"] == 1
+        assert page["width"] == 8
+        assert page["height"] == 6
+        stored = await asyncio.to_thread(
+            client.get_object,
+            Bucket=bucket,
+            Key=page["object_key"],
+        )
+        body = stored["Body"]
+        try:
+            normalized_bytes = await asyncio.to_thread(body.read)
+        finally:
+            body.close()
+        assert normalized_bytes.startswith(b"\x89PNG\r\n\x1a\n")
+        assert event is not None
+        serialized = json.dumps(dict(event), default=str)
+        assert document.original_filename not in serialized
+        assert str(document.patient_id) not in serialized
     finally:
         objects = await asyncio.to_thread(client.list_objects_v2, Bucket=bucket)
         for item in objects.get("Contents", []):

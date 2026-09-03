@@ -20,6 +20,7 @@ from app.documents.authorization import (
 from app.documents.cleanup import PostgresAbandonedUploadCleaner
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
+from app.documents.scanning import ClamAVScanner, MalwareScanOutcome
 from app.documents.storage import S3DocumentStore
 from app.migrations import apply_migrations
 
@@ -316,3 +317,23 @@ async def test_minio_presigned_upload_is_verified_from_stored_bytes() -> None:
             Key=f"quarantine/{document.tenant_id}/{document.id}/source",
         )
         await asyncio.to_thread(client.delete_bucket, Bucket=bucket)
+
+
+@pytest.mark.asyncio
+async def test_clamav_detects_eicar_and_accepts_clean_synthetic_bytes() -> None:
+    scanner = ClamAVScanner(
+        host=os.getenv("TEST_CLAMAV_HOST", "127.0.0.1"),
+        port=int(os.getenv("TEST_CLAMAV_PORT", "3310")),
+        timeout_seconds=30,
+    )
+    eicar = (
+        b"X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!"
+        b"$H+H*"
+    )
+
+    clean = await scanner.scan(b"MediKiosk synthetic clean fixture")
+    infected = await scanner.scan(eicar)
+
+    assert clean.outcome is MalwareScanOutcome.CLEAN
+    assert infected.outcome is MalwareScanOutcome.INFECTED
+    assert infected.threat_name

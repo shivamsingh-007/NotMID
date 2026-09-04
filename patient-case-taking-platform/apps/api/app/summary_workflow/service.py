@@ -40,8 +40,10 @@ class SummaryWorkflowService:
         parent: SummaryRecord | None = None,
     ) -> SummaryRecord:
         self._require_role(actor_role, {"doctor", "nurse"})
+        request_hash = self._request_hash(source, parent)
         replay = await self.repository.find_idempotent(
-            tenant_id=source.tenant_id, idempotency_key=idempotency_key
+            tenant_id=source.tenant_id, idempotency_key=idempotency_key,
+            request_hash_sha256=request_hash,
         )
         if replay is not None:
             return replay
@@ -78,10 +80,12 @@ class SummaryWorkflowService:
             created_by_actor_id=actor_id,
             created_at=now,
             updated_at=now,
+            request_hash_sha256=request_hash,
         )
         action = self._action(record, actor_id, actor_role, "generated", None)
         return await self.repository.create(
-            record=record, action=action, idempotency_key=idempotency_key
+            record=record, action=action, idempotency_key=idempotency_key,
+            request_hash_sha256=request_hash,
         )
 
     async def edit(
@@ -249,6 +253,13 @@ class SummaryWorkflowService:
             "actor_id": str(actor_id),
             "signed_at": signed_at.isoformat(),
         }
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _request_hash(source: SummarySourceBundle, parent: SummaryRecord | None) -> str:
+        payload = source.model_dump(mode="json")
+        payload["parent_summary_id"] = str(parent.id) if parent else None
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

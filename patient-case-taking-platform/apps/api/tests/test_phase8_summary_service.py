@@ -49,6 +49,11 @@ async def test_generate_is_mock_only_idempotent_and_preserves_required_red_flags
     assert first.status == SummaryStatus.DRAFT
     assert "RF-RESP-001" in first.content.red_flags
     assert len(await repository.history(tenant_id=source.tenant_id, summary_id=first.id)) == 1
+    with pytest.raises(SummaryConflict, match="another request"):
+        await service.generate(
+            source=source.model_copy(update={"chief_complaint": "Different complaint"}),
+            actor_id=actor, actor_role="nurse", idempotency_key="generate-1",
+        )
 
 
 @pytest.mark.asyncio

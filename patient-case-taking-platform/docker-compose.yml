@@ -233,6 +233,27 @@ services:
       mongodb: { condition: service_healthy }
       document-ocr-worker: { condition: service_started }
 
+  document-promotion-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.documents.promotion_worker", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      DOCUMENT_PROMOTION_BATCH_SIZE: ${DOCUMENT_PROMOTION_BATCH_SIZE:-10}
+      DOCUMENT_PROMOTION_POLL_INTERVAL_SECONDS: ${DOCUMENT_PROMOTION_POLL_INTERVAL_SECONDS:-2}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+
   api:
     build:
       context: ./apps/api

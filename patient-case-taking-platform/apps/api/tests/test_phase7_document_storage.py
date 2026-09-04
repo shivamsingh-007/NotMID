@@ -310,3 +310,64 @@ async def test_ocr_read_rejects_page_outside_document_scope() -> None:
 
     with pytest.raises(ObjectVerificationError, match="scope"):
         await store.read_normalized_page(document, page, max_bytes=1024)
+
+
+@pytest.mark.asyncio
+async def test_review_preview_is_short_lived_and_scoped_to_exact_page(monkeypatch) -> None:
+    from uuid import uuid4
+
+    document = _document(size=12).model_copy(
+        update={"state": DocumentState.REVIEW_REQUIRED, "version": 9}
+    )
+    page = PageArtifact(
+        id=uuid4(),
+        page_number=1,
+        object_key=f"derived/{document.tenant_id}/{document.id}/run/pages/0001.png",
+        checksum_sha256="a" * 64,
+        mime="image/png",
+        width=20,
+        height=30,
+        preprocessing_version="normalize.v1",
+    )
+    client = _Client(b"page", "image/png")
+    store = S3DocumentStore(
+        client=client,
+        presign_client=client,
+        bucket="clinical-private",
+    )
+    monkeypatch.setattr(
+        "app.documents.storage.settings.DOCUMENT_PREVIEW_GRANT_TTL_SECONDS", 180
+    )
+
+    grant = await store.create_page_preview_grant(document, page)
+
+    assert grant.expires_in_seconds == 180
+    assert client.presign_params is not None
+    assert client.presign_params["operation"] == "get_object"
+    assert client.presign_params["Params"] == {
+        "Bucket": "clinical-private",
+        "Key": page.object_key,
+    }
+
+
+@pytest.mark.asyncio
+async def test_review_preview_rejects_cross_document_page() -> None:
+    from uuid import uuid4
+
+    document = _document(size=12).model_copy(
+        update={"state": DocumentState.REVIEW_REQUIRED, "version": 9}
+    )
+    page = PageArtifact(
+        id=uuid4(),
+        page_number=1,
+        object_key=f"derived/{document.tenant_id}/{uuid4()}/run/pages/0001.png",
+        checksum_sha256="a" * 64,
+        mime="image/png",
+        width=20,
+        height=30,
+        preprocessing_version="normalize.v1",
+    )
+    store = S3DocumentStore(client=_Client(b"page", "image/png"))
+
+    with pytest.raises(ObjectVerificationError, match="scope"):
+        await store.create_page_preview_grant(document, page)

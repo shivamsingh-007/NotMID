@@ -7,6 +7,7 @@ const links = [
   { href: "/", label: "◌  Nurse station" },
   { href: "/doctor", label: "◇  Doctor review" },
   { href: "/worklist", label: "≡  Worklist" },
+  { href: "/documents/review", label: "▤  Document review" },
   { href: "/patients", label: "○  Patients" },
   { href: "/alerts", label: "△  Alerts" },
 ];

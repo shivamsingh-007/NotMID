@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import Literal
 
+import app.rules.red_flags  # noqa: F401  # register the canonical rule set
 from app.rules.engine import RuleResult, Severity, engine
 
 NO_CONFIGURED_FLAG: Literal["no_configured_flag"] = "no_configured_flag"

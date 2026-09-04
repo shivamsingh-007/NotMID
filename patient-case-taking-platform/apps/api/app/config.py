@@ -20,9 +20,7 @@ class Settings(BaseSettings):
     S3_SERVER_SIDE_ENCRYPTION: str = ""
     CLERK_SECRET_KEY: str = ""
     CLERK_PUBLISHABLE_KEY: str = ""
-    CORS_ALLOWED_ORIGINS: str = (
-        "http://localhost:3000,http://localhost:3001,http://localhost:3002"
-    )
+    CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002"
     ENABLE_DEMO_ROUTES: bool = False
     DOCUMENT_WORKFLOW_ENABLED: bool = False
     DOCUMENT_UPLOAD_GRANT_TTL_SECONDS: int = 300
@@ -86,8 +84,14 @@ class Settings(BaseSettings):
     DOCUMENT_OUTBOX_BATCH_SIZE: int = 25
     DOCUMENT_OUTBOX_POLL_INTERVAL_SECONDS: float = 1
     DOCUMENT_EVENT_TOPIC: str = "clinical.documents.v1"
+    SUMMARY_OUTBOX_LEASE_SECONDS: int = 30
+    SUMMARY_OUTBOX_MAX_ATTEMPTS: int = 3
+    SUMMARY_OUTBOX_BATCH_SIZE: int = 25
+    SUMMARY_OUTBOX_POLL_INTERVAL_SECONDS: float = 1
+    SUMMARY_EVENT_TOPIC: str = "clinical.summaries.v1"
     MODEL_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
+    SUMMARY_WORKFLOW_ENABLED: bool = False
 
     @property
     def cors_allowed_origins(self) -> list[str]:

@@ -1,79 +1,89 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const router = useRouter();
+  const [email, setEmail] = useState("doctor@example.test");
+  const [userId, setUserId] = useState("");
+  const [tenantId, setTenantId] = useState("");
+  const [facilityId, setFacilityId] = useState("");
+  const [role, setRole] = useState<"doctor" | "nurse">("doctor");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
+  async function handleLogin(event: React.FormEvent) {
+    event.preventDefault();
     setLoading(true);
-    setError("Sign-in is unavailable in this prototype. Clerk integration is required.");
-    setLoading(false);
-  };
+    setError("");
+    try {
+      const query = new URLSearchParams({
+        user_id: userId,
+        email,
+        role,
+        tenant_id: tenantId,
+      });
+      query.append("facility_ids", facilityId);
+      const response = await fetch(`${apiUrl}/api/v1/auth/token?${query}`, {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        token?: string;
+        detail?: string;
+      } | null;
+      if (!response.ok || !payload?.token) {
+        throw new Error(payload?.detail ?? "Development sign-in is unavailable.");
+      }
+      window.sessionStorage.setItem("medikiosk.access_token", payload.token);
+      router.push("/doctor");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Development sign-in failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-8">
-      <div className="max-w-md w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-primary">MediKiosk</h1>
-          <p className="text-gray-600 mt-2">Clinician Console</p>
-        </div>
+    <main className="dev-login">
+      <section className="mk-card dev-login-card" aria-labelledby="login-title">
+        <span className="mk-eyebrow">Local engineering access</span>
+        <h1 id="login-title" className="mk-display">MediKiosk clinician console</h1>
+        <p>This demo-gated sign-in is for synthetic local testing only. Production Clerk/SSO integration remains pending.</p>
 
-        <div className="bg-white rounded-2xl p-8 shadow-lg">
-          <h2 className="text-xl font-semibold mb-6">Sign In</h2>
+        {error && <p className="dev-login-error" role="alert">{error}</p>}
+        <form onSubmit={handleLogin}>
+          <label htmlFor="login-role">Clinical role</label>
+          <select id="login-role" value={role}
+            onChange={(event) => setRole(event.target.value as "doctor" | "nurse")}>
+            <option value="doctor">Doctor</option>
+            <option value="nurse">Nurse</option>
+          </select>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
+          <label htmlFor="login-email">Synthetic email</label>
+          <input id="login-email" type="email" value={email}
+            onChange={(event) => setEmail(event.target.value)} required />
 
-          <form onSubmit={handleLogin}>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="doctor@hospital.com"
-                required
-              />
-            </div>
+          <label htmlFor="login-user">User UUID</label>
+          <input id="login-user" value={userId} onChange={(event) => setUserId(event.target.value)}
+            placeholder="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" required />
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="••••••••"
-                required
-              />
-            </div>
+          <label htmlFor="login-tenant">Tenant UUID</label>
+          <input id="login-tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)}
+            placeholder="11111111-1111-4111-8111-111111111111" required />
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition disabled:opacity-50"
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+          <label htmlFor="login-facility">Facility UUID</label>
+          <input id="login-facility" value={facilityId}
+            onChange={(event) => setFacilityId(event.target.value)}
+            placeholder="22222222-2222-4222-8222-222222222222" required />
 
-          <div className="mt-4 text-center text-sm text-gray-500">
-            Hospital SSO available?{" "}
-            <a href="#" className="text-primary font-medium">
-              Use SSO
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
+          <button className="mk-button mk-button--primary" type="submit" disabled={loading}>
+            {loading ? "Starting local session…" : "Start local clinical session"}
+          </button>
+        </form>
+      </section>
+    </main>
   );
 }

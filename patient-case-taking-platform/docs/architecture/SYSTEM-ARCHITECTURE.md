@@ -17,7 +17,7 @@ The MVP deploys five coarse-grained units:
 These deployables contain the logical bounded contexts defined in `SERVICE-BOUNDARIES.md`. Extract a context only when it has materially different scaling, security, availability or ownership needs, such as:
 
 - conversation orchestration: streaming and session state;
-- AI model gateway: vLLM/provider credentials, policy enforcement and GPU/model routing;
+- clinical assistance boundary: mock-provider schema enforcement and deterministic fallback;
 - document worker: CPU/GPU-heavy asynchronous processing;
 - summary and alert workers: event-triggered computation;
 - notification worker: third-party delivery and retry isolation;
@@ -46,13 +46,13 @@ Detailed ownership, admission control and implementation slices are defined in `
 | Identity | Clerk for staff and patient web authentication; hospital SSO through supported OIDC/SAML integration | FastAPI verifies issuer, audience, signature and expiry, then applies internal facility/care/consent authorization |
 | Realtime | WebSockets | Interactive transcript/status updates only; reconnect and authorization are explicit |
 | Async jobs/events | Kafka from MVP with isolated consumer groups, retry topics and DLQs | PostgreSQL retains durable job state; Kafka is transport/replay, not clinical truth |
-| LLM | Unified internal router: HiMed 8B on vLLM, evaluated smaller local summarizer, then approved OpenAI/Claude adapters | Every model/provider requires task, privacy, language, safety, contract and hardware/cost approval |
+| Clinical dialogue/summary | Offline deterministic mock behind a versioned task router | No model downloads, GPU serving, hosted LLM API or client-selected provider; unsupported configuration fails closed |
 | ASR/TTS | AI4Bharat/Bhashini-compatible ASR and Indic/Bhashini-compatible TTS | Stream through dedicated speech services; preserve confidence, timing and language metadata |
 | OCR | Routed ensemble of PaddleOCR/Tesseract plus TrOCR/Donut and a Hindi handwriting specialist | Original documents remain immutable; every extraction retains page/region provenance |
 | Clinical NLP | PyTorch inference services | Versioned entity, negation, temporality and classification outputs |
 | Rules | Versioned Python rules service first | Deterministic urgent-symptom and policy rules; consider Drools only for demonstrated authoring needs |
 | Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + Elasticsearch | Elasticsearch holds rebuildable search/analytics projections, never transactional truth |
-| Runtime | Docker everywhere; Kubernetes for shared pilot/production environments | KServe/Ray Serve deferred until model count or traffic warrants another control plane |
+| Runtime | Docker Compose for local engineering | Shared pilot/production topology requires separate operational approval |
 
 ## Authentication and authorization flow
 
@@ -75,7 +75,9 @@ Detailed ownership, admission control and implementation slices are defined in `
 
 ## Conversation boundary
 
-The conversation orchestrator is a deterministic workflow controller assisted by models. The LLM must not control authorization, consent, emergency escalation or record signing.
+The conversation orchestrator is a deterministic workflow controller assisted
+by the offline mock provider. Provider output cannot control authorization,
+consent, emergency escalation or record signing.
 
 Pipeline:
 
@@ -87,7 +89,7 @@ Each produced assertion stores:
 
 - source utterance or document reference;
 - speaker and capture time;
-- model/prompt version;
+- provider/schema version;
 - confidence;
 - patient correction/confirmation;
 - clinician correction/acceptance.
@@ -97,7 +99,7 @@ Each produced assertion stores:
 | Capability | Target behavior |
 |---|---|
 | Registration and record view | Highly available; graceful degradation without AI |
-| Clinician note/signing | Must remain available during queue/broker or model-provider outage |
+| Clinician note/signing | Must remain available during queue/broker or mock-provider outage |
 | Live transcription | Degrade to manual text entry |
 | OCR and summary generation | Async, retryable, visible pending state |
 | Notifications | Async, at-least-once with deduplication |
@@ -115,7 +117,7 @@ Each produced assertion stores:
 - Kafka provides the MVP asynchronous backbone. PostgreSQL owns job state and the transactional outbox; a Kafka outage must not lose an accepted clinical workflow.
 - Redis is limited to cache, session, rate-limit and optional idempotency fast-path state; it is not the job or clinical source of truth.
 - Elasticsearch is introduced for derived clinical-document search, audit exploration and aggregate analytics. Optional vector search remains feature-gated and benchmarked on NotMID data.
-- vLLM and other GPU services run in independently scalable GPU pools; CPU workers scale from queue depth.
-- KServe or Ray Serve is an optional later control plane, not an MVP dependency.
+- No LLM/GPU service is part of the current deployment. CPU workers scale only
+  where measured non-model workload requires it.
 - Central OpenTelemetry-compatible metrics, logs and traces with PHI redaction.
 - Secrets manager/KMS; no secrets in source or static environment files.

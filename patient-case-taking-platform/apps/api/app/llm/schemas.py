@@ -3,10 +3,11 @@
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Language = Literal["hi", "en"]
 AnswerType = Literal["free_text", "single_choice", "number", "review", "urgent_action"]
+ClinicalProvider = Literal["mock", "template-fallback"]
 
 
 class OutputConfidence(BaseModel):
@@ -22,7 +23,7 @@ class EvidenceLink(BaseModel):
 
     output_path: str = Field(min_length=1, max_length=160)
     source_path: str = Field(min_length=1, max_length=160)
-    source_type: Literal["patient_response", "document", "deterministic_rule"]
+    source_type: Literal["patient_response", "document", "deterministic_rule", "clinician_edit"]
 
 
 class DialogueRequest(BaseModel):
@@ -51,12 +52,13 @@ class DialogueResponse(BaseModel):
     escalation_required: bool = False
     confidence: OutputConfidence
     evidence: list[EvidenceLink] = Field(default_factory=list, max_length=100)
-    provider: str
+    provider: ClinicalProvider
     schema_version: Literal["phase5.dialogue.v1"] = "phase5.dialogue.v1"
     degraded: bool = False
 
 
 class ClinicalSummaryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     tenant_id: UUID
     encounter_id: UUID
     language: Language = "en"
@@ -64,6 +66,14 @@ class ClinicalSummaryRequest(BaseModel):
     confirmed_answers: dict[str, Any] = Field(default_factory=dict)
     transcript: str = Field(default="", max_length=20_000)
     document_facts: list[str] = Field(default_factory=list, max_length=100)
+    document_fact_source_paths: list[str] = Field(default_factory=list, max_length=100)
+
+    @field_validator("document_fact_source_paths")
+    @classmethod
+    def bound_source_paths(cls, value: list[str]) -> list[str]:
+        if any(not item.strip() or len(item) > 160 for item in value):
+            raise ValueError("document fact source paths must contain 1 to 160 characters")
+        return value
 
 
 class ClinicalSummaryResponse(BaseModel):
@@ -76,7 +86,7 @@ class ClinicalSummaryResponse(BaseModel):
     confidence: OutputConfidence
     evidence: list[EvidenceLink] = Field(default_factory=list, max_length=200)
     clinician_review_required: Literal[True] = True
-    provider: str
+    provider: ClinicalProvider
     schema_version: Literal["phase5.summary.v1"] = "phase5.summary.v1"
     degraded: bool = False
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for planning; model approval remains pending evaluation.
+Superseded by ADR-008 for this project. No model download or vLLM deployment is authorized.
 
 ## Decision
 

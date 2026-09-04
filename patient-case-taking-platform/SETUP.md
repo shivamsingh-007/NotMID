@@ -73,13 +73,17 @@ Phase 7 document APIs, edit `.env` and set:
 ```dotenv
 ENABLE_DEMO_ROUTES=true
 DOCUMENT_WORKFLOW_ENABLED=true
+SUMMARY_WORKFLOW_ENABLED=true
 LLM_PROVIDER=mock
 OCR_PROVIDER=mock
 DOCUMENT_OCR_AUTOMATION_ENABLED=true
 DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 ```
 
-`mock` is the only supported Phase 5 provider. The local stack does **not** start vLLM, download HiMed weights, require a GPU, or send patient text to an external model API.
+`mock` is the only supported clinical dialogue/summary provider. The local
+stack does **not** start vLLM, download HiMed weights, require a GPU, ask for an
+OpenAI/Claude key, or send patient text to an external model API. A different
+`LLM_PROVIDER` value makes the Phase 8 API fail closed.
 The Phase 7 mock OCR provider is deterministic contract scaffolding; it is not
 clinical OCR validation.
 
@@ -164,6 +168,13 @@ docker compose down
 
 This preserves database volumes. To remove local databases and object-storage data as well, run `docker compose down --volumes` only when you intentionally want to erase the local development data.
 
+If migration startup reports a checksum mismatch, the named volume was created
+from an older edited development migration. Do not alter the stored checksum or
+edit an already released migration. Preserve any data you need, then either use
+a fresh database or—only for disposable local data—run `docker compose down
+--volumes` before starting again. That command erases all local Compose database
+and object-storage volumes.
+
 ### Use the Phase 7 document review locally
 
 Development authentication is available only when `ENABLE_DEMO_ROUTES=true`.
@@ -196,9 +207,39 @@ authorized nurse/doctor can open manual review through
 candidates, and finalize normally. See the
 [document-pipeline runbook](infrastructure/runbooks/PHASE-7-DOCUMENT-PIPELINE.md).
 
+### Use the Phase 8 summary workflow locally
+
+Enable `ENABLE_DEMO_ROUTES=true` and `SUMMARY_WORKFLOW_ENABLED=true`. Open
+<http://localhost:3001/login>, choose **Doctor**, and enter synthetic UUIDs for
+the user, tenant and permitted facility. **Start local clinical session** obtains
+the demo token from the local API and opens `/doctor`; no browser-console setup
+is required. This login is deliberately demo-gated and is not production SSO.
+
+In <http://localhost:8000/docs>, authorize with `Bearer PASTE_TOKEN_HERE` and:
+
+1. `PUT /api/v1/summary-workflows/contexts` to confirm a synthetic encounter's
+   facility, patient, chief complaint and answers. Use UUIDs and a facility ID
+   included in the token.
+2. `POST /api/v1/summary-workflows/generate` with the same facility, patient and
+   encounter IDs and an `Idempotency-Key`. Do not send clinical narrative to
+   this endpoint; the server loads the confirmed context.
+3. Open <http://localhost:3001/doctor>, paste the encounter UUID and choose
+   **Load summary**.
+4. Edit and **Save draft**, or provide a reason and **Reject**. A rejected/draft
+   version can be **Regenerated** as a separate generation.
+5. Choose **Submit review**, then **Sign & lock** as a doctor. Signed content is
+   immutable. This engineering signature is an integrity hash, not a legal
+   digital-signature claim.
+
+Nurses may confirm, generate, read and submit, but cannot edit, reject,
+regenerate or sign. Warning flags are read-only. Use synthetic data only; this
+workflow has engineering tests but no clinical/production approval.
+
 ## 5. Frontend-only development
 
-Run each application in a separate terminal. The API URL defaults to `http://localhost:8000`, but the redesigned dashboard screens render with synthetic data when the API is absent.
+Run each application in a separate terminal. The API URL defaults to
+`http://localhost:8000`. The Phase 8 doctor page requires the API and a stored
+development token; other dashboard scaffolds may still show synthetic content.
 
 ### Patient experience — port 3000
 
@@ -287,10 +328,10 @@ Browser microphone permission is needed only when exercising real recording comp
 ### Doctor
 
 1. Open <http://localhost:3001/doctor>.
-2. Compare the editable draft with patient-confirmed evidence and attributed nurse notes.
-3. Edit the assessment or plan.
-4. Resolve the visibly marked missing information.
-5. Use **Review & sign** to exercise the prototype sign-off state. This is a browser-only demonstration and does not create a durable medical record.
+2. Paste a synthetic encounter UUID whose context and draft were created through the API.
+3. Compare each editable section with its evidence paths and visible uncertainties.
+4. Save the draft, reject/regenerate when necessary, or submit it for review.
+5. Sign an in-review draft. The durable version is locked after signing.
 
 ## 8. Development checks
 
@@ -324,6 +365,24 @@ macOS/Linux:
 
 ```bash
 PHASE7_INTEGRATION=1 pytest tests/test_phase7_document_integration.py tests/test_phase7_ocr_integration.py -q
+```
+
+Run the Phase 8 unit/API tests and live PostgreSQL suite:
+
+Windows PowerShell:
+
+```powershell
+pytest tests/test_phase8_summary_service.py tests/test_phase8_summary_api.py tests/test_phase8_outbox_publisher.py -q
+$env:PHASE8_INTEGRATION = "1"
+pytest tests/test_phase8_summary_integration.py -q
+Remove-Item Env:PHASE8_INTEGRATION
+```
+
+macOS/Linux:
+
+```bash
+pytest tests/test_phase8_summary_service.py tests/test_phase8_summary_api.py tests/test_phase8_outbox_publisher.py -q
+PHASE8_INTEGRATION=1 pytest tests/test_phase8_summary_integration.py -q
 ```
 
 Run the frozen synthetic prescription-extraction evaluation:

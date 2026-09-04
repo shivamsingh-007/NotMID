@@ -33,3 +33,32 @@ Reviewed on 2026-08-29. This file records evidence, not roadmap optimism.
 This is a reviewed foundation prototype, not a production clinical system. Clerk token verification, durable repositories, database migrations, multi-tenant authorization, transactional audit, Kafka workflows, object-storage policy, ABDM sandbox integration, end-to-end browser tests, accessibility validation, load/security testing, deployment, backup/restore, and clinical governance remain pending.
 
 The detailed visual review is in [`review/medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html).
+
+## Phase 8 — evidence-linked summary workflow (2026-09-04)
+
+- Replaced the supplied unsupported completion/provider claims with an honest
+  implementation plan and mock-only ADR-008.
+- Added clinician-confirmed encounter context, server-side Phase 6 warning-rule
+  recomputation and active reviewed-document-fact assembly.
+- Added the mock-only structured generation boundary with deterministic fallback,
+  evidence paths and warning-flag preservation.
+- Added PostgreSQL migration 0012 for confirmed context, summary versions,
+  append-only actions and reference-only outbox records with forced tenant RLS.
+- Added optimistic concurrency, request-bound idempotency, immutable signing and
+  atomic reject/regenerate lineage.
+- Added authorized APIs for context confirmation, generation, list/read/history,
+  draft editing, review submission, rejection, regeneration and doctor sign-off.
+- Replaced the static doctor screen with an API-backed evidence/edit/review/sign UI.
+- Added focused domain, HTTP and live PostgreSQL integration tests; clinician UI
+  lint and production build pass.
+- Added metadata-only summary event delivery with leases, bounded retry/backoff
+  and dead-letter state on `clinical.summaries.v1`.
+- Browser-tested synthetic local login, encounter loading, clinician edit,
+  review submission and immutable doctor sign-off with a clean console.
+- Updated setup, AI/safety, architecture, event, resilience and roadmap guidance
+  to prohibit HiMed/vLLM downloads and OpenAI/Claude API use.
+
+Phase 8 is an engineering candidate, not a production clinical system. Identity
+hardening, owner approvals, representative clinical evaluation, accessibility,
+production telemetry, load/security, backup/restore and rollback drills
+remain release gates.

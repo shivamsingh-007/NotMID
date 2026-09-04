@@ -4,6 +4,11 @@
 
 AI may transcribe, translate, extract, organize, summarize and suggest follow-up questions. It must not independently diagnose, prescribe, sign records or suppress urgent escalation.
 
+The current clinical dialogue and summary provider is the offline deterministic
+mock only. No generative model weights or hosted model APIs are part of the
+runtime. Mock output is still untrusted draft content and receives the same
+schema, evidence and clinician-review controls.
+
 ## Safety layers
 
 1. Deterministic interview state and required-field rules.
@@ -13,6 +18,21 @@ AI may transcribe, translate, extract, organize, summarize and suggest follow-up
 5. Source-linked draft summary.
 6. Clinician correction and sign-off.
 7. Post-release monitoring and incident review.
+
+## Phase 8 summary controls
+
+- A nurse or doctor confirms encounter context before generation; the generation
+  endpoint accepts identifiers rather than client-authored clinical context.
+- The server recomputes Phase 6 rules and adds only active, reviewed Phase 7 facts.
+- Deterministic warning flags cannot be removed by mock output or doctor editing.
+- Malformed provider output retries at most three times, then uses a marked
+  deterministic template for manual review.
+- Nurses may generate/read/submit; only doctors may edit, reject, regenerate or sign.
+- Every mutation uses optimistic concurrency and append-only metadata history.
+- Signing requires `in_review`, stores a canonical SHA-256 integrity hash and
+  locks the version. The hash is not represented as a legal digital signature.
+- Regeneration creates a linked version and never rewrites signed history.
+- Audit and outbox metadata exclude chief complaint, answers and narrative content.
 
 ## Release gates
 

@@ -51,8 +51,12 @@ Do not include raw audio, images, PDFs, unrestricted transcripts, prompts, compl
 | `ReviewedDocumentFactsPromoted.v1` | Reviewed-fact promotion worker | Timeline/FHIR/search consumers |
 | `ReviewedDocumentFactsWithdrawn.v1` | Reviewed-fact promotion worker | Timeline/FHIR/search consumers |
 | `ClinicalRecordChanged.v1` | Clinical record module | Summary worker, search projector, ABDM adapter |
-| `SummaryRequested.v1` | Clinical platform | Summary worker |
-| `SummaryGenerated.v1` | Summary worker | Clinical platform, audit |
+| `clinical.summary.generated.v1` | Summary workflow | Audit/future projector |
+| `clinical.summary.edited.v1` | Summary workflow | Audit/future projector |
+| `clinical.summary.submitted.v1` | Summary workflow | Clinical review queue |
+| `clinical.summary.rejected.v1` | Summary workflow | Audit/future projector |
+| `clinical.summary.regenerated.v1` | Summary workflow | Audit/future projector |
+| `clinical.summary.signed.v1` | Summary workflow | Clinical record projector |
 | `CriticalAlertRaised.v1` | Alert worker | Clinical inbox, notification policy |
 | `NotificationRequested.v1` | Owning workflow | Notification worker |
 | `NotificationDeliveryUpdated.v1` | Notification worker | Owning workflow, operations |
@@ -69,18 +73,7 @@ Kafka is the asynchronous backbone from MVP. PostgreSQL stores durable job state
 | `ai.asr.completed.v1` | Announce persisted transcript artifact | 7 days |
 | `ai.ocr.requested.v1` | Submit document OCR jobs | 24 hours |
 | `ai.ocr.completed.v1` | Announce persisted extraction artifact | 7 days |
-| `ai.llm.local.requested.v1` | Submit policy-approved local inference job | 24 hours |
-| `ai.llm.external.openai.requested.v1` | Submit OpenAI-eligible inference to its isolated pool | 24 hours |
-| `ai.llm.external.claude.requested.v1` | Submit Claude-eligible inference to its isolated pool | 24 hours |
-| `ai.llm.completed.v1` | Announce normalized persisted result from either path | 7 days |
-| `ai.llm.failed.v1` | Announce terminal normalized failure metadata | 7 days |
-| `ai.summary.local.requested.v1` | Submit local summary job | 24 hours |
-| `ai.summary.external.openai.requested.v1` | Submit OpenAI-eligible summary job | 24 hours |
-| `ai.summary.external.claude.requested.v1` | Submit Claude-eligible summary job | 24 hours |
-| `ai.summary.completed.v1` | Announce normalized versioned summary draft | 30 days |
-| `ai.summary.failed.v1` | Announce terminal summary failure metadata | 30 days |
-| `ai.translation.external.openai.requested.v1` | Submit approved OpenAI translation job | 24 hours |
-| `ai.translation.external.claude.requested.v1` | Submit approved Claude translation job | 24 hours |
+| `clinical.summaries.v1` | Reference-only Phase 8 summary lifecycle events delivered by the leased transactional-outbox publisher | Retention pending privacy/volume/recovery approval |
 | `clinical.triage.alert-raised.v1` | Announce deterministic red-flag escalation | 90 days, subject to volume and policy |
 | `clinical.documents.v1` | Transport reference-only Phase 7 document lifecycle, review and promotion events | 30 days pending privacy/volume/recovery approval |
 | `audit.event-recorded.v1` | Transport an audit projection event | 7–30 days; never the compliance archive |
@@ -91,11 +84,9 @@ Topic payloads contain metadata and artifact references only. Retention values a
 
 - `asr-workers` consume ASR requests and publish completed artifact references.
 - `ocr-workers` consume OCR requests and publish completed artifact references.
-- `llm-local-workers` consume local requests and call only approved vLLM deployments.
-- `summary-fast-local-workers` run only the evaluated smaller local summarizer and accept summary tasks within its approved quality envelope.
-- `llm-external-openai-workers` and `llm-external-claude-workers` consume their provider-specific topics and have separate credentials, concurrency/token/cost limits and circuit breakers. They must not be separate consumer groups on one shared topic, which would invoke both providers.
-- `summary-local-workers` and provider-specific external summary groups fetch authorized inputs by reference.
-- `result-normalizers` validate local/external outputs against one schema and publish completed/failed events.
+- Summary generation is synchronous through the offline mock provider. The
+  `clinical_summary_outbox` transactionally records reference-only lifecycle
+  events; Kafka publication is not yet implemented and is a documented Phase 8 gate.
 - `triage-engine` evaluates confirmed structured facts and raises deterministic alerts; an LLM is never the sole red-flag detector.
 - `document-pipeline-workers` scan, normalize, OCR and extract from durable
   references; they never consume raw files or OCR text from Kafka payloads.

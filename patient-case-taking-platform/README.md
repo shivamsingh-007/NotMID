@@ -1,9 +1,9 @@
 <div align="center">
 
-![Phase](https://img.shields.io/badge/Phase-0%20Discovery-blue)
+![Phase](https://img.shields.io/badge/Phase-8%20Engineering-blue)
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 ![SIH](https://img.shields.io/badge/SIH-2026-orange)
-![Status](https://img.shields.io/badge/Status-Planning-yellow)
+![Status](https://img.shields.io/badge/Status-Engineering%20candidate-yellow)
 
 </div>
 
@@ -15,7 +15,9 @@
 
 A multilingual, consent-driven patient case-taking platform for Indian hospitals — built for **Smart India Hackathon 2026**.
 
-> **Reduces clinical documentation time by 60%** while preserving informed consent, clinician accountability, and patient comprehension.
+> **Goal:** reduce documentation burden while preserving informed consent,
+> clinician accountability and patient comprehension. No impact target has yet
+> been validated in a clinical deployment.
 
 ---
 
@@ -36,13 +38,14 @@ The clinician stays in charge throughout: AI drafts are suggestions, and nothing
 git clone https://github.com/shivamsingh-007/NotMID.git
 cd NotMID/patient-case-taking-platform
 cp .env.example .env
-# For the local assisted-question prototype, set ENABLE_DEMO_ROUTES=true in .env.
+# Set the explicit workflow flags described in SETUP.md.
 docker compose up --build
 ```
 
 Open the patient experience at `http://localhost:3000`, the nurse dashboard at `http://localhost:3001`, and the doctor review at `http://localhost:3001/doctor`.
 
-> **Local prototype:** dashboards currently use synthetic demonstration content. Do not enter real patient information.
+> **Local engineering environment:** use synthetic information only. The Phase 8
+> doctor screen uses the durable API, but this is not a clinical deployment.
 
 Phase 6 Slice 6.1 adds a demo-only canonical deterministic triage evaluator at
 `POST /api/v1/triage/evaluate`. It returns versioned prototype flags and
@@ -100,7 +103,7 @@ sequenceDiagram
 4. **PostgreSQL is the transactional and clinical source of truth**
 5. **MongoDB stores flexible raw AI artifacts, never signed clinical truth**
 6. **Object storage holds immutable source documents** and audio
-7. **vLLM and every model service remain behind the AI gateway**
+7. **Clinical generation is mock-only and offline**; unsupported providers fail closed
 8. **Every clinical assertion retains provenance**
 
 ### Tech Stack
@@ -111,7 +114,7 @@ sequenceDiagram
 | **Backend APIs** | FastAPI + Pydantic + OpenAPI |
 | **Realtime & async** | WebSockets + Kafka from MVP; Redis remains cache/session state |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
-| **LLM serving** | Unified router → HiMed 8B/vLLM → smaller local summarizer → approved OpenAI/Claude fallback |
+| **Clinical summary provider** | Offline deterministic mock plus template fallback; no model downloads or external APIs |
 | **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
 | **Documents & NLP** | PaddleOCR/Tesseract/TrOCR/Donut ensemble + specialist handwriting model + PyTorch clinical NLP |
 | **Rules** | Versioned Python rules service; Drools-style engine only if authoring complexity justifies it |
@@ -139,7 +142,7 @@ sequenceDiagram
 | Phase | Timeline | Focus |
 |-------|----------|-------|
 | **0 — Discovery & Governance** | 3–5 weeks | Clinical workflow observation, consent/retention policies, ABDM sandbox path, synthetic evaluation set |
-| **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Clerk identity boundary, FastAPI core, encounter state machine, Patient PWA / kiosk / clinician review, vLLM gateway and Hi/En ASR, clinician sign-off |
+| **1 — Safe Clinical Workflow MVP** | 8–12 weeks | Identity boundary, FastAPI core, encounter state machine, patient/kiosk/clinician review, mock summary workflow and clinician sign-off |
 | **2 — Hospital Pilot & Async Processing** | 8–10 weeks | Hardened Kafka workflows, OCR ensemble, clinical NLP, deterministic alerts, multilingual summaries + TTS, ABDM sandbox integration |
 | **3 — Multi-Facility Scale** | 12–16 weeks | Kafka worker-pool scale, Elasticsearch, facility isolation, ABDM production, adapters, autoscale, DR & failover |
 | **4 — Validated Advanced Assistance** | — | Specialty interviews, care-gap suggestions, retrieval-assisted summaries with citations, de-identified analytics |
@@ -170,7 +173,8 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
 | [`PHASE-6-RED-FLAG-TRIAGE.md`](docs/plans/PHASE-6-RED-FLAG-TRIAGE.md) | In-progress deterministic triage and durable alert implementation plan |
 | [`PHASE-7-DOCUMENT-INGESTION-OCR.md`](docs/plans/PHASE-7-DOCUMENT-INGESTION-OCR.md) | Phase 7 implementation ledger, safety invariants and remaining rollout gates |
-| [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5–7 engineering review |
+| [`PHASE-8-SUMMARY-WORKFLOW.md`](docs/plans/PHASE-8-SUMMARY-WORKFLOW.md) | Mock-only evidence-linked summary workflow and implementation ledger |
+| [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5–8 engineering review |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |

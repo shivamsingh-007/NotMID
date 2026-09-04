@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for planning; every model and external provider remains release-gated.
+Superseded by ADR-008. External providers and local model downloads are not part of the project runtime.
 
 ## Decision
 

@@ -1,55 +1,59 @@
-# AI Platform Plan
+# Clinical assistance platform
 
-## Capabilities
+## Current provider policy
 
-- Hindi/English ASR first; code-switching and word timestamps remain evaluation work. Confidence is nullable unless a provider supplies a calibrated value.
-- OCR and document layout understanding.
-- Clinical entity, negation, temporality and medication extraction.
-- Structured follow-up question assistance.
-- Source-linked summary generation.
-- Multilingual text-to-speech (deferred from the current voice slice by product decision).
+The clinical dialogue and summary boundary is offline and mock-only. Set
+`LLM_PROVIDER=mock`; any other value fails closed. The repository does not
+download HiMed-8B, start vLLM, require OpenAI/Claude credentials or transmit
+clinical context to a hosted generative API. ADR-008 records this decision.
 
-## Serving topology
+The mock provider is deterministic contract scaffolding. It does not reason,
+diagnose, prescribe or establish clinical accuracy. Invalid output is retried a
+bounded number of times and then becomes a visibly degraded template draft.
 
-- The conversation orchestrator and workers call the AI model gateway, never vLLM or external model providers directly.
-- The gateway exposes task-level APIs, enforces minimum-necessary context, attaches model/prompt versions and routes approved requests to vLLM.
-- vLLM exposes an internal OpenAI-compatible endpoint and initially serves HiMed 8B as a candidate model.
-- A smaller local summarizer is a distinct degraded-mode route for summary tasks only. Select it through Hindi/English factuality, omission, provenance, latency and memory evaluation rather than naming an unevaluated model in architecture.
-- OpenAI API and Claude API are external fallback adapters behind the same router. They remain disabled for PHI until provider contract, data use/retention, residency, security and facility policy are approved.
-- HiMed 8B is not a clinical endorsement: licensing, provenance, Hindi/English performance, hallucination, omission, red-flag recall, latency and GPU-memory results must pass the clinical release gate.
-- If the candidate fails, the gateway preserves the interface while another evaluated model replaces it.
+## Implemented capabilities
 
-## Routing
+- Hindi/English adaptive SOCRATES questions from a versioned ontology;
+- deterministic Phase 6 urgent-symptom interruption;
+- schema-constrained summary drafts from clinician-confirmed intake and active
+  reviewed-document facts;
+- source-path evidence, uncertainty and technical-completeness metadata;
+- durable edit, reject, regenerate, submit-review and doctor sign-off workflow;
+- metadata-only audit/outbox records that exclude prompts and clinical narrative.
 
-The internal model router selects HiMed 8B on vLLM, the evaluated smaller local summarizer, or approved OpenAI/Claude adapters using task, language, deadline, local capacity, cost/token budget, residency, consent/purpose, privacy classification and approved-model policy. Model names supplied by clients are ignored. Provider API keys remain in the secrets manager and are exposed only to isolated provider worker pools. Local saturation never causes automatic external PHI transfer: the task must be explicitly eligible for that provider and facility.
+ASR and OCR have separate provider boundaries. Their optional real-provider
+extras are not summary dependencies and are not installed by the normal setup.
+Phase 8 uses neither ASR model weights nor OCR model weights.
 
-Local workers, each external provider and response normalization use separate concurrency pools and circuit breakers. All paths emit the same versioned result envelope. Kafka/log/audit metadata records hashes, model/template/policy versions, redaction decision, token usage, latency and outcome; full prompts/responses are retained only as encrypted, access-audited artifacts when an approved retention policy requires them.
+## Summary execution
 
-## Speech, OCR and clinical NLP
+1. A nurse or doctor confirms bounded encounter context.
+2. The server recomputes deterministic warning flags.
+3. The context assembler loads that confirmation plus active Phase 7 reviewed
+   facts under tenant RLS. Raw OCR and client-asserted generated facts are excluded.
+4. `LLMRouter` calls only `MockClinicalProvider` and validates the versioned schema.
+5. The workflow stores the draft, evidence and provider metadata transactionally.
+6. A clinician edits or rejects it. Only a doctor may sign an in-review version.
+7. Signed content is hash-bound and locked; regeneration creates a new lineage version.
 
-- The current registry explicitly routes Hindi to AI4Bharat and English to Whisper small.en; unsupported languages fail to touch entry. Acoustic signal quality is separate from model confidence. Language detection, code-switch routing and word timing remain later language-pack capabilities.
-- The WebSocket gateway sends cumulative partial transcripts without Kafka latency. Redis stores turn context only when enabled; `ai.asr.completed.v1` contains identifiers, hashes and result metadata rather than raw audio or transcript text.
-- Use Indic/Bhashini-compatible TTS only for approved patient-facing text; never speak an unreviewed diagnosis or prescription as authoritative.
-- Route printed documents through PaddleOCR/Tesseract baselines and use TrOCR/Donut or a Hindi handwriting specialist only when document classification warrants it.
-- Store page and bounding-region provenance for every OCR value. Low-confidence or conflicting values enter a human review queue.
-- Run clinical entity, negation, temporality and classification models as versioned PyTorch services.
+## Safety boundary
 
-## Deterministic rules
+- Deterministic warning flags cannot be removed by provider output or draft editing.
+- Confidence is structured completeness or fallback quality, never probability of diagnosis.
+- Every draft says clinician review is required.
+- Logs, audit records and events use opaque IDs, versions, status, provider and
+  error class; narrative stays in the authorized clinical store.
+- Model selection supplied by a client is ignored because there is no selectable model.
+- Manual structured entry remains the fallback when generation is unavailable.
 
-Start with a versioned Python rules service whose inputs and outputs are explicit schemas. Rules are clinician-owned, testable and evaluated before release. Consider a Drools-style engine later only if non-developers must author complex policies and the added operational/runtime boundary is justified.
+## Evaluation and change control
 
-## Retrieval
+Engineering tests establish schema, lifecycle, isolation and failure behavior.
+They do not establish clinical factuality, safety, usability or compliance.
+Clinical, privacy/security, accessibility, operations and facility owners must
+approve governed evidence before any real-patient use.
 
-Retrieval is restricted by the same patient, facility, care relationship, purpose and consent checks as ordinary record access. Retrieved chunks retain document/page provenance and are never accepted as instructions.
-
-## Async execution
-
-Kafka consumer groups handle non-blocking model work from the MVP. PostgreSQL retains durable job/workflow state, the transactional outbox and stable artifact references; object storage carries large inputs and MongoDB carries versioned raw/intermediate JSON artifacts. Workers persist idempotent status and result references before announcing completion. Interactive ASR and WebSocket updates use a streaming path and do not wait on Kafka round trips.
-
-The Phase 4 implementation currently supplies an optional direct Kafka metadata publisher and Redis turn adapter. These are off by default and are not substitutes for the planned PostgreSQL outbox, durable consent source, or integration tests.
-
-## Model operations progression
-
-1. MVP: Dockerized vLLM and dedicated PyTorch services with fixed approved versions.
-2. Pilot: Kubernetes deployments, GPU node pools, health probes, canary rollout and autoscaling from queue/latency metrics.
-3. Scale: evaluate KServe or Ray Serve only when multi-model routing, rollout automation or distributed inference requirements cannot be met cleanly by the existing gateway plus Kubernetes.
+Introducing any generative provider requires explicit product authorization and
+a new ADR covering provenance/license, deployment, privacy, residency, language
+quality, hallucination/omission testing, security, rollback and operational cost.
+It is not an automatic next step and must not be added as silent fallback.

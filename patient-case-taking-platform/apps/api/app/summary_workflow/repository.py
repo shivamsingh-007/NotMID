@@ -40,6 +40,12 @@ class SummaryRepository(Protocol):
         self, *, tenant_id: UUID, idempotency_key: str, request_hash_sha256: str
     ) -> SummaryRecord | None: ...
 
+    async def regenerate(
+        self, *, previous: SummaryRecord, replacement: SummaryRecord,
+        previous_action: SummaryAction, replacement_action: SummaryAction,
+        expected_version: int, idempotency_key: str, request_hash_sha256: str
+    ) -> SummaryRecord: ...
+
 
 class InMemorySummaryRepository:
     """Tenant-scoped repository used by domain and HTTP contract tests."""
@@ -114,6 +120,33 @@ class InMemorySummaryRepository:
         if stored_hash != request_hash_sha256:
             raise SummaryConflict("Idempotency key was already used for another request")
         return await self.get(tenant_id=tenant_id, summary_id=summary_id)
+
+    async def regenerate(
+        self, *, previous: SummaryRecord, replacement: SummaryRecord,
+        previous_action: SummaryAction, replacement_action: SummaryAction,
+        expected_version: int, idempotency_key: str, request_hash_sha256: str
+    ) -> SummaryRecord:
+        replay = await self.find_idempotent(
+            tenant_id=previous.tenant_id, idempotency_key=idempotency_key,
+            request_hash_sha256=request_hash_sha256,
+        )
+        if replay is not None:
+            return replay
+        key = (previous.tenant_id, previous.id)
+        current = self._records.get(key)
+        if current is None:
+            raise SummaryNotFound("Summary not found")
+        if current.lock_version != expected_version:
+            raise SummaryConflict("Summary version is stale")
+        self._records[key] = previous.model_copy(deep=True)
+        self._actions[key].append(previous_action.model_copy(deep=True))
+        replacement_key = (replacement.tenant_id, replacement.id)
+        self._records[replacement_key] = replacement.model_copy(deep=True)
+        self._actions[replacement_key].append(replacement_action.model_copy(deep=True))
+        self._idempotency[(replacement.tenant_id, idempotency_key)] = (
+            replacement.id, request_hash_sha256
+        )
+        return replacement.model_copy(deep=True)
 
 
 _INSERT_SUMMARY = """
@@ -284,6 +317,69 @@ class PostgresSummaryRepository:
             return None
         if row["request_hash_sha256"] != request_hash_sha256:
             raise SummaryConflict("Idempotency key was already used for another request")
+        return self._record(row)
+
+    async def regenerate(
+        self, *, previous: SummaryRecord, replacement: SummaryRecord,
+        previous_action: SummaryAction, replacement_action: SummaryAction,
+        expected_version: int, idempotency_key: str, request_hash_sha256: str
+    ) -> SummaryRecord:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, previous.tenant_id)
+                replay = await connection.fetchrow(
+                    _GET_IDEMPOTENT, previous.tenant_id, idempotency_key
+                )
+                if replay is not None:
+                    if replay["request_hash_sha256"] != request_hash_sha256:
+                        raise SummaryConflict(
+                            "Idempotency key was already used for another request"
+                        )
+                    return self._record(replay)
+                prior_row = await connection.fetchrow(
+                    _UPDATE_SUMMARY, previous.tenant_id, previous.id,
+                    expected_version, previous.status.value, _json(previous.content),
+                    _json(previous.evidence), _json(previous.confidence),
+                    previous.provider, previous.degraded, previous.lock_version,
+                    previous.updated_at, previous.signed_by_actor_id,
+                    previous.signed_at, previous.signature_sha256,
+                    previous.rejection_reason,
+                )
+                if prior_row is None:
+                    # A concurrent identical request may have completed while this
+                    # transaction waited on the previous row lock.
+                    replay = await connection.fetchrow(
+                        _GET_IDEMPOTENT, previous.tenant_id, idempotency_key
+                    )
+                    if replay is not None and replay["request_hash_sha256"] == request_hash_sha256:
+                        return self._record(replay)
+                    visible = await connection.fetchrow(
+                        _GET_SUMMARY, previous.tenant_id, previous.id
+                    )
+                    if visible is None:
+                        raise SummaryNotFound("Summary not found")
+                    raise SummaryConflict("Summary version is stale")
+                row = await connection.fetchrow(
+                    _INSERT_SUMMARY,
+                    replacement.id, replacement.tenant_id, replacement.facility_id,
+                    replacement.patient_id, replacement.encounter_id,
+                    replacement.lineage_id, replacement.generation,
+                    replacement.parent_summary_id, replacement.status.value,
+                    _json(replacement.content), _json(replacement.evidence),
+                    _json(replacement.confidence), replacement.provider,
+                    replacement.schema_version, replacement.degraded,
+                    replacement.lock_version, replacement.created_by_actor_id,
+                    replacement.created_at, replacement.updated_at,
+                    replacement.signed_by_actor_id, replacement.signed_at,
+                    replacement.signature_sha256, replacement.rejection_reason,
+                    idempotency_key, request_hash_sha256,
+                )
+                if row is None:
+                    raise SummaryConflict("Summary regeneration conflicted")
+                await self._insert_action(connection, previous_action)
+                await self._insert_outbox(connection, previous_action)
+                await self._insert_action(connection, replacement_action)
+                await self._insert_outbox(connection, replacement_action)
         return self._record(row)
 
     @staticmethod

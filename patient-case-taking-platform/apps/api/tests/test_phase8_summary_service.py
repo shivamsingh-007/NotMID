@@ -48,6 +48,9 @@ async def test_generate_is_mock_only_idempotent_and_preserves_required_red_flags
     assert first.provider == "mock"
     assert first.status == SummaryStatus.DRAFT
     assert "RF-RESP-001" in first.content.red_flags
+    assert any(
+        item.source_path == "triage.flags.RF-RESP-001" for item in first.evidence
+    )
     assert len(await repository.history(tenant_id=source.tenant_id, summary_id=first.id)) == 1
     with pytest.raises(SummaryConflict, match="another request"):
         await service.generate(
@@ -161,3 +164,25 @@ async def test_rejected_draft_regenerates_as_new_version_and_preserves_history(w
     assert replacement.parent_summary_id == draft.id
     assert replacement.lineage_id == draft.lineage_id
     assert replacement.generation == 2
+    replay = await service.regenerate(
+        source=source, previous_summary_id=draft.id, actor_id=actor,
+        actor_role="doctor", expected_version=rejected.lock_version,
+        idempotency_key="regen-1",
+    )
+    assert replay.id == replacement.id
+
+
+@pytest.mark.asyncio
+async def test_regeneration_cannot_change_patient_or_encounter(workflow):
+    service, _repository = workflow
+    source = _source()
+    actor = uuid4()
+    draft = await service.generate(
+        source=source, actor_id=actor, actor_role="doctor", idempotency_key="g-7"
+    )
+    with pytest.raises(SummaryTransitionError, match="must match"):
+        await service.regenerate(
+            source=source.model_copy(update={"patient_id": uuid4()}),
+            previous_summary_id=draft.id, actor_id=actor, actor_role="doctor",
+            expected_version=draft.lock_version, idempotency_key="regen-cross-patient",
+        )

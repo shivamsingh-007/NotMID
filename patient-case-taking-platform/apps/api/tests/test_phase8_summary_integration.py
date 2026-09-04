@@ -165,3 +165,35 @@ async def test_postgres_context_recomputes_flags_and_rejects_stale_confirmation(
             tenant_id=tenant_id, actor_id=actor_id,
             command=command.model_copy(update={"expected_version": 99}),
         )
+
+
+@pytest.mark.asyncio
+async def test_postgres_regeneration_is_atomic_and_idempotent(repository):
+    repo, _pool = repository
+    service = SummaryWorkflowService(repo, LLMRouter(MockClinicalProvider()))
+    source = _source()
+    actor = uuid4()
+    draft = await service.generate(
+        source=source, actor_id=actor, actor_role="doctor", idempotency_key="pg-old"
+    )
+    rejected = await service.reject(
+        tenant_id=source.tenant_id, summary_id=draft.id, actor_id=actor,
+        actor_role="doctor", expected_version=1, reason="Clarify evidence",
+    )
+    replacement = await service.regenerate(
+        source=source, previous_summary_id=draft.id, actor_id=actor,
+        actor_role="doctor", expected_version=rejected.lock_version,
+        idempotency_key="pg-regenerate",
+    )
+    replay = await service.regenerate(
+        source=source, previous_summary_id=draft.id, actor_id=actor,
+        actor_role="doctor", expected_version=rejected.lock_version,
+        idempotency_key="pg-regenerate",
+    )
+    previous = await repo.get(tenant_id=source.tenant_id, summary_id=draft.id)
+    assert previous.status == SummaryStatus.SUPERSEDED
+    assert replacement.id == replay.id
+    assert replacement.parent_summary_id == draft.id
+    assert [item.action for item in await repo.history(
+        tenant_id=source.tenant_id, summary_id=draft.id
+    )] == ["generated", "rejected", "regenerated"]

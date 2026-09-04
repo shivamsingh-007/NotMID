@@ -118,7 +118,7 @@ class SummaryRecord(BaseModel):
     signed_at: datetime | None = None
     signature_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     rejection_reason: str | None = Field(default=None, max_length=500)
-    request_hash_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    request_hash_sha256: str = Field(pattern=r"^[0-9a-f]{64}$", exclude=True)
 
 
 class SummaryAction(BaseModel):

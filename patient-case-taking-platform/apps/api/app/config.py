@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     OCR_LANGUAGE: str = "en"
     OCR_ENABLE_MKLDNN: bool = False
     OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER: bool = False
+    OCR_ARTIFACT_DATABASE: str = "notmid"
+    OCR_ARTIFACT_COLLECTION: str = "document_ocr_artifacts"
+    DOCUMENT_OCR_TIMEOUT_SECONDS: float = 60
+    DOCUMENT_OCR_MAX_PAGE_BYTES: int = 50 * 1024 * 1024
+    DOCUMENT_OCR_LEASE_SECONDS: int = 120
+    DOCUMENT_OCR_MAX_ATTEMPTS: int = 3
+    DOCUMENT_OCR_BATCH_SIZE: int = 2
+    DOCUMENT_OCR_POLL_INTERVAL_SECONDS: float = 2
     MODEL_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
 

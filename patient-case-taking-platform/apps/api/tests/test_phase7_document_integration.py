@@ -13,6 +13,7 @@ import boto3
 import httpx
 import pytest
 import pytest_asyncio
+from motor.motor_asyncio import AsyncIOMotorClient
 from PIL import Image
 
 from app.documents.authorization import (
@@ -25,6 +26,9 @@ from app.documents.normalization_repository import (
     PostgresDocumentNormalizationRepository,
 )
 from app.documents.normalization_service import DocumentNormalizationService
+from app.documents.ocr_artifact_store import MongoOcrArtifactStore
+from app.documents.ocr_repository import PostgresDocumentOcrRepository
+from app.documents.ocr_service import DocumentOcrService
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
 from app.documents.scan_repository import PostgresDocumentScanRepository
@@ -32,6 +36,7 @@ from app.documents.scan_service import DocumentScanService
 from app.documents.scanning import ClamAVScanner, MalwareScanOutcome
 from app.documents.storage import S3DocumentStore
 from app.migrations import apply_migrations
+from app.ocr.mock_provider import MockOCRProvider
 
 pytestmark = pytest.mark.skipif(
     os.getenv("PHASE7_INTEGRATION") != "1",
@@ -73,7 +78,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 5
+        assert first_count == 6
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -82,6 +87,8 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "document_scan_run",
             "document_normalization_run",
             "document_page_artifact",
+            "document_ocr_run",
+            "document_ocr_page_ref",
             "schema_migration",
         }
     finally:
@@ -435,7 +442,7 @@ async def test_clean_document_scan_persists_run_and_promotes_private_source(
 
 
 @pytest.mark.asyncio
-async def test_clean_document_is_normalized_to_durable_private_page_artifact(
+async def test_clean_document_is_normalized_and_ocr_artifact_is_durable(
     postgres_repository: tuple[PostgresDocumentRepository, str, asyncpg.Pool],
 ) -> None:
     repository, schema, pool = postgres_repository
@@ -451,6 +458,13 @@ async def test_clean_document_is_normalized_to_durable_private_page_artifact(
     )
     bucket = f"phase7-normalize-{uuid4().hex}"
     await asyncio.to_thread(client.create_bucket, Bucket=bucket)
+    mongo: AsyncIOMotorClient[dict] = AsyncIOMotorClient(
+        os.getenv("TEST_MONGODB_URL", "mongodb://127.0.0.1:27017")
+    )
+    mongo_database = f"phase7_pipeline_{uuid4().hex}"
+    artifact_store = MongoOcrArtifactStore(
+        mongo[mongo_database]["document_ocr_artifacts"]
+    )
     source = BytesIO()
     Image.new("RGB", (8, 6), "white").save(source, format="PNG")
     data = source.getvalue()
@@ -545,7 +559,57 @@ async def test_clean_document_is_normalized_to_durable_private_page_artifact(
         serialized = json.dumps(dict(event), default=str)
         assert document.original_filename not in serialized
         assert str(document.patient_id) not in serialized
+
+        await artifact_store.ensure_indexes()
+        await DocumentOcrService(
+            PostgresDocumentOcrRepository(pool),
+            store,
+            artifact_store,
+            MockOCRProvider(),
+        ).process(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            expected_version=normalized.version,
+        )
+        ocr_completed = await repository.get(document.tenant_id, document.id)
+        assert ocr_completed.state is DocumentState.PROCESSING
+        assert ocr_completed.version == 9
+        admin = await asyncpg.connect(DATABASE_URL)
+        try:
+            ocr_run = await admin.fetchrow(
+                f'SELECT status, provider, model_version FROM "{schema}".document_ocr_run'
+            )
+            ocr_ref = await admin.fetchrow(
+                f'SELECT artifact_id, page_artifact_id FROM "{schema}".document_ocr_page_ref'
+            )
+            ocr_event = await admin.fetchrow(
+                f'''SELECT artifact_refs, payload FROM "{schema}".document_outbox
+                    WHERE event_type = 'ai.ocr.completed.v1' '''
+            )
+        finally:
+            await admin.close()
+        assert ocr_run is not None and dict(ocr_run) == {
+            "status": "completed",
+            "provider": "mock",
+            "model_version": "mock-ocr-v1",
+        }
+        assert ocr_ref is not None
+        artifact = await artifact_store.get(
+            document.tenant_id,
+            ocr_ref["artifact_id"],
+        )
+        assert artifact is not None
+        assert artifact.page_artifact_id == ocr_ref["page_artifact_id"]
+        assert artifact.source_checksum_sha256 == verified.checksum_sha256
+        assert artifact.review_required is True
+        assert ocr_event is not None
+        ocr_serialized = json.dumps(dict(ocr_event), default=str)
+        assert artifact.normalized_text not in ocr_serialized
+        assert document.original_filename not in ocr_serialized
+        assert str(document.patient_id) not in ocr_serialized
     finally:
+        await mongo.drop_database(mongo_database)
+        mongo.close()
         objects = await asyncio.to_thread(client.list_objects_v2, Bucket=bucket)
         for item in objects.get("Contents", []):
             await asyncio.to_thread(client.delete_object, Bucket=bucket, Key=item["Key"])

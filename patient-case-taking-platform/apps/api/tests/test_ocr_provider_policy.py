@@ -15,3 +15,14 @@ def test_complex_layout_provider_requires_explicit_approval(monkeypatch) -> None
         get_active_provider()
 
     set_active_provider(None)
+
+
+def test_mock_provider_is_rejected_outside_development(monkeypatch) -> None:
+    set_active_provider(None)
+    monkeypatch.setattr(settings, "APP_ENV", "production")
+    monkeypatch.setattr(settings, "OCR_PROVIDER", "mock")
+
+    with pytest.raises(RuntimeError, match="development"):
+        get_active_provider()
+
+    set_active_provider(None)

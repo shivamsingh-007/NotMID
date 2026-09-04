@@ -5,6 +5,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Protocol
+from uuid import UUID
 
 from app.config import settings
 from app.documents.normalization import NormalizedPage
@@ -45,6 +46,18 @@ class StoredPage:
     operations: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class PageArtifact:
+    id: UUID
+    page_number: int
+    object_key: str
+    checksum_sha256: str
+    mime: str
+    width: int
+    height: int
+    preprocessing_version: str
+
+
 class DocumentStore(Protocol):
     async def create_upload_grant(self, document: DocumentRegistryEntry) -> UploadGrant: ...
 
@@ -66,6 +79,14 @@ class DocumentStore(Protocol):
         normalization_run_id: str,
         pages: list[NormalizedPage],
     ) -> list[StoredPage]: ...
+
+    async def read_normalized_page(
+        self,
+        document: DocumentRegistryEntry,
+        page: PageArtifact,
+        *,
+        max_bytes: int,
+    ) -> bytes: ...
 
 
 def quarantine_object_key(document: DocumentRegistryEntry) -> str:
@@ -337,3 +358,39 @@ class S3DocumentStore:
                 )
             )
         return stored
+
+    async def read_normalized_page(
+        self,
+        document: DocumentRegistryEntry,
+        page: PageArtifact,
+        *,
+        max_bytes: int,
+    ) -> bytes:
+        if document.state is not DocumentState.PROCESSING:
+            raise ObjectVerificationError("Document is not ready for OCR")
+        if max_bytes <= 0:
+            raise ObjectVerificationError("OCR page byte limit must be positive")
+        expected_prefix = f"derived/{document.tenant_id}/{document.id}/"
+        if not page.object_key.startswith(expected_prefix):
+            raise ObjectVerificationError("Normalized page is outside document scope")
+        if page.mime != "image/png":
+            raise ObjectVerificationError("Normalized page type is not supported")
+        response = await asyncio.to_thread(
+            self._client().get_object,
+            Bucket=self._bucket,
+            Key=page.object_key,
+        )
+        body = response["Body"]
+        payload = bytearray()
+        digest = hashlib.sha256()
+        try:
+            for chunk in body.iter_chunks(chunk_size=_READ_CHUNK_BYTES):
+                if len(payload) + len(chunk) > max_bytes:
+                    raise ObjectVerificationError("Normalized page exceeds OCR byte limit")
+                payload.extend(chunk)
+                digest.update(chunk)
+        finally:
+            body.close()
+        if digest.hexdigest() != page.checksum_sha256:
+            raise ObjectVerificationError("Normalized page checksum changed before OCR")
+        return bytes(payload)

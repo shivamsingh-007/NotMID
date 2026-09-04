@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from app.documents.registry import DocumentRegistryEntry, DocumentState
-from app.documents.storage import ObjectVerificationError, S3DocumentStore
+from app.documents.storage import ObjectVerificationError, PageArtifact, S3DocumentStore
 
 
 class _Body:
@@ -255,3 +255,58 @@ async def test_normalized_pages_are_stored_under_versioned_derived_prefix() -> N
     assert client.put_params[0]["Metadata"]["source-checksum"] == (
         document.source_checksum_sha256
     )
+
+
+@pytest.mark.asyncio
+async def test_ocr_read_reverifies_scoped_normalized_page_checksum() -> None:
+    from uuid import uuid4
+
+    page_data = b"\x89PNG\r\n\x1a\nsynthetic"
+    document = _document(size=12).model_copy(
+        update={"state": DocumentState.PROCESSING, "version": 7}
+    )
+    run_id = uuid4()
+    page = PageArtifact(
+        id=uuid4(),
+        page_number=1,
+        object_key=f"derived/{document.tenant_id}/{document.id}/{run_id}/pages/0001.png",
+        checksum_sha256=hashlib.sha256(page_data).hexdigest(),
+        mime="image/png",
+        width=20,
+        height=30,
+        preprocessing_version="normalize.v1",
+    )
+    client = _Client(page_data, "image/png")
+    store = S3DocumentStore(client=client, bucket="clinical-private")
+
+    payload = await store.read_normalized_page(document, page, max_bytes=1024)
+
+    assert payload == page_data
+    assert client.body.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ocr_read_rejects_page_outside_document_scope() -> None:
+    from uuid import uuid4
+
+    page_data = b"\x89PNG\r\n\x1a\nsynthetic"
+    document = _document(size=12).model_copy(
+        update={"state": DocumentState.PROCESSING, "version": 7}
+    )
+    page = PageArtifact(
+        id=uuid4(),
+        page_number=1,
+        object_key=f"derived/{uuid4()}/{document.id}/run/pages/0001.png",
+        checksum_sha256=hashlib.sha256(page_data).hexdigest(),
+        mime="image/png",
+        width=20,
+        height=30,
+        preprocessing_version="normalize.v1",
+    )
+    store = S3DocumentStore(
+        client=_Client(page_data, "image/png"),
+        bucket="clinical-private",
+    )
+
+    with pytest.raises(ObjectVerificationError, match="scope"):
+        await store.read_normalized_page(document, page, max_bytes=1024)

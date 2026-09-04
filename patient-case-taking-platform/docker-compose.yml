@@ -169,6 +169,42 @@ services:
       minio-init: { condition: service_completed_successfully }
       document-scanner: { condition: service_started }
 
+  document-ocr-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.documents.ocr_worker", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,noexec,nosuid
+    mem_limit: 1g
+    cpus: 2.0
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      MONGODB_URL: mongodb://mongodb:27017
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: notmid-clinical
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-notmid-local}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
+      OCR_PROVIDER: ${OCR_PROVIDER:-mock}
+      OCR_LANGUAGE: ${OCR_LANGUAGE:-en}
+      OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER: ${OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER:-false}
+      DOCUMENT_OCR_TIMEOUT_SECONDS: ${DOCUMENT_OCR_TIMEOUT_SECONDS:-60}
+      DOCUMENT_OCR_MAX_PAGE_BYTES: ${DOCUMENT_OCR_MAX_PAGE_BYTES:-52428800}
+      DOCUMENT_OCR_LEASE_SECONDS: ${DOCUMENT_OCR_LEASE_SECONDS:-120}
+      DOCUMENT_OCR_MAX_ATTEMPTS: ${DOCUMENT_OCR_MAX_ATTEMPTS:-3}
+      DOCUMENT_OCR_BATCH_SIZE: ${DOCUMENT_OCR_BATCH_SIZE:-2}
+      DOCUMENT_OCR_POLL_INTERVAL_SECONDS: ${DOCUMENT_OCR_POLL_INTERVAL_SECONDS:-2}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      mongodb: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      document-normalizer: { condition: service_started }
+
   api:
     build:
       context: ./apps/api

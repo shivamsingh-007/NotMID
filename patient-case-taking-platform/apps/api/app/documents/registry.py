@@ -90,6 +90,7 @@ class DocumentRegistryEntry(BaseRecord):
     detected_mime: str | None = None
     active_processing_run_id: UUID | None = None
     active_normalization_run_id: UUID | None = None
+    active_ocr_run_id: UUID | None = None
     processing_object_key: str | None = None
 
     def record_processing_progress(self, *, expected_version: int) -> None:

@@ -35,16 +35,21 @@ The clinician stays in charge throughout: AI drafts are suggestions, and nothing
 ```bash
 git clone https://github.com/shivamsingh-007/NotMID.git
 cd NotMID/patient-case-taking-platform
-
-# Install dependencies (when available)
-# npm install
-
-# Start local development (when available)
-# docker-compose up -d
-# npm run dev
+cp .env.example .env
+# For the local assisted-question prototype, set ENABLE_DEMO_ROUTES=true in .env.
+docker compose up --build
 ```
 
-> **Note**: This is a planning-first repository — no production application code exists yet. Build begins after Phase 0 exit gate approval. See [`docs/plans/BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
+Open the patient experience at `http://localhost:3000`, the nurse dashboard at `http://localhost:3001`, and the doctor review at `http://localhost:3001/doctor`.
+
+> **Local prototype:** dashboards currently use synthetic demonstration content. Do not enter real patient information.
+
+Phase 6 Slice 6.1 adds a demo-only canonical deterministic triage evaluator at
+`POST /api/v1/triage/evaluate`. It returns versioned prototype flags and
+source-field paths, but it does not create a durable alert or establish clinical
+validation.
+
+For Windows instructions, frontend-only development, backend setup and troubleshooting, see [`SETUP.md`](SETUP.md).
 
 ---
 
@@ -160,8 +165,11 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 
 | Document | Purpose |
 |----------|---------|
+| [`SETUP.md`](SETUP.md) | Fresh-device setup, local development and dashboard usage |
 | [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) | Repository & system context |
 | [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md) | Phased delivery plan |
+| [`PHASE-6-RED-FLAG-TRIAGE.md`](docs/plans/PHASE-6-RED-FLAG-TRIAGE.md) | In-progress deterministic triage and durable alert implementation plan |
+| [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5 and Phase 6 Slice 6.1 engineering review |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |

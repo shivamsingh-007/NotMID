@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     OCR_LANGUAGE: str = "en"
     OCR_ENABLE_MKLDNN: bool = False
     MODEL_WARMUP_ON_START: bool = False
+    LLM_PROVIDER: str = "mock"
 
     @property
     def cors_allowed_origins(self) -> list[str]:

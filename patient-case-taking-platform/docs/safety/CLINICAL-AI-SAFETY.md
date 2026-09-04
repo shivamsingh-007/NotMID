@@ -43,8 +43,7 @@ Every model, provider, prompt or decoding change requires:
 ## Failure behavior
 
 - Model unavailable: switch to manual structured entry.
-- Low ASR confidence: replay and ask for confirmation or manual correction.
+- Low calibrated ASR confidence, empty text, or poor acoustic signal quality: ask for clarification and offer manual correction. Never present acoustic quality as model confidence.
 - Conflicting records: show conflict; do not silently resolve it.
 - Suspected emergency: stop routine questioning and present facility-approved escalation.
 - Unsupported language: use assisted workflow; do not pretend successful understanding.
-

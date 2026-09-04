@@ -27,6 +27,7 @@ from app.routers import (
     ocr,
     patients,
     reviewed_documents,
+    summary_workflows,
     triage,
 )
 
@@ -73,7 +74,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allowed_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
 )
 
@@ -83,6 +84,7 @@ app.include_router(documents.router)  # Fails closed unless durable workflow is 
 app.include_router(document_reviews.router)
 app.include_router(reviewed_documents.router)
 app.include_router(document_operations.router)
+app.include_router(summary_workflows.router)  # Durable; fails closed unless enabled.
 
 # These in-memory routes are useful for contract and UI prototyping, but they do
 # not yet provide Clerk verification, durable persistence, tenant isolation, or

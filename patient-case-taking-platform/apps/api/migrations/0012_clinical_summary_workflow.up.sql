@@ -1,3 +1,25 @@
+CREATE TABLE confirmed_encounter_summary_context (
+    tenant_id UUID NOT NULL,
+    facility_id UUID NOT NULL,
+    patient_id UUID NOT NULL,
+    encounter_id UUID NOT NULL,
+    language CHAR(2) NOT NULL CHECK (language IN ('hi', 'en')),
+    chief_complaint VARCHAR(500) NOT NULL,
+    confirmed_answers JSONB NOT NULL DEFAULT '{}'::JSONB,
+    deterministic_red_flags JSONB NOT NULL DEFAULT '[]'::JSONB,
+    confirmed_by_actor_id UUID NOT NULL,
+    confirmed_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    version INTEGER NOT NULL DEFAULT 1 CHECK (version > 0),
+    PRIMARY KEY (tenant_id, encounter_id)
+);
+
+ALTER TABLE confirmed_encounter_summary_context ENABLE ROW LEVEL SECURITY;
+ALTER TABLE confirmed_encounter_summary_context FORCE ROW LEVEL SECURITY;
+CREATE POLICY confirmed_encounter_summary_context_tenant_isolation
+    ON confirmed_encounter_summary_context
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::UUID)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::UUID);
+
 CREATE TABLE clinical_summary_workflow (
     id UUID PRIMARY KEY,
     tenant_id UUID NOT NULL,

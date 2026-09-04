@@ -11,7 +11,12 @@ import pytest_asyncio
 from app.llm.providers import MockClinicalProvider
 from app.llm.service import LLMRouter
 from app.migrations import apply_migrations
-from app.summary_workflow.contracts import SummarySourceBundle, SummaryStatus
+from app.summary_workflow.context import PostgresSummaryContextRepository
+from app.summary_workflow.contracts import (
+    ConfirmEncounterContextCommand,
+    SummarySourceBundle,
+    SummaryStatus,
+)
 from app.summary_workflow.repository import (
     PostgresSummaryRepository,
     SummaryConflict,
@@ -132,4 +137,31 @@ async def test_postgres_signing_is_atomic_and_signed_record_is_locked(repository
         await service.reject(
             tenant_id=source.tenant_id, summary_id=draft.id, actor_id=actor,
             actor_role="doctor", expected_version=signed.lock_version, reason="too late",
+        )
+
+
+@pytest.mark.asyncio
+async def test_postgres_context_recomputes_flags_and_rejects_stale_confirmation(repository):
+    _repo, pool = repository
+    contexts = PostgresSummaryContextRepository(pool)
+    tenant_id, facility_id, patient_id, encounter_id, actor_id = (
+        uuid4() for _ in range(5)
+    )
+    command = ConfirmEncounterContextCommand(
+        facility_id=facility_id, patient_id=patient_id, encounter_id=encounter_id,
+        chief_complaint="difficulty breathing", confirmed_answers={"severity": 8},
+    )
+    confirmed = await contexts.confirm(
+        tenant_id=tenant_id, actor_id=actor_id, command=command
+    )
+    assert "RF-RESP-001" in confirmed.deterministic_red_flags
+    assembled = await contexts.assemble(
+        tenant_id=tenant_id, facility_id=facility_id, patient_id=patient_id,
+        encounter_id=encounter_id, language="en",
+    )
+    assert assembled.chief_complaint == "difficulty breathing"
+    with pytest.raises(SummaryConflict):
+        await contexts.confirm(
+            tenant_id=tenant_id, actor_id=actor_id,
+            command=command.model_copy(update={"expected_version": 99}),
         )

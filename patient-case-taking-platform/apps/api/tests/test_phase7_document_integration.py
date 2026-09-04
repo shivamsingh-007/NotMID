@@ -103,6 +103,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "clinical_timeline_projection",
             "document_fhir_projection",
             "document_search_projection",
+            "confirmed_encounter_summary_context",
             "clinical_summary_workflow",
             "clinical_summary_action",
             "clinical_summary_outbox",

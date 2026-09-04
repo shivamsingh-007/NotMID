@@ -63,6 +63,37 @@ class SummarySourceBundle(BaseModel):
         return value
 
 
+class ConfirmedEncounterContext(BaseModel):
+    tenant_id: UUID
+    facility_id: UUID
+    patient_id: UUID
+    encounter_id: UUID
+    language: Literal["hi", "en"] = "en"
+    chief_complaint: str = Field(min_length=1, max_length=500)
+    confirmed_answers: dict[str, Any] = Field(default_factory=dict)
+    deterministic_red_flags: list[str] = Field(default_factory=list, max_length=50)
+    confirmed_by_actor_id: UUID
+    confirmed_at: datetime
+    version: int = Field(ge=1)
+
+
+class ConfirmEncounterContextCommand(BaseModel):
+    facility_id: UUID
+    patient_id: UUID
+    encounter_id: UUID
+    language: Literal["hi", "en"] = "en"
+    chief_complaint: str = Field(min_length=1, max_length=500)
+    confirmed_answers: dict[str, Any] = Field(default_factory=dict)
+    expected_version: int | None = Field(default=None, ge=1)
+
+    @field_validator("confirmed_answers")
+    @classmethod
+    def bound_context_answers(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if len(value) > 100:
+            raise ValueError("confirmed_answers cannot contain more than 100 fields")
+        return value
+
+
 class SummaryRecord(BaseModel):
     id: UUID
     tenant_id: UUID
@@ -124,3 +155,7 @@ class GenerateSummaryCommand(BaseModel):
     patient_id: UUID
     encounter_id: UUID
     language: Literal["hi", "en"] = "en"
+
+
+class RegenerateSummaryCommand(GenerateSummaryCommand):
+    expected_version: int = Field(ge=1)

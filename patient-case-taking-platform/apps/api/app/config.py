@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     DOCUMENT_EVENT_TOPIC: str = "clinical.documents.v1"
     MODEL_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
+    SUMMARY_WORKFLOW_ENABLED: bool = False
 
     @property
     def cors_allowed_origins(self) -> list[str]:

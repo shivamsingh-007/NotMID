@@ -25,6 +25,7 @@ from app.routers import (
     llm,
     ocr,
     patients,
+    reviewed_documents,
     triage,
 )
 
@@ -79,6 +80,7 @@ app.include_router(health.router)
 app.include_router(asr.router)  # ASR always available (not behind demo gate)
 app.include_router(documents.router)  # Fails closed unless durable workflow is enabled.
 app.include_router(document_reviews.router)
+app.include_router(reviewed_documents.router)
 
 # These in-memory routes are useful for contract and UI prototyping, but they do
 # not yet provide Clerk verification, durable persistence, tenant isolation, or

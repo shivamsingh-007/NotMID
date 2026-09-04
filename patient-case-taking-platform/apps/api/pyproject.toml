@@ -19,6 +19,9 @@ dependencies = [
     "motor>=3.5.0",
     "redis>=5.0",
     "aiokafka>=0.11",
+    "boto3>=1.35",
+    "Pillow==12.3.0",
+    "pypdfium2==5.13.0",
 ]
 
 [project.optional-dependencies]

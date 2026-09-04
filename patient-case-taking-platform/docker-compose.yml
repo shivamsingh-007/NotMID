@@ -282,6 +282,32 @@ services:
       postgres: { condition: service_healthy }
       kafka: { condition: service_started }
 
+  summary-outbox-publisher:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.summary_workflow.outbox_publisher", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      KAFKA_BROKERS: kafka:29092
+      SUMMARY_EVENT_TOPIC: ${SUMMARY_EVENT_TOPIC:-clinical.summaries.v1}
+      SUMMARY_OUTBOX_LEASE_SECONDS: ${SUMMARY_OUTBOX_LEASE_SECONDS:-30}
+      SUMMARY_OUTBOX_MAX_ATTEMPTS: ${SUMMARY_OUTBOX_MAX_ATTEMPTS:-3}
+      SUMMARY_OUTBOX_BATCH_SIZE: ${SUMMARY_OUTBOX_BATCH_SIZE:-25}
+      SUMMARY_OUTBOX_POLL_INTERVAL_SECONDS: ${SUMMARY_OUTBOX_POLL_INTERVAL_SECONDS:-1}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_started }
+
   api:
     build:
       context: ./apps/api
@@ -303,6 +329,7 @@ services:
       DOCUMENT_WORKFLOW_ENABLED: ${DOCUMENT_WORKFLOW_ENABLED:-false}
       S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
       LLM_PROVIDER: mock
+      SUMMARY_WORKFLOW_ENABLED: ${SUMMARY_WORKFLOW_ENABLED:-false}
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }

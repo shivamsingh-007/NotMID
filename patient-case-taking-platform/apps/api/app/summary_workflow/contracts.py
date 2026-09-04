@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.llm.schemas import EvidenceLink, OutputConfidence
 
@@ -53,6 +53,7 @@ class SummarySourceBundle(BaseModel):
     chief_complaint: str = Field(min_length=1, max_length=500)
     confirmed_answers: dict[str, Any] = Field(default_factory=dict)
     reviewed_document_facts: list[str] = Field(default_factory=list, max_length=100)
+    reviewed_document_fact_ids: list[UUID] = Field(default_factory=list, max_length=100)
     deterministic_red_flags: list[str] = Field(default_factory=list, max_length=50)
 
     @field_validator("confirmed_answers")
@@ -127,9 +128,7 @@ class SummaryAction(BaseModel):
     summary_id: UUID
     actor_id: UUID
     actor_role: Literal["doctor", "nurse", "system"]
-    action: Literal[
-        "generated", "edited", "submitted", "rejected", "regenerated", "signed"
-    ]
+    action: Literal["generated", "edited", "submitted", "rejected", "regenerated", "signed"]
     from_status: SummaryStatus | None
     to_status: SummaryStatus
     resulting_lock_version: int = Field(ge=1)
@@ -151,6 +150,7 @@ class RejectSummaryCommand(VersionCommand):
 
 
 class GenerateSummaryCommand(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     facility_id: UUID
     patient_id: UUID
     encounter_id: UUID

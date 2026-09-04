@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from app.llm.schemas import ClinicalSummaryRequest, ClinicalSummaryResponse, EvidenceLink
@@ -42,18 +43,23 @@ class SummaryWorkflowService:
         self._require_role(actor_role, {"doctor", "nurse"})
         request_hash = self._request_hash(source, parent)
         replay = await self.repository.find_idempotent(
-            tenant_id=source.tenant_id, idempotency_key=idempotency_key,
+            tenant_id=source.tenant_id,
+            idempotency_key=idempotency_key,
             request_hash_sha256=request_hash,
         )
         if replay is not None:
             return replay
         record = await self._build_record(
-            source=source, actor_id=actor_id, parent=parent,
+            source=source,
+            actor_id=actor_id,
+            parent=parent,
             request_hash_sha256=request_hash,
         )
         action = self._action(record, actor_id, actor_role, "generated", None)
         return await self.repository.create(
-            record=record, action=action, idempotency_key=idempotency_key,
+            record=record,
+            action=action,
+            idempotency_key=idempotency_key,
             request_hash_sha256=request_hash,
         )
 
@@ -76,6 +82,7 @@ class SummaryWorkflowService:
         updated = current.model_copy(
             update={
                 "content": content,
+                "evidence": self._edit_evidence(current, content),
                 "lock_version": current.lock_version + 1,
                 "updated_at": datetime.now(UTC),
             },
@@ -87,35 +94,59 @@ class SummaryWorkflowService:
         )
 
     async def submit(
-        self, *, tenant_id: UUID, summary_id: UUID, actor_id: UUID, actor_role: str,
-        expected_version: int
+        self,
+        *,
+        tenant_id: UUID,
+        summary_id: UUID,
+        actor_id: UUID,
+        actor_role: str,
+        expected_version: int,
     ) -> SummaryRecord:
         self._require_role(actor_role, {"doctor", "nurse"})
         return await self._transition(
-            tenant_id=tenant_id, summary_id=summary_id, actor_id=actor_id,
-            actor_role=actor_role, expected_version=expected_version,
-            allowed={SummaryStatus.DRAFT}, target=SummaryStatus.IN_REVIEW,
+            tenant_id=tenant_id,
+            summary_id=summary_id,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            expected_version=expected_version,
+            allowed={SummaryStatus.DRAFT},
+            target=SummaryStatus.IN_REVIEW,
             action_name="submitted",
         )
 
     async def reject(
-        self, *, tenant_id: UUID, summary_id: UUID, actor_id: UUID, actor_role: str,
-        expected_version: int, reason: str
+        self,
+        *,
+        tenant_id: UUID,
+        summary_id: UUID,
+        actor_id: UUID,
+        actor_role: str,
+        expected_version: int,
+        reason: str,
     ) -> SummaryRecord:
         self._require_role(actor_role, {"doctor"})
         if not reason.strip() or len(reason) > 500:
             raise SummaryTransitionError("A bounded rejection reason is required")
         return await self._transition(
-            tenant_id=tenant_id, summary_id=summary_id, actor_id=actor_id,
-            actor_role=actor_role, expected_version=expected_version,
+            tenant_id=tenant_id,
+            summary_id=summary_id,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            expected_version=expected_version,
             allowed={SummaryStatus.DRAFT, SummaryStatus.IN_REVIEW},
-            target=SummaryStatus.REJECTED, action_name="rejected",
+            target=SummaryStatus.REJECTED,
+            action_name="rejected",
             extra={"rejection_reason": reason.strip()},
         )
 
     async def sign(
-        self, *, tenant_id: UUID, summary_id: UUID, actor_id: UUID, actor_role: str,
-        expected_version: int
+        self,
+        *,
+        tenant_id: UUID,
+        summary_id: UUID,
+        actor_id: UUID,
+        actor_role: str,
+        expected_version: int,
     ) -> SummaryRecord:
         self._require_role(actor_role, {"doctor"})
         current = await self.repository.get(tenant_id=tenant_id, summary_id=summary_id)
@@ -138,8 +169,14 @@ class SummaryWorkflowService:
         )
 
     async def regenerate(
-        self, *, source: SummarySourceBundle, previous_summary_id: UUID,
-        actor_id: UUID, actor_role: str, expected_version: int, idempotency_key: str
+        self,
+        *,
+        source: SummarySourceBundle,
+        previous_summary_id: UUID,
+        actor_id: UUID,
+        actor_role: str,
+        expected_version: int,
+        idempotency_key: str,
     ) -> SummaryRecord:
         self._require_role(actor_role, {"doctor"})
         previous = await self.repository.get(
@@ -147,7 +184,8 @@ class SummaryWorkflowService:
         )
         request_hash = self._request_hash(source, previous)
         replay = await self.repository.find_idempotent(
-            tenant_id=source.tenant_id, idempotency_key=idempotency_key,
+            tenant_id=source.tenant_id,
+            idempotency_key=idempotency_key,
             request_hash_sha256=request_hash,
         )
         if replay is not None:
@@ -163,9 +201,12 @@ class SummaryWorkflowService:
         self._require_status(previous, {SummaryStatus.DRAFT, SummaryStatus.REJECTED})
         if previous.lock_version != expected_version:
             from app.summary_workflow.repository import SummaryConflict
+
             raise SummaryConflict("Summary version is stale")
         replacement = await self._build_record(
-            source=source, actor_id=actor_id, parent=previous,
+            source=source,
+            actor_id=actor_id,
+            parent=previous,
             request_hash_sha256=request_hash,
         )
         superseded = previous.model_copy(
@@ -177,52 +218,89 @@ class SummaryWorkflowService:
             deep=True,
         )
         action = self._action(
-            superseded, actor_id, actor_role, "regenerated", previous.status,
+            superseded,
+            actor_id,
+            actor_role,
+            "regenerated",
+            previous.status,
             metadata={"replacement_summary_id": str(replacement.id)},
         )
         replacement_action = self._action(
-            replacement, actor_id, actor_role, "generated", None,
+            replacement,
+            actor_id,
+            actor_role,
+            "generated",
+            None,
             metadata={"previous_summary_id": str(previous.id)},
         )
         return await self.repository.regenerate(
-            previous=superseded, replacement=replacement,
-            previous_action=action, replacement_action=replacement_action,
-            expected_version=expected_version, idempotency_key=idempotency_key,
+            previous=superseded,
+            replacement=replacement,
+            previous_action=action,
+            replacement_action=replacement_action,
+            expected_version=expected_version,
+            idempotency_key=idempotency_key,
             request_hash_sha256=request_hash,
         )
 
     async def _build_record(
-        self, *, source: SummarySourceBundle, actor_id: UUID,
-        parent: SummaryRecord | None, request_hash_sha256: str
+        self,
+        *,
+        source: SummarySourceBundle,
+        actor_id: UUID,
+        parent: SummaryRecord | None,
+        request_hash_sha256: str,
     ) -> SummaryRecord:
         generated = await self.llm_router.generate_summary(
             ClinicalSummaryRequest(
-                tenant_id=source.tenant_id, encounter_id=source.encounter_id,
-                language=source.language, chief_complaint=source.chief_complaint,
-                confirmed_answers=source.confirmed_answers, transcript="",
+                tenant_id=source.tenant_id,
+                encounter_id=source.encounter_id,
+                language=source.language,
+                chief_complaint=source.chief_complaint,
+                confirmed_answers=source.confirmed_answers,
+                transcript="",
                 document_facts=source.reviewed_document_facts,
+                document_fact_source_paths=[
+                    f"reviewed_document_fact.{fact_id}"
+                    for fact_id in source.reviewed_document_fact_ids
+                ],
             )
         )
         generated = self._preserve_red_flags(generated, source.deterministic_red_flags)
         now = datetime.now(UTC)
         return SummaryRecord(
-            id=uuid4(), tenant_id=source.tenant_id, facility_id=source.facility_id,
-            patient_id=source.patient_id, encounter_id=source.encounter_id,
+            id=uuid4(),
+            tenant_id=source.tenant_id,
+            facility_id=source.facility_id,
+            patient_id=source.patient_id,
+            encounter_id=source.encounter_id,
             lineage_id=parent.lineage_id if parent else uuid4(),
             generation=parent.generation + 1 if parent else 1,
             parent_summary_id=parent.id if parent else None,
-            status=SummaryStatus.DRAFT, content=self._content(generated),
-            evidence=generated.evidence, confidence=generated.confidence,
-            provider=generated.provider, degraded=generated.degraded,
-            lock_version=1, created_by_actor_id=actor_id,
-            created_at=now, updated_at=now,
+            status=SummaryStatus.DRAFT,
+            content=self._content(generated),
+            evidence=generated.evidence,
+            confidence=generated.confidence,
+            provider=generated.provider,
+            lock_version=1,
+            created_by_actor_id=actor_id,
+            created_at=now,
+            updated_at=now,
             request_hash_sha256=request_hash_sha256,
         )
 
     async def _transition(
-        self, *, tenant_id: UUID, summary_id: UUID, actor_id: UUID, actor_role: str,
-        expected_version: int, allowed: set[SummaryStatus], target: SummaryStatus,
-        action_name: str, extra: dict[str, object] | None = None,
+        self,
+        *,
+        tenant_id: UUID,
+        summary_id: UUID,
+        actor_id: UUID,
+        actor_role: str,
+        expected_version: int,
+        allowed: set[SummaryStatus],
+        target: SummaryStatus,
+        action_name: str,
+        extra: dict[str, object] | None = None,
     ) -> SummaryRecord:
         current = await self.repository.get(tenant_id=tenant_id, summary_id=summary_id)
         self._require_status(current, allowed)
@@ -261,6 +339,27 @@ class SummaryWorkflowService:
         return generated.model_copy(update={"red_flags": flags, "evidence": evidence})
 
     @staticmethod
+    def _edit_evidence(current: SummaryRecord, content: SummaryContent) -> list[EvidenceLink]:
+        evidence = list(current.evidence)
+        for field_name in SummaryContent.model_fields:
+            if getattr(current.content, field_name) == getattr(content, field_name):
+                continue
+            evidence = [
+                item
+                for item in evidence
+                if item.output_path != field_name
+                and not item.output_path.startswith(f"{field_name}[")
+            ]
+            evidence.append(
+                EvidenceLink(
+                    output_path=field_name,
+                    source_path=f"clinical_summary_action.{current.lock_version + 1}",
+                    source_type="clinician_edit",
+                )
+            )
+        return evidence
+
+    @staticmethod
     def _require_role(role: str, allowed: set[str]) -> None:
         if role not in allowed:
             raise SummaryPermissionError("Role is not allowed for this summary action")
@@ -268,9 +367,7 @@ class SummaryWorkflowService:
     @staticmethod
     def _require_status(record: SummaryRecord, allowed: set[SummaryStatus]) -> None:
         if record.status not in allowed:
-            raise SummaryTransitionError(
-                f"Summary in '{record.status}' cannot perform this action"
-            )
+            raise SummaryTransitionError(f"Summary in '{record.status}' cannot perform this action")
 
     @staticmethod
     def _signature(record: SummaryRecord, actor_id: UUID, signed_at: datetime) -> str:
@@ -294,14 +391,33 @@ class SummaryWorkflowService:
 
     @staticmethod
     def _action(
-        record: SummaryRecord, actor_id: UUID, actor_role: str, action: str,
+        record: SummaryRecord,
+        actor_id: UUID,
+        actor_role: str,
+        action: str,
         from_status: SummaryStatus | None,
         metadata: dict[str, str | int | bool | None] | None = None,
     ) -> SummaryAction:
         return SummaryAction(
-            id=uuid4(), tenant_id=record.tenant_id, summary_id=record.id,
-            actor_id=actor_id, actor_role=actor_role, action=action,
-            from_status=from_status, to_status=record.status,
+            id=uuid4(),
+            tenant_id=record.tenant_id,
+            summary_id=record.id,
+            actor_id=actor_id,
+            actor_role=cast(Literal["doctor", "nurse", "system"], actor_role),
+            action=cast(
+                Literal[
+                    "generated",
+                    "edited",
+                    "submitted",
+                    "rejected",
+                    "regenerated",
+                    "signed",
+                ],
+                action,
+            ),
+            from_status=from_status,
+            to_status=record.status,
             resulting_lock_version=record.lock_version,
-            occurred_at=record.updated_at, metadata=metadata or {},
+            occurred_at=record.updated_at,
+            metadata=metadata or {},
         )

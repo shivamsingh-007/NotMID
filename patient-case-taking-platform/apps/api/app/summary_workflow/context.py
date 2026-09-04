@@ -2,7 +2,7 @@
 
 import json
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID
 
 from app.rules.triage import detect_red_flags
@@ -16,24 +16,27 @@ from app.summary_workflow.repository import SummaryConflict, SummaryNotFound
 
 class SummaryContextRepository(Protocol):
     async def confirm(
-        self, *, tenant_id: UUID, actor_id: UUID,
-        command: ConfirmEncounterContextCommand
+        self, *, tenant_id: UUID, actor_id: UUID, command: ConfirmEncounterContextCommand
     ) -> ConfirmedEncounterContext: ...
 
     async def assemble(
-        self, *, tenant_id: UUID, facility_id: UUID, patient_id: UUID,
-        encounter_id: UUID, language: str
+        self,
+        *,
+        tenant_id: UUID,
+        facility_id: UUID,
+        patient_id: UUID,
+        encounter_id: UUID,
+        language: Literal["hi", "en"],
     ) -> SummarySourceBundle: ...
 
 
 class InMemorySummaryContextRepository:
     def __init__(self) -> None:
         self._contexts: dict[tuple[UUID, UUID], ConfirmedEncounterContext] = {}
-        self._document_facts: dict[tuple[UUID, UUID], list[str]] = {}
+        self._document_facts: dict[tuple[UUID, UUID], list[tuple[UUID, str]]] = {}
 
     async def confirm(
-        self, *, tenant_id: UUID, actor_id: UUID,
-        command: ConfirmEncounterContextCommand
+        self, *, tenant_id: UUID, actor_id: UUID, command: ConfirmEncounterContextCommand
     ) -> ConfirmedEncounterContext:
         key = (tenant_id, command.encounter_id)
         previous = self._contexts.get(key)
@@ -41,19 +44,30 @@ class InMemorySummaryContextRepository:
             raise SummaryConflict("Confirmed context version is stale")
         if previous is not None and previous.version != command.expected_version:
             raise SummaryConflict("Confirmed context version is stale")
+        if previous is not None and (
+            previous.facility_id != command.facility_id or previous.patient_id != command.patient_id
+        ):
+            raise SummaryConflict("Confirmed context identity cannot change")
         flags = _deterministic_flags(command.chief_complaint, command.confirmed_answers)
         context = ConfirmedEncounterContext(
             tenant_id=tenant_id,
             **command.model_dump(exclude={"expected_version"}),
-            deterministic_red_flags=flags, confirmed_by_actor_id=actor_id,
-            confirmed_at=datetime.now(UTC), version=1 if previous is None else previous.version + 1,
+            deterministic_red_flags=flags,
+            confirmed_by_actor_id=actor_id,
+            confirmed_at=datetime.now(UTC),
+            version=1 if previous is None else previous.version + 1,
         )
         self._contexts[key] = context
         return context.model_copy(deep=True)
 
     async def assemble(
-        self, *, tenant_id: UUID, facility_id: UUID, patient_id: UUID,
-        encounter_id: UUID, language: str
+        self,
+        *,
+        tenant_id: UUID,
+        facility_id: UUID,
+        patient_id: UUID,
+        encounter_id: UUID,
+        language: Literal["hi", "en"],
     ) -> SummarySourceBundle:
         context = self._contexts.get((tenant_id, encounter_id))
         if context is None:
@@ -61,16 +75,28 @@ class InMemorySummaryContextRepository:
         if context.facility_id != facility_id or context.patient_id != patient_id:
             raise SummaryNotFound("Confirmed encounter context not found")
         return SummarySourceBundle(
-            **context.model_dump(include={
-                "tenant_id", "facility_id", "patient_id", "encounter_id",
-                "chief_complaint", "confirmed_answers", "deterministic_red_flags",
-            }),
+            **context.model_dump(
+                include={
+                    "tenant_id",
+                    "facility_id",
+                    "patient_id",
+                    "encounter_id",
+                    "chief_complaint",
+                    "confirmed_answers",
+                    "deterministic_red_flags",
+                }
+            ),
             language=language,
-            reviewed_document_facts=self._document_facts.get((tenant_id, encounter_id), []),
+            reviewed_document_facts=[
+                fact for _, fact in self._document_facts.get((tenant_id, encounter_id), [])
+            ],
+            reviewed_document_fact_ids=[
+                fact_id for fact_id, _ in self._document_facts.get((tenant_id, encounter_id), [])
+            ],
         )
 
     def set_reviewed_document_facts(
-        self, tenant_id: UUID, encounter_id: UUID, facts: list[str]
+        self, tenant_id: UUID, encounter_id: UUID, facts: list[tuple[UUID, str]]
     ) -> None:
         self._document_facts[(tenant_id, encounter_id)] = facts[:100]
 
@@ -96,11 +122,12 @@ UPDATE confirmed_encounter_summary_context SET
     confirmed_answers = $7::JSONB, deterministic_red_flags = $8::JSONB,
     confirmed_by_actor_id = $9, confirmed_at = $10, version = version + 1
 WHERE tenant_id = $1 AND encounter_id = $2 AND version = $11
+  AND facility_id = $3 AND patient_id = $4
 RETURNING *
 """
 
 _GET_REVIEWED_FACTS = """
-SELECT entity_type, normalized_value, unit
+SELECT id, entity_type, normalized_value, unit
 FROM reviewed_document_fact
 WHERE tenant_id = $1 AND facility_id = $2 AND patient_id = $3
   AND encounter_id = $4 AND active
@@ -114,8 +141,7 @@ class PostgresSummaryContextRepository:
         self._pool = pool
 
     async def confirm(
-        self, *, tenant_id: UUID, actor_id: UUID,
-        command: ConfirmEncounterContextCommand
+        self, *, tenant_id: UUID, actor_id: UUID, command: ConfirmEncounterContextCommand
     ) -> ConfirmedEncounterContext:
         flags = _deterministic_flags(command.chief_complaint, command.confirmed_answers)
         now = datetime.now(UTC)
@@ -124,31 +150,55 @@ class PostgresSummaryContextRepository:
                 await _set_tenant(connection, tenant_id)
                 if command.expected_version is None:
                     row = await connection.fetchrow(
-                        _INSERT_CONTEXT, tenant_id, command.facility_id,
-                        command.patient_id, command.encounter_id, command.language,
-                        command.chief_complaint, json.dumps(command.confirmed_answers),
-                        json.dumps(flags), actor_id, now,
+                        _INSERT_CONTEXT,
+                        tenant_id,
+                        command.facility_id,
+                        command.patient_id,
+                        command.encounter_id,
+                        command.language,
+                        command.chief_complaint,
+                        json.dumps(command.confirmed_answers),
+                        json.dumps(flags),
+                        actor_id,
+                        now,
                     )
                 else:
                     row = await connection.fetchrow(
-                        _UPDATE_CONTEXT, tenant_id, command.encounter_id,
-                        command.facility_id, command.patient_id, command.language,
-                        command.chief_complaint, json.dumps(command.confirmed_answers),
-                        json.dumps(flags), actor_id, now, command.expected_version,
+                        _UPDATE_CONTEXT,
+                        tenant_id,
+                        command.encounter_id,
+                        command.facility_id,
+                        command.patient_id,
+                        command.language,
+                        command.chief_complaint,
+                        json.dumps(command.confirmed_answers),
+                        json.dumps(flags),
+                        actor_id,
+                        now,
+                        command.expected_version,
                     )
         if row is None:
             raise SummaryConflict("Confirmed context version is stale")
         return _context(row)
 
     async def assemble(
-        self, *, tenant_id: UUID, facility_id: UUID, patient_id: UUID,
-        encounter_id: UUID, language: str
+        self,
+        *,
+        tenant_id: UUID,
+        facility_id: UUID,
+        patient_id: UUID,
+        encounter_id: UUID,
+        language: Literal["hi", "en"],
     ) -> SummarySourceBundle:
         async with self._pool.acquire() as connection:
             async with connection.transaction():
                 await _set_tenant(connection, tenant_id)
                 row = await connection.fetchrow(_GET_CONTEXT, tenant_id, encounter_id)
-                if row is None or row["facility_id"] != facility_id or row["patient_id"] != patient_id:
+                if (
+                    row is None
+                    or row["facility_id"] != facility_id
+                    or row["patient_id"] != patient_id
+                ):
                     raise SummaryNotFound("Confirmed encounter context not found")
                 fact_rows = await connection.fetch(
                     _GET_REVIEWED_FACTS, tenant_id, facility_id, patient_id, encounter_id
@@ -160,12 +210,16 @@ class PostgresSummaryContextRepository:
             for item in fact_rows
         ]
         return SummarySourceBundle(
-            tenant_id=tenant_id, facility_id=facility_id, patient_id=patient_id,
-            encounter_id=encounter_id, language=language,
+            tenant_id=tenant_id,
+            facility_id=facility_id,
+            patient_id=patient_id,
+            encounter_id=encounter_id,
+            language=language,
             chief_complaint=context.chief_complaint,
             confirmed_answers=context.confirmed_answers,
             deterministic_red_flags=context.deterministic_red_flags,
             reviewed_document_facts=facts,
+            reviewed_document_fact_ids=[item["id"] for item in fact_rows],
         )
 
 

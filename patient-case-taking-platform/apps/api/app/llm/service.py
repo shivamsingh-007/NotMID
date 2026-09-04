@@ -42,9 +42,7 @@ class LLMRouter:
         )
         return result
 
-    async def generate_summary(
-        self, request: ClinicalSummaryRequest
-    ) -> ClinicalSummaryResponse:
+    async def generate_summary(self, request: ClinicalSummaryRequest) -> ClinicalSummaryResponse:
         payload = request.model_dump(mode="json")
         result = await self._validated_generate(
             task="summary.generate",
@@ -148,7 +146,19 @@ class LLMRouter:
                     "output_path": "chief_complaint",
                     "source_path": "chief_complaint",
                     "source_type": "patient_response",
-                }
+                },
+                *[
+                    {
+                        "output_path": f"document_facts[{index}]",
+                        "source_path": (
+                            request.document_fact_source_paths[index]
+                            if index < len(request.document_fact_source_paths)
+                            else f"document_facts[{index}]"
+                        ),
+                        "source_type": "document",
+                    }
+                    for index, _ in enumerate(request.document_facts)
+                ],
             ],
             "clinician_review_required": True,
             "provider": "template-fallback",

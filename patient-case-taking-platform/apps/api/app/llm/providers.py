@@ -141,7 +141,9 @@ class MockClinicalProvider:
             if key.startswith("negative_") and value is True
         ]
         uncertainties = []
-        missing = [domain for domain in SOCRATES_DOMAINS if not _has_meaningful_answer(answers.get(domain))]
+        missing = [
+            domain for domain in SOCRATES_DOMAINS if not _has_meaningful_answer(answers.get(domain))
+        ]
         if missing:
             uncertainties.append("Missing fields: " + ", ".join(missing))
         if not history:
@@ -149,16 +151,35 @@ class MockClinicalProvider:
         completed = sum(_has_meaningful_answer(answers.get(domain)) for domain in SOCRATES_DOMAINS)
         evidence = [
             {
+                "output_path": "chief_complaint",
+                "source_path": "chief_complaint",
+                "source_type": "patient_response",
+            }
+        ]
+        evidence.extend(
+            {
                 "output_path": f"history_of_present_illness[{index}]",
                 "source_path": f"confirmed_answers.{key}",
                 "source_type": "patient_response",
             }
             for index, (key, _) in enumerate(history_items)
-        ]
+        )
+        evidence.extend(
+            {
+                "output_path": f"relevant_negatives[{index}]",
+                "source_path": f"confirmed_answers.negative_{item.replace(' ', '_')}",
+                "source_type": "patient_response",
+            }
+            for index, item in enumerate(negatives)
+        )
         evidence.extend(
             {
                 "output_path": f"document_facts[{index}]",
-                "source_path": f"document_facts[{index}]",
+                "source_path": (
+                    payload["document_fact_source_paths"][index]
+                    if index < len(payload["document_fact_source_paths"])
+                    else f"document_facts[{index}]"
+                ),
                 "source_type": "document",
             }
             for index, _ in enumerate(payload["document_facts"])
@@ -206,9 +227,7 @@ def _flatten_text(value: Any) -> str:
     return _safe_text(value)
 
 
-def _red_flag_evidence(
-    sources: dict[str, str], flags: list[str]
-) -> list[dict[str, str]]:
+def _red_flag_evidence(sources: dict[str, str], flags: list[str]) -> list[dict[str, str]]:
     evidence: list[dict[str, str]] = []
     for source_path, source_text in sources.items():
         matched = set(detect_red_flags(source_text))
@@ -229,5 +248,5 @@ def build_provider(provider_name: str) -> LLMProvider:
         return MockClinicalProvider()
     raise RuntimeError(
         f"LLM provider '{provider_name}' is not available. "
-        "Phase 5 currently supports only the offline mock provider."
+        "MediKiosk supports only the offline mock provider."
     )

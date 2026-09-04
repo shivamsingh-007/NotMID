@@ -97,6 +97,10 @@ CREATE TABLE clinical_summary_outbox (
     payload JSONB NOT NULL DEFAULT '{}'::JSONB,
     occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     published_at TIMESTAMPTZ,
+    attempt INTEGER NOT NULL DEFAULT 0 CHECK (attempt >= 0),
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    publish_lease_expires_at TIMESTAMPTZ,
+    dead_lettered_at TIMESTAMPTZ,
     last_error_class VARCHAR(128),
     FOREIGN KEY (tenant_id, summary_id)
         REFERENCES clinical_summary_workflow (tenant_id, id),
@@ -151,4 +155,5 @@ CREATE INDEX clinical_summary_encounter_idx
 CREATE INDEX clinical_summary_review_queue_idx
     ON clinical_summary_workflow (tenant_id, facility_id, status, updated_at DESC);
 CREATE INDEX clinical_summary_outbox_pending_idx
-    ON clinical_summary_outbox (occurred_at) WHERE published_at IS NULL;
+    ON clinical_summary_outbox (next_attempt_at, occurred_at)
+    WHERE published_at IS NULL AND dead_lettered_at IS NULL;

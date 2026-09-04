@@ -3,14 +3,17 @@
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from app.auth.token import create_dev_token
+from app.config import settings
 from app.llm.providers import MockClinicalProvider
 from app.llm.service import LLMRouter
 from app.main import app
 from app.summary_workflow.context import InMemorySummaryContextRepository
 from app.summary_workflow.dependencies import (
+    _require_enabled,
     get_summary_context_repository,
     get_summary_repository,
     get_summary_workflow_service,
@@ -31,7 +34,9 @@ def workflow():
     app.dependency_overrides[get_summary_workflow_service] = lambda: service
     yield repository, contexts
     for dependency in (
-        get_summary_repository, get_summary_context_repository, get_summary_workflow_service
+        get_summary_repository,
+        get_summary_context_repository,
+        get_summary_workflow_service,
     ):
         app.dependency_overrides.pop(dependency, None)
 
@@ -51,8 +56,10 @@ def _context(tenant_id, facility_id, patient_id, encounter_id, role="doctor"):
         "/api/v1/summary-workflows/contexts",
         headers=_headers(tenant_id, facility_id, role),
         json={
-            "facility_id": str(facility_id), "patient_id": str(patient_id),
-            "encounter_id": str(encounter_id), "language": "en",
+            "facility_id": str(facility_id),
+            "patient_id": str(patient_id),
+            "encounter_id": str(encounter_id),
+            "language": "en",
             "chief_complaint": "I cannot breathe",
             "confirmed_answers": {"site": "chest", "severity": 8},
         },
@@ -64,10 +71,10 @@ def _generate(tenant_id, facility_id, patient_id, encounter_id, role="doctor"):
         "/api/v1/summary-workflows/generate",
         headers=_headers(tenant_id, facility_id, role, "generate-http-1"),
         json={
-            "facility_id": str(facility_id), "patient_id": str(patient_id),
-            "encounter_id": str(encounter_id), "language": "en",
-            # This unrecognized client field cannot replace confirmed server context.
-            "chief_complaint": "injected harmless complaint",
+            "facility_id": str(facility_id),
+            "patient_id": str(patient_id),
+            "encounter_id": str(encounter_id),
+            "language": "en",
         },
     )
 
@@ -77,6 +84,19 @@ def test_complete_context_generate_edit_review_and_sign_workflow(workflow):
     context = _context(tenant_id, facility_id, patient_id, encounter_id)
     assert context.status_code == 200
     assert "RF-RESP-001" in context.json()["deterministic_red_flags"]
+
+    injected = client.post(
+        "/api/v1/summary-workflows/generate",
+        headers=_headers(tenant_id, facility_id, "doctor", "injected-payload"),
+        json={
+            "facility_id": str(facility_id),
+            "patient_id": str(patient_id),
+            "encounter_id": str(encounter_id),
+            "language": "en",
+            "chief_complaint": "client supplied narrative is forbidden",
+        },
+    )
+    assert injected.status_code == 422
 
     generated = _generate(tenant_id, facility_id, patient_id, encounter_id)
     assert generated.status_code == 201
@@ -92,6 +112,7 @@ def test_complete_context_generate_edit_review_and_sign_workflow(workflow):
         json={"expected_version": 1, "content": edited_content},
     )
     assert edited.status_code == 200
+    assert any(item["source_type"] == "clinician_edit" for item in edited.json()["evidence"])
     submitted = client.post(
         f"/api/v1/summary-workflows/{draft['id']}/submit-review",
         headers=_headers(tenant_id, facility_id, "nurse"),
@@ -112,7 +133,10 @@ def test_complete_context_generate_edit_review_and_sign_workflow(workflow):
         headers=_headers(tenant_id, facility_id),
     )
     assert [item["action"] for item in history.json()] == [
-        "generated", "edited", "submitted", "signed"
+        "generated",
+        "edited",
+        "submitted",
+        "signed",
     ]
 
 
@@ -130,8 +154,10 @@ def test_nurse_cannot_sign_and_wrong_facility_cannot_generate(workflow):
         "/api/v1/summary-workflows/generate",
         headers=_headers(tenant_id, uuid4(), "doctor", "wrong-facility"),
         json={
-            "facility_id": str(facility_id), "patient_id": str(patient_id),
-            "encounter_id": str(encounter_id), "language": "en",
+            "facility_id": str(facility_id),
+            "patient_id": str(patient_id),
+            "encounter_id": str(encounter_id),
+            "language": "en",
         },
     )
     assert wrong_facility.status_code == 403
@@ -150,8 +176,10 @@ def test_reject_and_regenerate_creates_new_lineage_version(workflow):
         f"/api/v1/summary-workflows/{draft['id']}/regenerate",
         headers=_headers(tenant_id, facility_id, "doctor", "regen-http-1"),
         json={
-            "facility_id": str(facility_id), "patient_id": str(patient_id),
-            "encounter_id": str(encounter_id), "language": "en",
+            "facility_id": str(facility_id),
+            "patient_id": str(patient_id),
+            "encounter_id": str(encounter_id),
+            "language": "en",
             "expected_version": rejected["lock_version"],
         },
     )
@@ -163,7 +191,13 @@ def test_reject_and_regenerate_creates_new_lineage_version(workflow):
 
 def test_non_clinical_role_is_rejected(workflow):
     tenant_id, facility_id, patient_id, encounter_id = (uuid4() for _ in range(4))
-    response = _context(
-        tenant_id, facility_id, patient_id, encounter_id, role="receptionist"
-    )
+    response = _context(tenant_id, facility_id, patient_id, encounter_id, role="receptionist")
     assert response.status_code == 403
+
+
+def test_summary_dependency_fails_closed_for_non_mock_provider(monkeypatch):
+    monkeypatch.setattr(settings, "SUMMARY_WORKFLOW_ENABLED", True)
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "external-provider")
+    with pytest.raises(HTTPException) as error:
+        _require_enabled()
+    assert error.value.status_code == 503

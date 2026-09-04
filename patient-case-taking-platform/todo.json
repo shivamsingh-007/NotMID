@@ -1,67 +1,53 @@
 {
-  "project": "NotMID Patient Case-Taking Platform",
-  "reviewed_at": "2026-08-29T15:30:00+05:30",
-  "current_stage": "foundation_prototype",
+  "project": "MediKiosk Patient Case-Taking Platform",
+  "reviewed_at": "2026-09-04T00:00:00+05:30",
+  "current_stage": "phase8_engineering_candidate",
+  "provider_policy": "mock_only_no_model_downloads_no_hosted_llm_api",
   "status_model": {
-    "verified": "Implemented and exercised by an automated check in this repository",
-    "prototype": "Useful contract or UI scaffold; not connected to production identity or persistence",
-    "pending": "Not implemented"
+    "verified": "Implemented and exercised by an automated repository check",
+    "engineering_candidate": "Implemented locally; external owner/release evidence pending",
+    "pending": "Not implemented or not approved"
   },
   "workstreams": [
     {
-      "name": "Engineering foundation",
+      "name": "Phase 8 summary workflow",
+      "status": "engineering_candidate",
+      "evidence": [
+        "Mock-only schema-constrained generation and deterministic fallback",
+        "Clinician-confirmed server-side context with deterministic red-flag recomputation",
+        "PostgreSQL migration 0012 with forced tenant RLS and signed/action immutability triggers",
+        "Authorized generate, read, edit, submit, reject, regenerate, sign and history API",
+        "Atomic idempotent regeneration and metadata-only transactional outbox",
+        "API-backed doctor review UI passes lint and production build",
+        "Focused unit, HTTP and live PostgreSQL integration suites pass"
+      ],
+      "remaining_release_gates": [
+        "Production Clerk/JWKS identity and non-superuser API database role",
+        "Clinical safety and representative-case approval",
+        "Privacy/security and facility governance approval",
+        "Formal accessibility/usability sessions",
+        "Production operations telemetry thresholds and recovery drills",
+        "Load, security, backup/restore and staged rollback evidence"
+      ]
+    },
+    {
+      "name": "Provider policy",
       "status": "verified",
       "evidence": [
-        "Three Next.js 16.3.3 applications lint and build",
-        "FastAPI package installs, lints, type-checks, and passes 42 tests",
-        "Docker Compose and GitHub Actions YAML parse"
-      ],
-      "limits": [
-        "Full Docker Compose startup has not been exercised",
-        "No deployment environment has been validated"
-      ]
-    },
-    {
-      "name": "Clinical domain contracts",
-      "status": "prototype",
-      "evidence": [
-        "In-memory models, schemas, routes, rules, AYUSH mappings, and FHIR transforms exist",
-        "Prototype behavior is covered by unit tests"
-      ],
-      "limits": [
-        "All business routes are disabled unless ENABLE_DEMO_ROUTES=true",
-        "No durable database repositories or migrations exist",
-        "No tenant-isolation or concurrency integration tests exist"
-      ]
-    },
-    {
-      "name": "Identity and authorization",
-      "status": "pending",
-      "next": [
-        "Validate Clerk JWTs against issuer, audience, signature, expiry, and key rotation",
-        "Map Clerk subject to internal staff, patient, caregiver, facility, and role records",
-        "Enforce authorization and purpose-of-use at every clinical boundary",
-        "Add signed webhook handling, MFA policy, device enrollment, and hospital SSO tests"
-      ]
-    },
-    {
-      "name": "Persistence and audit",
-      "status": "pending",
-      "next": [
-        "Add Postgres repositories and migrations for regulated workflow data",
-        "Add immutable audit evidence and transactional outbox",
-        "Add MongoDB and object-storage adapters only for designated artifacts",
-        "Add backup, restore, retention, deletion, and disaster-recovery tests"
+        "LLM_PROVIDER defaults to mock",
+        "Provider factory rejects every other name",
+        "Compose contains no vLLM or generative model service",
+        "ADR-008 supersedes earlier HiMed/vLLM/OpenAI/Claude planning"
       ]
     },
     {
       "name": "Production readiness",
       "status": "pending",
       "next": [
-        "Run the full Compose topology and dependency readiness checks",
-        "Add contract, integration, accessibility, browser, load, and security tests",
-        "Pin and scan container images; produce SBOMs and signed artifacts",
-        "Define SLOs, PHI-safe telemetry, incident response, and staged rollout"
+        "Close the owner approval gates recorded in the Phase 8 plan",
+        "Exercise manual downtime and database recovery runbooks",
+        "Exercise reference-only summary outbox broker outage and dead-letter recovery in staging",
+        "Run governed browser accessibility, load and security verification"
       ]
     }
   ]

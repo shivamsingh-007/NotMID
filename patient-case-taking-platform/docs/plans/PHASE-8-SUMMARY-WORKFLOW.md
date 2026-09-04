@@ -11,14 +11,14 @@ HiMed-8B, vLLM, OpenAI, Claude, or any other remote or local generative model.
 
 | Increment | Status | Required evidence |
 | --- | --- | --- |
-| 8.0 corrected scope and safety contract | In progress | This plan is reviewed against the repository and the supplied planning document. |
-| 8.1 bounded context and deterministic generation | Planned | Contract tests prove schema validation, provenance, red-flag preservation, mock-only operation and fallback. |
-| 8.2 durable tenant-scoped workflow | Planned | Repeatable PostgreSQL migration, forced RLS, repository tests and immutable revisions. |
-| 8.3 authorized lifecycle API | Planned | Generate, read, edit, submit, reject, regenerate and sign endpoints with role, facility and version checks. |
-| 8.4 source assembly | Planned | Confirmed intake, triage and reviewed-document facts are assembled server-side without trusting client clinical truth. |
-| 8.5 doctor review experience | Planned | Accessible evidence review, editing, rejection, regeneration and sign-off UI backed by the API. |
-| 8.6 end-to-end and operational gates | Planned | Mock-provider workflow, repository integration, API, frontend lint/build and browser-path tests. |
-| 8.7 documentation and release evidence | Planned | Setup, API, safety, roadmap, runbook and HTML change ledger match tested behavior. |
+| 8.0 corrected scope and safety contract | Implemented | This plan and ADR-008 replace the unsupported supplied completion/provider claims. |
+| 8.1 bounded context and deterministic generation | Implemented and unit-tested | Mock-only schema validation/fallback is reused; focused tests prove red-flag preservation, role rules and immutable lifecycle behavior. |
+| 8.2 durable tenant-scoped workflow | Implemented and locally integration-tested | Migration 0012, forced RLS, optimistic concurrency, signed/action triggers, immutable history and reference-only outbox pass isolated-schema PostgreSQL tests. |
+| 8.3 authorized lifecycle API | Implemented and contract-tested | Context confirmation, generate, read/list/history, edit, submit, reject, regenerate and sign pass role, facility, version and full-path API tests. |
+| 8.4 source assembly | Implemented and locally integration-tested | Clinician-confirmed intake and server-recomputed triage join only active Phase 7 reviewed facts; client generation payload cannot inject narrative. |
+| 8.5 doctor review experience | Implemented; external accessibility/usability evidence pending | API-backed empty/loading/error, evidence, edit, reject/regenerate, review/sign and version states lint and build. Formal assistive-technology testing remains pending. |
+| 8.6 end-to-end and operational gates | Implemented engineering controls; external drills pending | Mock generate→edit→submit→sign and reject→regenerate paths, five live PostgreSQL tests including outbox delivery state, the metadata-only leased publisher and browser edit/review/sign smoke test pass. Production telemetry thresholds and recovery drills remain release gates. |
+| 8.7 documentation and release evidence | Implemented; owner approvals pending | Setup, API, AI/safety, roadmap, event, runbook and HTML ledger documents match the mock-only implementation and measured checks. Clinical, privacy/security, accessibility, operations and facility approvals remain open. |
 
 “Implemented” will mean repository behavior with passing engineering tests. It
 will not mean clinical validation, regulatory compliance or production approval.

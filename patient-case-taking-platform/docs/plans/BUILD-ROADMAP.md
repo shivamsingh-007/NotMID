@@ -9,20 +9,23 @@
 
 ## Current implementation milestone
 
-The repository's **Phase 4 voice-layer code slice is implemented and locally verified**. Its exact evidence, deferred TTS decision, and remaining production/clinical-release gates are recorded in [`PHASE-4-VOICE-LAYER.md`](PHASE-4-VOICE-LAYER.md). This implementation milestone is distinct from the longer product-roadmap phase numbering below.
+The repository's **Phase 4–7 engineering slices are implemented and Phase 8 is
+in progress**. Exact evidence and remaining release gates are recorded in the
+phase plans. The current clinical dialogue/summary policy is mock-only under
+[ADR-008](../architecture/decisions/ADR-008-MOCK-ONLY-CLINICAL-SUMMARY.md).
 
 ## Approved stack baseline
 
 - Next.js/React/TypeScript monorepo with separate patient, doctor and user-administration deployments.
 - FastAPI for the modular clinical core, WebSocket gateway and Python-facing APIs.
 - Clerk for staff/patient web authentication, with hospital SSO integration where available and a constrained kiosk pre-auth flow.
-- vLLM behind the AI gateway, with HiMed 8B treated as the first candidate rather than a clinically approved model.
+- Offline deterministic mock clinical provider plus safe template fallback; no generative model download or hosted LLM API.
 - AI4Bharat/Bhashini-compatible ASR, Indic/Bhashini-compatible TTS, an OCR ensemble and PyTorch clinical NLP services.
 - Versioned Python rules service for deterministic red flags and policies.
 - PostgreSQL for transactional/clinical truth; MongoDB for raw transcript/OCR/model artifacts; Redis for ephemeral state; S3-compatible object storage for binaries.
 - WebSockets for interactive updates; Kafka from MVP with durable PostgreSQL state/outbox, retries, DLQs and idempotent consumers.
 - Elasticsearch for rebuildable document search, audit exploration and operational analytics; optional vector search only after representative evaluation.
-- Docker for every deployable; Kubernetes for shared pilot/production. KServe/Ray Serve remain optional later.
+- Docker for local deployables; shared pilot/production topology remains an external design gate.
 
 ## Phase 0 — Discovery, governance and contracts
 
@@ -40,10 +43,8 @@ Duration target: 3–5 weeks.
 - Select FHIR resource mappings and ABDM participation roles: HIP, HIU or both.
 - Approve the API style, event envelope and service ownership map.
 - Define edge route classes, TLS ownership, direct-upload limits and the public-gateway/internal-model-router trust boundary.
-- Approve the external-model eligibility matrix by task, facility, purpose, data class, residency and provider contract.
-- Benchmark HiMed 8B through vLLM for license compatibility, GPU memory, throughput, Hindi/English quality and clinical-safety baselines.
+- Record and test the mock-only, no-external-inference policy.
 - Define Kafka topic/envelope ownership, partition keys, schema compatibility, retention, retry tiers, DLQs and replay runbooks before implementation.
-- Evaluate and select the smaller local summarizer; approve or disable OpenAI/Claude separately through privacy, contract, residency, cost and clinical-quality gates.
 - Benchmark Elasticsearch on multilingual clinical search and filtered vector retrieval; validate licensing, residency, recovery and operating cost rather than adopting vendor headline numbers.
 - Establish baseline metrics for consultation and documentation time.
 
@@ -54,7 +55,7 @@ Duration target: 3–5 weeks.
 - Synthetic evaluation set representing Hindi, English and code-switched speech.
 - ABDM sandbox path and facility responsibilities confirmed.
 - Clerk and hospital-SSO threat model approved, including outage and account-linking recovery.
-- HiMed 8B is either approved as a limited candidate for the next phase or replaced based on recorded evaluation evidence.
+- The mock-only provider decision, deterministic fallback and manual workflow are approved for engineering development.
 
 ## Phase 1 — Safe clinical workflow MVP
 
@@ -68,7 +69,7 @@ Duration target: 8–12 weeks.
 4. Internal patient identity, safe kiosk pre-auth and assisted registration.
 5. PostgreSQL transactional schema, MongoDB artifact collections, object-store registry and cross-store reference rules.
 6. Encounter and structured case-taking state machine with WebSocket progress updates.
-7. AI gateway and vLLM deployment with an evaluated HiMed 8B configuration and manual fallback.
+7. Mock-only clinical task router with schema validation and deterministic manual fallback.
 8. AI4Bharat/Bhashini ASR, patient confirmation and correction workflow.
 9. Object upload, malware scanning and initial OCR routing with immutable source retention.
 10. PyTorch clinical NLP and versioned deterministic Python red-flag rules.
@@ -79,7 +80,7 @@ Duration target: 8–12 weeks.
 ### Defer
 
 - Elasticsearch, Kubernetes service mesh and multi-region deployment.
-- KServe, Ray Serve and Drools-style rule authoring until measured scale or governance requirements justify them.
+- Generative model serving and Drools-style rule authoring; neither is authorized by the current product scope.
 - Autonomous diagnosis, prescription or AI-only emergency decisions.
 - Full longitudinal reasoning across every available patient document.
 
@@ -89,7 +90,7 @@ Duration target: 8–12 weeks.
 - No AI draft enters the signed record without clinician approval.
 - Critical symptom test cases meet the clinician-approved recall target.
 - FastAPI rejects invalid issuer/audience/expired Clerk tokens and every tested cross-role access attempt.
-- The platform remains usable for manual entry when Clerk, vLLM or ASR is unavailable, subject to documented identity safeguards.
+- The platform remains usable for manual entry when the mock assistant or ASR is unavailable, subject to documented identity safeguards.
 - Restore drill, access audit and incident runbook pass.
 
 ## Phase 2 — Hospital pilot and asynchronous processing
@@ -106,8 +107,8 @@ Duration target: 8–10 weeks.
 - Add offline capture with encrypted local queue and explicit sync state.
 - Integrate ABDM sandbox identity/linking/consent flows.
 - Add operational dashboards for latency, failures and AI quality.
-- Add normalized model results, provider-specific budgets/concurrency bulkheads and approved failure UX; keep external inference disabled until its privacy gate passes.
-- Deploy the shared pilot environment on Kubernetes with separate CPU/GPU pools and explicit resource limits.
+- Add normalized mock results, bounded failure handling and approved manual-fallback UX.
+- Design shared pilot deployment only after identity, data-service and owner approval gates pass.
 
 ### Exit gate
 
@@ -127,10 +128,9 @@ Duration target: 12–16 weeks after pilot evidence.
 - HPR/HFR verification where applicable.
 - HIS, LIMS and PACS adapters.
 - Introduce Elasticsearch for derived clinical-document search, audit exploration and aggregate dashboards.
-- Scale Kafka partitions and isolated local/OpenAI/Claude consumer groups from measured queue age, throughput and provider budgets.
-- Split Kafka inference topics and worker pools by local versus approved external execution, with bounded backlog/age, normalized results and provider-specific DLQs.
-- Autoscale CPU/GPU workers from queue depth and latency.
-- Evaluate KServe or Ray Serve only if the number of models, rollout patterns or GPU scheduling needs exceed the vLLM/Kubernetes deployment.
+- Scale Kafka partitions from measured queue age and throughput without adding model-provider routing.
+- Keep summary execution mock-only; a different provider requires explicit scope change and a new ADR.
+- Autoscale non-model workers from measured queue depth and latency where justified.
 - Add WhatsApp using explicit opt-in and approved low-PHI templates.
 - Implement production disaster recovery and regional failover exercises.
 
@@ -147,7 +147,7 @@ Duration target: 12–16 weeks after pilot evidence.
 - Care-gap suggestions and longitudinal risk signals.
 - Retrieval-assisted clinical summaries with statement-level citations.
 - De-identified analytics governed by explicit purpose and access controls.
-- Locally hosted or federated models when privacy, cost or latency justifies them.
+- Any future model experiment only after an explicit product-scope change and new hazard analysis.
 
 Every advanced feature requires a new hazard analysis, clinical evaluation and rollback plan.
 

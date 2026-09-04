@@ -1,6 +1,7 @@
 # Phase 8 — Evidence-linked clinical summary workflow
 
-**Status:** Implementation in progress; no production or clinical approval claimed
+**Status:** Engineering candidate implemented and verified; no production or
+clinical approval claimed
 
 **Provider policy:** Mock provider only. Phase 8 must not download or call
 HiMed-8B, vLLM, OpenAI, Claude, or any other remote or local generative model.

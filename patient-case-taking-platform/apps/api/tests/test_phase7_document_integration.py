@@ -78,7 +78,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 6
+        assert first_count == 7
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",

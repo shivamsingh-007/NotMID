@@ -205,6 +205,34 @@ services:
       minio-init: { condition: service_completed_successfully }
       document-normalizer: { condition: service_started }
 
+  document-extraction-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.documents.extraction_worker", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 512m
+    cpus: 1.0
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      MONGODB_URL: mongodb://mongodb:27017
+      OCR_ARTIFACT_DATABASE: ${OCR_ARTIFACT_DATABASE:-notmid}
+      OCR_ARTIFACT_COLLECTION: ${OCR_ARTIFACT_COLLECTION:-document_ocr_artifacts}
+      EXTRACTION_DRAFT_COLLECTION: ${EXTRACTION_DRAFT_COLLECTION:-document_extraction_drafts}
+      DOCUMENT_EXTRACTION_LEASE_SECONDS: ${DOCUMENT_EXTRACTION_LEASE_SECONDS:-60}
+      DOCUMENT_EXTRACTION_MAX_ATTEMPTS: ${DOCUMENT_EXTRACTION_MAX_ATTEMPTS:-3}
+      DOCUMENT_EXTRACTION_BATCH_SIZE: ${DOCUMENT_EXTRACTION_BATCH_SIZE:-2}
+      DOCUMENT_EXTRACTION_POLL_INTERVAL_SECONDS: ${DOCUMENT_EXTRACTION_POLL_INTERVAL_SECONDS:-2}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      mongodb: { condition: service_healthy }
+      document-ocr-worker: { condition: service_started }
+
   api:
     build:
       context: ./apps/api

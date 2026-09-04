@@ -1,7 +1,7 @@
 """Narrow deterministic extraction for document-stated prescription fields."""
 
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid5
 
@@ -105,6 +105,7 @@ class PrescriptionExtractionDraft(BaseModel):
     candidates: tuple[ExtractionCandidate, ...]
     warnings: tuple[str, ...] = ()
     review_required: Literal[True] = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 def _line_context(line: str) -> tuple[bool, Temporality, Subject, str | None]:

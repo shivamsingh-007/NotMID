@@ -85,6 +85,20 @@
 .evidence-card:last-child { border-bottom: 0; }
 .evidence-card q { display: block; font-size: .82rem; line-height: 1.45; margin: .4rem 0; }
 .evidence-card span { color: var(--mk-ink-muted); font-size: .68rem; }
+.evidence-card p { color: var(--mk-ink-muted); font-size: .72rem; overflow-wrap: anywhere; }
+.summary-loader { align-items: end; display: grid; gap: .7rem; grid-template-columns: minmax(16rem, 1fr) auto; margin-bottom: 1.5rem; padding: 1rem; }
+.summary-loader label { color: var(--mk-ink-muted); font-size: .72rem; font-weight: 800; grid-column: 1 / -1; text-transform: uppercase; }
+.summary-loader input, .summary-reject input { background: var(--mk-white); border: 1px solid var(--mk-border); border-radius: .65rem; color: var(--mk-ink); min-height: 44px; padding: .6rem .75rem; width: 100%; }
+.summary-empty { padding: 2rem; text-align: center; }
+.summary-empty h2 { font-family: var(--mk-font-display); margin-top: 0; }
+.summary-empty p { color: var(--mk-ink-muted); }
+.summary-versions { border-top: 1px solid var(--mk-border); display: grid; gap: .4rem; margin-top: 1rem; padding-top: 1rem; }
+.summary-versions h3 { font-family: var(--mk-font-display); font-size: .9rem; margin: 0 0 .25rem; }
+.summary-versions button { background: var(--mk-paper-50); border: 1px solid var(--mk-border); border-radius: .55rem; color: var(--mk-ink); min-height: 38px; text-align: left; }
+.summary-versions button[aria-pressed="true"] { border-color: var(--mk-brand); }
+.summary-reject { margin-bottom: 1rem; }
+.summary-reject label { display: block; font-size: .78rem; font-weight: 800; margin-bottom: .4rem; }
+.summary-actions { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: end; }
 
 .review-toolbar { display: flex; gap: .5rem; }
 .review-live-status { background: var(--mk-paper-100); border: 1px solid var(--mk-border); border-radius: .75rem; color: var(--mk-ink-muted); font-size: .8rem; margin: -1rem 0 1rem; padding: .65rem .85rem; }
@@ -161,4 +175,7 @@
   .review-queue-panel, .source-preview-panel { position: static; }
   .manual-entry { grid-template-columns: 1fr; }
   .review-complete-bar { align-items: stretch; flex-direction: column; }
+  .summary-loader { grid-template-columns: 1fr; }
+  .signoff { align-items: stretch; flex-direction: column; }
+  .summary-actions { justify-content: start; }
 }

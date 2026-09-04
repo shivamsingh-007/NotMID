@@ -69,6 +69,10 @@ class SourceRegionRef(BaseModel):
     ocr_artifact_id: UUID
     region_id: UUID
     page_number: int = Field(gt=0)
+    page_width: int = Field(gt=0)
+    page_height: int = Field(gt=0)
+    bbox: tuple[int, int, int, int] | None = None
+    polygon: tuple[tuple[int, int], ...] | None = None
 
 
 class ExtractionCandidate(BaseModel):
@@ -349,6 +353,10 @@ class PrescriptionRulesExtractor:
                     ocr_artifact_id=artifact.artifact_id,
                     region_id=region.region_id,
                     page_number=artifact.page_number,
+                    page_width=artifact.width,
+                    page_height=artifact.height,
+                    bbox=region.bbox,
+                    polygon=region.polygon,
                 ),
                 parser_signal=parser_signal,
                 negated=negated,

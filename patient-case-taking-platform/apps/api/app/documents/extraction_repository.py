@@ -73,10 +73,12 @@ INSERT INTO document_extraction_candidate (
     entity_type, normalized_value, unit, source_page_artifact_id,
     source_ocr_artifact_id, source_region_id, source_page_number,
     parser_version, parser_signal, negated, temporality, subject, uncertainty,
-    document_statement, clinician_confirmed_current, review_state, version
+    document_statement, clinician_confirmed_current, review_state, version,
+    source_page_width, source_page_height, source_bbox, source_polygon
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
-    $13, $14, $15, $16, $17, $18, $19, $20, 'unreviewed', 1
+    $13, $14, $15, $16, $17, $18, $19, $20, 'unreviewed', 1,
+    $21, $22, $23, $24
 )
 ON CONFLICT (tenant_id, extraction_run_id, candidate_id) DO NOTHING
 """
@@ -307,6 +309,14 @@ class PostgresDocumentExtractionRepository:
                         candidate.uncertainty,
                         candidate.document_statement,
                         candidate.clinician_confirmed_current,
+                        candidate.source.page_width,
+                        candidate.source.page_height,
+                        json.dumps(candidate.source.bbox)
+                        if candidate.source.bbox is not None
+                        else None,
+                        json.dumps(candidate.source.polygon)
+                        if candidate.source.polygon is not None
+                        else None,
                     )
                 status = await connection.execute(
                     _COMPLETE_RUN, tenant_id, document_id, run_id, datetime.now(UTC)

@@ -27,6 +27,12 @@ class UploadGrant:
 
 
 @dataclass(frozen=True)
+class PreviewGrant:
+    url: str
+    expires_in_seconds: int
+
+
+@dataclass(frozen=True)
 class VerifiedUpload:
     object_key: str
     size_bytes: int
@@ -87,6 +93,10 @@ class DocumentStore(Protocol):
         *,
         max_bytes: int,
     ) -> bytes: ...
+
+    async def create_page_preview_grant(
+        self, document: DocumentRegistryEntry, page: PageArtifact
+    ) -> PreviewGrant: ...
 
 
 def quarantine_object_key(document: DocumentRegistryEntry) -> str:
@@ -394,3 +404,23 @@ class S3DocumentStore:
         if digest.hexdigest() != page.checksum_sha256:
             raise ObjectVerificationError("Normalized page checksum changed before OCR")
         return bytes(payload)
+
+    async def create_page_preview_grant(
+        self, document: DocumentRegistryEntry, page: PageArtifact
+    ) -> PreviewGrant:
+        if document.state not in {
+            DocumentState.REVIEW_REQUIRED,
+            DocumentState.REVIEWED,
+        }:
+            raise ObjectVerificationError("Document is not available for review preview")
+        expected_prefix = f"derived/{document.tenant_id}/{document.id}/"
+        if not page.object_key.startswith(expected_prefix):
+            raise ObjectVerificationError("Preview page is outside document scope")
+        url = await asyncio.to_thread(
+            self._presign_client().generate_presigned_url,
+            "get_object",
+            Params={"Bucket": self._bucket, "Key": page.object_key},
+            ExpiresIn=settings.DOCUMENT_PREVIEW_GRANT_TTL_SECONDS,
+            HttpMethod="GET",
+        )
+        return PreviewGrant(url, settings.DOCUMENT_PREVIEW_GRANT_TTL_SECONDS)

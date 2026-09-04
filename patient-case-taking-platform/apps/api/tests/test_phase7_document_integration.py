@@ -57,6 +57,7 @@ def _document() -> DocumentRegistryEntry:
         purpose="treatment",
         consent_reference="consent/synthetic-version-1",
         original_filename="synthetic-prescription.jpg",
+        declared_document_class="prescription",
         declared_mime="image/jpeg",
         declared_size_bytes=16,
         idempotency_key="integration-upload-1",
@@ -78,7 +79,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 7
+        assert first_count == 8
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -89,6 +90,8 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "document_page_artifact",
             "document_ocr_run",
             "document_ocr_page_ref",
+            "document_extraction_run",
+            "document_extraction_candidate",
             "schema_migration",
         }
     finally:

@@ -94,6 +94,7 @@ class DocumentRegistryEntry(BaseRecord):
     active_processing_run_id: UUID | None = None
     active_normalization_run_id: UUID | None = None
     active_ocr_run_id: UUID | None = None
+    active_extraction_run_id: UUID | None = None
     processing_object_key: str | None = None
 
     def record_processing_progress(self, *, expected_version: int) -> None:

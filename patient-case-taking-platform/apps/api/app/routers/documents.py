@@ -100,6 +100,7 @@ async def initiate_document(
         purpose=body.purpose,
         consent_reference=body.consent_reference,
         original_filename=body.original_filename,
+        declared_document_class=body.declared_document_class,
         declared_mime=body.declared_mime,
         declared_size_bytes=body.declared_size_bytes,
         idempotency_key=idempotency_key,

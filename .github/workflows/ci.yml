@@ -94,5 +94,26 @@ jobs:
           set -euo pipefail
           for app in apps/patient-kiosk apps/clinician-console apps/admin-console; do
             npm --prefix "$app" ci --ignore-scripts
-            npm --prefix "$app" audit --audit-level=high
+            audit_status=1
+            for attempt in 1 2 3; do
+              if npm --prefix "$app" audit --audit-level=high \
+                --fetch-retries=1 \
+                --fetch-retry-mintimeout=5000 \
+                --fetch-retry-maxtimeout=10000 \
+                --fetch-timeout=60000; then
+                audit_status=0
+                break
+              else
+                audit_status=$?
+              fi
+
+              if [ "$attempt" -lt 3 ]; then
+                echo "npm audit failed for $app (attempt $attempt); retrying in 10 seconds" >&2
+                sleep 10
+              fi
+            done
+
+            if [ "$audit_status" -ne 0 ]; then
+              exit "$audit_status"
+            fi
           done

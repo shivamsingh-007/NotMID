@@ -79,7 +79,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 9
+        assert first_count == 10
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -93,6 +93,12 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "document_extraction_run",
             "document_extraction_candidate",
             "document_review_decision",
+            "document_promotion_receipt",
+            "reviewed_document_fact",
+            "document_fact_status_history",
+            "clinical_timeline_projection",
+            "document_fhir_projection",
+            "document_search_projection",
             "schema_migration",
         }
     finally:

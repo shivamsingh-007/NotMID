@@ -47,7 +47,12 @@ ALLOWED_TRANSITIONS: dict[DocumentState, frozenset[DocumentState]] = {
         {DocumentState.REVIEW_REQUIRED, DocumentState.PROCESSING_FAILED}
     ),
     DocumentState.PROCESSING_FAILED: frozenset(
-        {DocumentState.SCANNING, DocumentState.PROCESSING, DocumentState.CANCELLED}
+        {
+            DocumentState.SCANNING,
+            DocumentState.PROCESSING,
+            DocumentState.REVIEW_REQUIRED,
+            DocumentState.CANCELLED,
+        }
     ),
     DocumentState.REVIEW_REQUIRED: frozenset({DocumentState.REVIEWED}),
     DocumentState.REVIEWED: frozenset(

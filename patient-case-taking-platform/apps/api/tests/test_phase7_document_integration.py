@@ -29,8 +29,12 @@ from app.documents.normalization_service import DocumentNormalizationService
 from app.documents.ocr_artifact_store import MongoOcrArtifactStore
 from app.documents.ocr_repository import PostgresDocumentOcrRepository
 from app.documents.ocr_service import DocumentOcrService
+from app.documents.operations import PostgresDocumentOperationsRepository
+from app.documents.promotion import PostgresReviewedFactRepository
 from app.documents.registry import DocumentRegistryEntry, DocumentState
 from app.documents.repository import DocumentNotFound, PostgresDocumentRepository
+from app.documents.review import ManualCandidate
+from app.documents.review_repository import PostgresDocumentReviewRepository
 from app.documents.scan_repository import PostgresDocumentScanRepository
 from app.documents.scan_service import DocumentScanService
 from app.documents.scanning import ClamAVScanner, MalwareScanOutcome
@@ -79,7 +83,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 10
+        assert first_count == 11
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -123,6 +127,12 @@ async def postgres_repository() -> AsyncIterator[
         await admin.execute(f'CREATE ROLE "{role}" NOLOGIN NOSUPERUSER NOBYPASSRLS')
         await admin.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"')
         await admin.execute(f'GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA "{schema}" TO "{role}"')
+        await admin.execute(
+            f'''GRANT DELETE ON
+                "{schema}".clinical_timeline_projection,
+                "{schema}".document_fhir_projection,
+                "{schema}".document_search_projection TO "{role}"'''
+        )
 
         async def initialize(connection: asyncpg.Connection) -> None:
             await connection.execute(f'SET ROLE "{role}"')
@@ -617,6 +627,132 @@ async def test_clean_document_is_normalized_and_ocr_artifact_is_durable(
         assert artifact.normalized_text not in ocr_serialized
         assert document.original_filename not in ocr_serialized
         assert str(document.patient_id) not in ocr_serialized
+
+        reviewer_id = uuid4()
+        review_repository = PostgresDocumentReviewRepository(pool)
+        opened = await review_repository.open_manual_review(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+            actor_id=reviewer_id,
+            actor_role="doctor",
+            expected_document_version=ocr_completed.version,
+            idempotency_key=f"manual-review-{document.id}",
+        )
+        assert opened.state == "review_required"
+        assert opened.candidates == ()
+        assert len(opened.pages) == 1
+        queued = await review_repository.list_queue(
+            tenant_id=document.tenant_id,
+            facility_ids={document.facility_id},
+        )
+        assert [item.document_id for item in queued] == [document.id]
+        detail = await review_repository.get(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+        )
+        assert detail.pages == opened.pages
+        page_detail = await review_repository.get_page(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            page_artifact_id=opened.pages[0].id,
+        )
+        assert page_detail.page_number == 1
+
+        manual = await review_repository.add_manual_candidate(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+            actor_id=reviewer_id,
+            actor_role="doctor",
+            idempotency_key=f"manual-candidate-{document.id}",
+            candidate=ManualCandidate(
+                entity_type="medication_statement",
+                normalized_value="Synthetic medicine",
+                unit=None,
+                source_page_artifact_id=opened.pages[0].id,
+                source_page_number=opened.pages[0].page_number,
+                source_verified=True,
+            ),
+        )
+        assert manual.review_state.value == "corrected"
+
+        finalized = await review_repository.finalize(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+            actor_id=reviewer_id,
+            actor_role="doctor",
+            expected_document_version=opened.version,
+            idempotency_key=f"finalize-{document.id}",
+        )
+        assert finalized.state == "reviewed"
+
+        admin = await asyncpg.connect(DATABASE_URL)
+        try:
+            completion_event_id = await admin.fetchval(
+                f'''SELECT event_id FROM "{schema}".document_outbox
+                    WHERE aggregate_id = $1
+                      AND event_type = 'DocumentReviewCompleted.v1' ''',
+                document.id,
+            )
+        finally:
+            await admin.close()
+        assert completion_event_id is not None
+
+        promoted = await PostgresReviewedFactRepository(pool).promote(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            source_event_id=completion_event_id,
+            actor_id=reviewer_id,
+            actor_role="doctor",
+        )
+        assert promoted.promoted_fact_count == 1
+        assert promoted.replayed is False
+
+        fact_repository = PostgresReviewedFactRepository(pool)
+        facts = await fact_repository.list_facts(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+        )
+        timeline = await fact_repository.list_timeline(
+            tenant_id=document.tenant_id,
+            patient_id=document.patient_id,
+            facility_ids={document.facility_id},
+        )
+        fhir_resources = await fact_repository.list_fhir_resources(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+        )
+        assert len(facts) == len(timeline) == len(fhir_resources) == 1
+        assert facts[0].normalized_value == "Synthetic medicine"
+        assert timeline[0].statement_status == "document_stated"
+        assert fhir_resources[0]["resourceType"] == "Basic"
+        operations = await PostgresDocumentOperationsRepository(pool).snapshot(
+            document.tenant_id
+        )
+        assert operations.review_backlog == 0
+        assert operations.projection_reconciliation_issues == 0
+
+        admin = await asyncpg.connect(DATABASE_URL)
+        try:
+            fact_count = await admin.fetchval(
+                f'SELECT COUNT(*) FROM "{schema}".reviewed_document_fact'
+            )
+            timeline_count = await admin.fetchval(
+                f'SELECT COUNT(*) FROM "{schema}".clinical_timeline_projection'
+            )
+            fhir_count = await admin.fetchval(
+                f'SELECT COUNT(*) FROM "{schema}".document_fhir_projection'
+            )
+            search_count = await admin.fetchval(
+                f'SELECT COUNT(*) FROM "{schema}".document_search_projection'
+            )
+        finally:
+            await admin.close()
+        assert (fact_count, timeline_count, fhir_count, search_count) == (1, 1, 1, 1)
     finally:
         await mongo.drop_database(mongo_database)
         mongo.close()

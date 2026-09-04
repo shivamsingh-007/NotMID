@@ -11,6 +11,7 @@ This guide is for developers, designers and reviewers starting MediKiosk on a ne
 | Patient experience | <http://localhost:3000> | Bilingual voice/touch-first intake |
 | Nurse dashboard | <http://localhost:3001> | Triage, vitals, alerts and handoffs |
 | Doctor dashboard | <http://localhost:3001/doctor> | Evidence review, editing and sign-off |
+| Document review | <http://localhost:3001/documents/review> | Source-adjacent prescription candidate review |
 | Admin console | <http://localhost:3002> | Workforce and facility administration scaffold |
 | API | <http://localhost:8000> | FastAPI application |
 | API documentation | <http://localhost:8000/docs> | Interactive development API reference |
@@ -66,14 +67,21 @@ cp .env.example .env
 
 The checked-in values are local-only placeholders. Never reuse them for a shared, pilot or production environment. Clerk keys may remain empty for the current local prototype.
 
-To use Phase 5 assisted questions, edit `.env` and set:
+For the complete local demo, including Phase 5 assisted questions and the
+Phase 7 document APIs, edit `.env` and set:
 
 ```dotenv
 ENABLE_DEMO_ROUTES=true
+DOCUMENT_WORKFLOW_ENABLED=true
 LLM_PROVIDER=mock
+OCR_PROVIDER=mock
+DOCUMENT_OCR_AUTOMATION_ENABLED=true
+DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 ```
 
 `mock` is the only supported Phase 5 provider. The local stack does **not** start vLLM, download HiMed weights, require a GPU, or send patient text to an external model API.
+The Phase 7 mock OCR provider is deterministic contract scaffolding; it is not
+clinical OCR validation.
 
 ## 4. Start everything with Docker
 
@@ -83,7 +91,7 @@ Build and start the complete local stack:
 docker compose up --build
 ```
 
-The first build downloads images and installs dependencies, so it can take several minutes. Wait until the API and three Next.js services report that they are ready.
+The first build downloads images and installs dependencies, so it can take several minutes. Compose applies migrations before starting the API and workers. Wait until the API, three Next.js services, ClamAV and document workers report ready/running.
 
 Run in the background instead:
 
@@ -107,6 +115,9 @@ Invoke-RestMethod http://localhost:8000/readyz
 ```
 
 Open the dashboard URLs from the table in section 1.
+
+The Compose topology intentionally has no vLLM service. Phase 5 uses the mock
+provider, and Phase 7 OCR uses the configured provider adapter.
 
 To verify the mock clinical assistant after enabling demo routes:
 
@@ -153,6 +164,38 @@ docker compose down
 
 This preserves database volumes. To remove local databases and object-storage data as well, run `docker compose down --volumes` only when you intentionally want to erase the local development data.
 
+### Use the Phase 7 document review locally
+
+Development authentication is available only when `ENABLE_DEMO_ROUTES=true`.
+Create a synthetic doctor token (never use this route outside local development):
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/token?user_id=aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa&email=doctor%40example.test&role=doctor&tenant_id=11111111-1111-4111-8111-111111111111&facility_ids=22222222-2222-4222-8222-222222222222"
+```
+
+Copy the returned `token` value, open the clinician console browser developer
+console, and run:
+
+```javascript
+sessionStorage.setItem("medikiosk.access_token", "PASTE_TOKEN_HERE");
+location.assign("/documents/review");
+```
+
+The queue is empty until a document is registered and reaches
+`review_required`. Use the API documentation at <http://localhost:8000/docs>
+to exercise the authorized upload-init/finalize endpoints with synthetic PNG,
+JPEG, WebP or bounded PDF data. The pipeline runs quarantine → ClamAV scan →
+page normalization → OCR → prescription extraction. In the review screen,
+inspect the short-lived source preview, then accept, correct or reject each
+candidate before finalizing. Accepted/corrected facts are promoted with
+`document_stated` semantics; review does not assert that a medication is current.
+
+If OCR or extraction is disabled or fails after pages were normalized, an
+authorized nurse/doctor can open manual review through
+`POST /api/v1/document-reviews/{document_id}/manual`, add source-linked manual
+candidates, and finalize normally. See the
+[document-pipeline runbook](infrastructure/runbooks/PHASE-7-DOCUMENT-PIPELINE.md).
+
 ## 5. Frontend-only development
 
 Run each application in a separate terminal. The API URL defaults to `http://localhost:8000`, but the redesigned dashboard screens render with synthetic data when the API is absent.
@@ -188,7 +231,7 @@ When running a frontend against a different API, copy its `.env.example` to `.en
 Start only the infrastructure services:
 
 ```bash
-docker compose up -d postgres mongodb redis kafka minio
+docker compose up -d postgres mongodb redis kafka minio minio-init clamav
 ```
 
 Create and activate a virtual environment.
@@ -202,6 +245,7 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
 Copy-Item .env.example .env
+python -m app.migrations up
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -214,6 +258,7 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -e ".[dev]"
 cp .env.example .env
+python -m app.migrations up
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -264,6 +309,32 @@ pytest
 ruff check app tests
 mypy app
 ```
+
+Run the live Phase 7 integration suite while the Compose infrastructure is up.
+
+Windows PowerShell:
+
+```powershell
+$env:PHASE7_INTEGRATION = "1"
+pytest tests/test_phase7_document_integration.py tests/test_phase7_ocr_integration.py -q
+Remove-Item Env:PHASE7_INTEGRATION
+```
+
+macOS/Linux:
+
+```bash
+PHASE7_INTEGRATION=1 pytest tests/test_phase7_document_integration.py tests/test_phase7_ocr_integration.py -q
+```
+
+Run the frozen synthetic prescription-extraction evaluation:
+
+```bash
+python tools/evaluate_phase7_extraction.py ../../tests/model-evaluations/phase7/manifest.jsonl
+```
+
+Its perfect candidate score covers seven synthetic OCR-region fixtures only.
+It does not measure real OCR, handwriting, camera quality or clinical safety,
+and release thresholds still require owner approval.
 
 Inspect container logs:
 
@@ -320,6 +391,13 @@ Stop the development server, remove the affected app's `.next` directory, and ru
 - Phase 6 Slice 6.1 provides a canonical prototype evaluator only. Durable flags,
   staff ownership, acknowledgement, escalation, outbox delivery, clinical
   approval and measured validation are not implemented.
+- Phase 7 is an engineering candidate for prescription documents. Durable
+  registry/quarantine, scan/normalization/OCR/extraction workers, source-adjacent
+  review, reviewed-fact promotion and an outbox publisher are implemented and
+  integration-tested locally. Real OCR/camera/handwriting evaluation,
+  accessibility sessions, operational drills and owner approvals remain open.
+- Lab-table extraction is deliberately deferred until a governed table/unit/
+  locale evaluation set and thresholds are approved.
 - Production deployment requires managed secrets, TLS, authenticated data services, backups, monitoring and reviewed clinical-safety controls.
 
 For product behavior see [`PRODUCT.md`](PRODUCT.md). For the visual system see [`DESIGN.md`](DESIGN.md). For architecture and safety constraints start with [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) and [`AGENTS.md`](AGENTS.md).

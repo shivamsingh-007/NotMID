@@ -69,7 +69,15 @@ class PostgresDocumentOcrQueue:
         ]
 
 
-async def run_once(queue: OcrQueue, processor: OcrProcessor, *, batch_size: int) -> int:
+async def run_once(
+    queue: OcrQueue,
+    processor: OcrProcessor,
+    *,
+    batch_size: int,
+    automation_enabled: bool = True,
+) -> int:
+    if not automation_enabled:
+        return 0
     ready = await queue.ready(limit=batch_size)
     processed = 0
     for document in ready:
@@ -119,6 +127,7 @@ async def _run() -> None:
                 queue,
                 processor,
                 batch_size=settings.DOCUMENT_OCR_BATCH_SIZE,
+                automation_enabled=settings.DOCUMENT_OCR_AUTOMATION_ENABLED,
             )
             print(f"Processed {count} document OCR run(s)")
             if args.command == "once":

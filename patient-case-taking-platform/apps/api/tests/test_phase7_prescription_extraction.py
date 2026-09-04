@@ -75,6 +75,9 @@ def test_extracts_narrow_prescription_fields_with_region_provenance() -> None:
         assert candidate.source.region_id in {
             region.region_id for region in artifact.regions
         }
+        assert candidate.source.page_width == artifact.width
+        assert candidate.source.page_height == artifact.height
+        assert candidate.source.bbox is not None
         assert candidate.document_statement is True
         assert candidate.review_state == "unreviewed"
         assert candidate.model_signal is None
@@ -100,6 +103,8 @@ def test_ambiguous_eye_abbreviation_abstains_from_frequency_normalization() -> N
     fields = _by_type(draft)
 
     assert "frequency" not in fields
+    assert fields["strength"][0].normalized_value == "0.5"
+    assert fields["strength"][0].unit == "%"
     assert "ambiguous_abbreviation:OD" in draft.warnings
 
 

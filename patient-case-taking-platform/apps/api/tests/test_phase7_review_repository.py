@@ -1,5 +1,6 @@
 """Transactional and privacy tests for document review persistence."""
 
+import json
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime
 from types import TracebackType
@@ -144,7 +145,13 @@ async def test_accept_is_candidate_versioned_append_only_and_phi_minimized() -> 
         args for query, args in connection.executions if "INSERT INTO document_outbox" in query
     )
     assert "DocumentReviewDecisionRecorded.v1" in event_args
-    assert "500" not in str(event_args)
+    event_payload = json.loads(event_args[-1])
+    assert set(event_payload) == {
+        "decision_id",
+        "candidate_id",
+        "action",
+        "candidate_version",
+    }
     assert document.original_filename not in str(event_args)
     assert str(document.patient_id) not in str(event_args)
 
@@ -246,6 +253,67 @@ async def test_manual_entry_is_source_linked_append_only_and_not_in_event_payloa
         args for query, args in connection.executions if "INSERT INTO document_outbox" in query
     )
     assert "after food" not in str(event_args)
+
+
+@pytest.mark.asyncio
+async def test_failed_automation_can_open_manual_review_when_pages_exist() -> None:
+    document = _document().model_copy(
+        update={"state": DocumentState.PROCESSING_FAILED}
+    )
+    page = {
+        "id": uuid4(),
+        "page_number": 1,
+        "width": 900,
+        "height": 1200,
+        "preprocessing_version": "normalize.v1",
+    }
+    updated = document.model_copy(
+        update={
+            "state": DocumentState.REVIEW_REQUIRED,
+            "version": document.version + 1,
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    connection = _Connection(
+        fetchrows=[document.model_dump(), updated.model_dump()],
+        fetches=[[page]],
+    )
+    repository = PostgresDocumentReviewRepository(_Pool(connection))
+
+    review = await repository.open_manual_review(
+        tenant_id=document.tenant_id,
+        document_id=document.id,
+        facility_ids={document.facility_id},
+        actor_id=uuid4(),
+        actor_role="nurse",
+        expected_document_version=document.version,
+        idempotency_key="manual-fallback-1",
+    )
+
+    assert review.state == "review_required"
+    assert review.candidates == ()
+    assert review.pages[0].id == page["id"]
+    assert "DocumentManualReviewRequested.v1" in str(connection.executions)
+
+
+@pytest.mark.asyncio
+async def test_manual_review_requires_a_normalized_source_page() -> None:
+    document = _document().model_copy(
+        update={"state": DocumentState.PROCESSING_FAILED}
+    )
+    connection = _Connection(fetchrows=[document.model_dump()], fetches=[[]])
+    repository = PostgresDocumentReviewRepository(_Pool(connection))
+
+    with pytest.raises(ReviewIncomplete, match="normalization"):
+        await repository.open_manual_review(
+            tenant_id=document.tenant_id,
+            document_id=document.id,
+            facility_ids={document.facility_id},
+            actor_id=uuid4(),
+            actor_role="doctor",
+            expected_document_version=document.version,
+            idempotency_key="manual-fallback-no-page",
+        )
 
 
 @pytest.mark.asyncio

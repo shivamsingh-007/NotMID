@@ -162,6 +162,7 @@ def _body(facility_id: UUID) -> dict[str, str | int]:
         "purpose": "treatment",
         "consent_reference": "consent/test-version-1",
         "original_filename": "prescription.jpg",
+        "declared_document_class": "prescription",
         "declared_mime": "image/jpeg",
         "declared_size_bytes": 1024,
     }
@@ -184,10 +185,29 @@ def test_authorized_registration_returns_minimal_initiated_resource(
     assert response.json()["tenant_id"] == str(tenant_id)
     assert response.json()["facility_id"] == str(facility_id)
     assert response.json()["state"] == "initiated"
+    assert response.json()["declared_document_class"] == "prescription"
     assert "original_filename" not in response.json()
     assert "object_key" not in response.json()
     assert repository.create_calls == 1
     assert "prescription.jpg" not in str(audit_emitter._events[-1])
+
+
+def test_registration_requires_an_explicit_supported_document_class(
+    repository: _Repository,
+) -> None:
+    tenant_id = uuid4()
+    facility_id = uuid4()
+    body = _body(facility_id)
+    body.pop("declared_document_class")
+
+    response = client.post(
+        "/api/v1/documents",
+        json=body,
+        headers=_headers(tenant_id, facility_id),
+    )
+
+    assert response.status_code == 422
+    assert repository.create_calls == 0
 
 
 def test_identical_idempotent_retry_returns_existing_resource(repository: _Repository) -> None:

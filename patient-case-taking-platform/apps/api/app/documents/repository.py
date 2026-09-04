@@ -12,9 +12,9 @@ INSERT INTO document_registry (
     id, tenant_id, facility_id, patient_id, encounter_id, uploader_actor_id,
     purpose, consent_reference, original_filename, declared_mime,
     declared_size_bytes, idempotency_key, upload_expires_at, state, version,
-    created_at, updated_at
+    created_at, updated_at, declared_document_class
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17
+    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
 )
 ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
 RETURNING *
@@ -67,6 +67,7 @@ _INITIATION_FIELDS = (
     "purpose",
     "consent_reference",
     "original_filename",
+    "declared_document_class",
     "declared_mime",
     "declared_size_bytes",
     "idempotency_key",
@@ -143,6 +144,7 @@ class PostgresDocumentRepository:
                     document.version,
                     document.created_at,
                     document.updated_at,
+                    document.declared_document_class,
                 )
                 if row is not None:
                     return DocumentCreateResult(

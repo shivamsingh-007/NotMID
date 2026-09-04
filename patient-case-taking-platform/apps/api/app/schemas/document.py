@@ -18,6 +18,7 @@ class DocumentInitiateRequest(BaseModel):
     purpose: Literal["treatment"]
     consent_reference: str = Field(min_length=1, max_length=256)
     original_filename: str = Field(min_length=1, max_length=255)
+    declared_document_class: Literal["prescription"]
     declared_mime: Literal["application/pdf", "image/png", "image/jpeg", "image/webp"]
     declared_size_bytes: int = Field(gt=0, le=10 * 1024 * 1024)
 
@@ -29,6 +30,9 @@ class DocumentResponse(BaseModel):
     patient_id: UUID
     encounter_id: UUID
     purpose: str
+    declared_document_class: str
+    suggested_document_class: str | None
+    reviewed_document_class: str | None
     declared_mime: str
     declared_size_bytes: int
     state: DocumentState

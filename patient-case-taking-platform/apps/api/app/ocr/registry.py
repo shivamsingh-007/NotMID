@@ -12,12 +12,16 @@ def get_active_provider() -> OCRProvider:
     if _provider is not None:
         return _provider
     if settings.OCR_PROVIDER == "mock":
+        if settings.APP_ENV not in {"development", "test"}:
+            raise RuntimeError("Mock OCR provider is development-only")
         _provider = MockOCRProvider()
     elif settings.OCR_PROVIDER == "paddleocr_fast":
         from app.ocr.fast_paddle_provider import FastPaddleOCRProvider
 
         _provider = FastPaddleOCRProvider()
     elif settings.OCR_PROVIDER == "paddleocr_vl":
+        if not settings.OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER:
+            raise RuntimeError("PaddleOCR-VL is not approved for automatic routing")
         from app.ocr.paddle_provider import PaddleOCRProvider
 
         _provider = PaddleOCRProvider()

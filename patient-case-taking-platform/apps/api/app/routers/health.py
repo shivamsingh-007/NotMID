@@ -19,6 +19,10 @@ async def healthz():
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "0.1.0",
+        "document_automation": {
+            "ocr_enabled": settings.DOCUMENT_OCR_AUTOMATION_ENABLED,
+            "extraction_enabled": settings.DOCUMENT_EXTRACTION_AUTOMATION_ENABLED,
+        },
     }
 
 

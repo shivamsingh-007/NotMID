@@ -85,6 +85,15 @@ class ReviewCandidate:
 
 
 @dataclass(frozen=True)
+class ReviewPage:
+    id: UUID
+    page_number: int
+    width: int
+    height: int
+    preprocessing_version: str
+
+
+@dataclass(frozen=True)
 class ReviewDocument:
     document_id: UUID
     tenant_id: UUID
@@ -97,6 +106,7 @@ class ReviewDocument:
     version: int
     updated_at: datetime
     candidates: tuple[ReviewCandidate, ...]
+    pages: tuple[ReviewPage, ...] = ()
 
 
 @dataclass(frozen=True)

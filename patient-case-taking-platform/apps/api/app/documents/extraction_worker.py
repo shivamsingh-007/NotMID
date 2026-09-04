@@ -80,7 +80,10 @@ async def run_once(
     processor: ExtractionProcessor,
     *,
     batch_size: int,
+    automation_enabled: bool = True,
 ) -> int:
+    if not automation_enabled:
+        return 0
     ready = await queue.ready(limit=batch_size)
     processed = 0
     for document in ready:
@@ -127,6 +130,7 @@ async def _run() -> None:
                 queue,
                 processor,
                 batch_size=settings.DOCUMENT_EXTRACTION_BATCH_SIZE,
+                automation_enabled=settings.DOCUMENT_EXTRACTION_AUTOMATION_ENABLED,
             )
             print(f"Processed {count} document extraction run(s)")
             if args.command == "once":

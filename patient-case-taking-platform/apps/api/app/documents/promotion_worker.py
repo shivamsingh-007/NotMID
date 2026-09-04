@@ -22,7 +22,7 @@ WHERE event.event_type = 'DocumentReviewCompleted.v1'
       WHERE receipt.tenant_id = event.tenant_id
         AND receipt.event_id = event.event_id
   )
-ORDER BY event.created_at
+ORDER BY event.occurred_at
 LIMIT $1
 """
 

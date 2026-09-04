@@ -10,8 +10,10 @@ from app.documents.ocr_worker import ReadyDocument, run_once
 class _Queue:
     def __init__(self, ready: list[ReadyDocument]) -> None:
         self.documents = ready
+        self.calls = 0
 
     async def ready(self, *, limit: int) -> list[ReadyDocument]:
+        self.calls += 1
         return self.documents[:limit]
 
 
@@ -39,3 +41,20 @@ async def test_worker_isolates_one_document_failure_and_continues_batch() -> Non
         first.document_id,
         second.document_id,
     ]
+
+
+@pytest.mark.asyncio
+async def test_ocr_kill_switch_does_not_claim_or_process_work() -> None:
+    queue = _Queue([ReadyDocument(uuid4(), uuid4(), 7)])
+    processor = _Processor()
+
+    processed = await run_once(
+        queue,
+        processor,
+        batch_size=10,
+        automation_enabled=False,
+    )
+
+    assert processed == 0
+    assert queue.calls == 0
+    assert processor.calls == []

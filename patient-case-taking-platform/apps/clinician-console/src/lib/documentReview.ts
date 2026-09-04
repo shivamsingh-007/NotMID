@@ -63,6 +63,15 @@ export type ReviewDocument = {
   version: number;
   updated_at: string;
   candidates: ReviewCandidate[];
+  pages: ReviewPage[];
+};
+
+export type ReviewPage = {
+  id: string;
+  page_number: number;
+  width: number;
+  height: number;
+  preprocessing_version: string;
 };
 
 export class ReviewApiError extends Error {

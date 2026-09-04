@@ -16,6 +16,7 @@ from app.documents.review import (
     ReviewConflict,
     ReviewDocument,
     ReviewIncomplete,
+    ReviewPage,
     ReviewQueueItem,
     ReviewState,
 )
@@ -68,6 +69,13 @@ SELECT id, page_number, object_key, checksum_sha256, mime, width, height,
        preprocessing_version
 FROM document_page_artifact
 WHERE tenant_id = $1 AND document_id = $2 AND id = $3
+"""
+
+_GET_PAGES = """
+SELECT id, page_number, width, height, preprocessing_version
+FROM document_page_artifact
+WHERE tenant_id = $1 AND document_id = $2
+ORDER BY page_number
 """
 
 _GET_CANDIDATE_FOR_UPDATE = """
@@ -154,6 +162,13 @@ WHERE tenant_id = $1 AND aggregate_id = $2
   AND event_type = 'DocumentReviewCompleted.v1' AND idempotency_key = $3
 """
 
+_GET_MANUAL_REVIEW_EVENT = """
+SELECT event_id
+FROM document_outbox
+WHERE tenant_id = $1 AND aggregate_id = $2
+  AND event_type = 'DocumentManualReviewRequested.v1' AND idempotency_key = $3
+"""
+
 _UPDATE_DOCUMENT = """
 UPDATE document_registry
 SET state = $4, version = $5, updated_at = $6, reviewed_document_class = $7
@@ -212,6 +227,18 @@ class DocumentReviewRepository(Protocol):
         candidate: ManualCandidate,
     ) -> ReviewCandidate: ...
 
+    async def open_manual_review(
+        self,
+        *,
+        tenant_id: UUID,
+        document_id: UUID,
+        facility_ids: set[UUID],
+        actor_id: UUID,
+        actor_role: str,
+        expected_document_version: int,
+        idempotency_key: str,
+    ) -> ReviewDocument: ...
+
     async def finalize(
         self,
         *,
@@ -268,30 +295,36 @@ class PostgresDocumentReviewRepository:
         if not facility_ids or not 1 <= limit <= 200:
             return []
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            rows = await connection.fetch(_QUEUE, tenant_id, list(facility_ids), limit)
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                rows = await connection.fetch(
+                    _QUEUE, tenant_id, list(facility_ids), limit
+                )
         return [ReviewQueueItem(**dict(row)) for row in rows]
 
     async def get(
         self, *, tenant_id: UUID, document_id: UUID
     ) -> ReviewDocument:
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            row = await connection.fetchrow(_GET_DOCUMENT, tenant_id, document_id)
-            if row is None:
-                raise DocumentNotFound("Document not found")
-            document = DocumentRegistryEntry.model_validate(dict(row))
-            candidates = await connection.fetch(
-                _GET_CANDIDATES, tenant_id, document_id
-            )
-        return self._detail(document, candidates)
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                row = await connection.fetchrow(_GET_DOCUMENT, tenant_id, document_id)
+                if row is None:
+                    raise DocumentNotFound("Document not found")
+                document = DocumentRegistryEntry.model_validate(dict(row))
+                candidates = await connection.fetch(
+                    _GET_CANDIDATES, tenant_id, document_id
+                )
+                pages = await connection.fetch(_GET_PAGES, tenant_id, document_id)
+        return self._detail(document, candidates, pages)
 
     async def get_registry(
         self, *, tenant_id: UUID, document_id: UUID
     ) -> DocumentRegistryEntry:
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            row = await connection.fetchrow(_GET_DOCUMENT, tenant_id, document_id)
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                row = await connection.fetchrow(_GET_DOCUMENT, tenant_id, document_id)
         if row is None:
             raise DocumentNotFound("Document not found")
         return DocumentRegistryEntry.model_validate(dict(row))
@@ -300,10 +333,11 @@ class PostgresDocumentReviewRepository:
         self, *, tenant_id: UUID, document_id: UUID, page_artifact_id: UUID
     ) -> PageArtifact:
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            row = await connection.fetchrow(
-                _GET_PAGE, tenant_id, document_id, page_artifact_id
-            )
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                row = await connection.fetchrow(
+                    _GET_PAGE, tenant_id, document_id, page_artifact_id
+                )
         if row is None:
             raise DocumentNotFound("Document page not found")
         return PageArtifact(**dict(row))
@@ -527,6 +561,93 @@ class PostgresDocumentReviewRepository:
                 )
                 return inserted
 
+    async def open_manual_review(
+        self,
+        *,
+        tenant_id: UUID,
+        document_id: UUID,
+        facility_ids: set[UUID],
+        actor_id: UUID,
+        actor_role: str,
+        expected_document_version: int,
+        idempotency_key: str,
+    ) -> ReviewDocument:
+        if actor_role not in {"doctor", "nurse"}:
+            raise PermissionError("Clinical review role required")
+        if not idempotency_key or len(idempotency_key) > 128:
+            raise ValueError("Review idempotency key is invalid")
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                row = await connection.fetchrow(
+                    _GET_DOCUMENT_FOR_UPDATE, tenant_id, document_id
+                )
+                if row is None:
+                    raise DocumentNotFound("Document not found")
+                document = DocumentRegistryEntry.model_validate(dict(row))
+                if document.facility_id not in facility_ids:
+                    raise PermissionError("Facility access denied")
+                manual_key = f"manual-review:{idempotency_key}"
+                if document.state is DocumentState.REVIEW_REQUIRED:
+                    replay = await connection.fetchrow(
+                        _GET_MANUAL_REVIEW_EVENT,
+                        tenant_id,
+                        document_id,
+                        manual_key,
+                    )
+                    if replay is None:
+                        raise ReviewConflict("Document is already awaiting review")
+                    candidates = await connection.fetch(
+                        _GET_CANDIDATES, tenant_id, document_id
+                    )
+                    pages = await connection.fetch(_GET_PAGES, tenant_id, document_id)
+                    return self._detail(document, candidates, pages)
+                if document.state not in {
+                    DocumentState.PROCESSING,
+                    DocumentState.PROCESSING_FAILED,
+                }:
+                    raise ReviewConflict("Document cannot enter manual review")
+                document._assert_version(expected_document_version)
+                pages = await connection.fetch(_GET_PAGES, tenant_id, document_id)
+                if not pages:
+                    raise ReviewIncomplete(
+                        "No normalized page is available; retry page normalization"
+                    )
+                document.transition(
+                    DocumentState.REVIEW_REQUIRED,
+                    expected_version=expected_document_version,
+                )
+                updated_row = await connection.fetchrow(
+                    _UPDATE_DOCUMENT,
+                    tenant_id,
+                    document_id,
+                    expected_document_version,
+                    document.state.value,
+                    document.version,
+                    document.updated_at,
+                    document.reviewed_document_class,
+                )
+                if updated_row is None:
+                    raise ReviewConflict("Concurrent manual review request")
+                await self._event(
+                    connection,
+                    tenant_id=tenant_id,
+                    document_id=document_id,
+                    event_type="DocumentManualReviewRequested.v1",
+                    idempotency_key=manual_key,
+                    payload={
+                        "document_version": document.version,
+                        "page_count": len(pages),
+                        "requested_by_actor_id": str(actor_id),
+                        "requested_by_role": actor_role,
+                    },
+                )
+                return self._detail(
+                    DocumentRegistryEntry.model_validate(dict(updated_row)),
+                    [],
+                    pages,
+                )
+
     async def finalize(
         self,
         *,
@@ -638,7 +759,11 @@ class PostgresDocumentReviewRepository:
         return document
 
     @staticmethod
-    def _detail(document: DocumentRegistryEntry, rows: Any) -> ReviewDocument:
+    def _detail(
+        document: DocumentRegistryEntry,
+        rows: Any,
+        page_rows: Any = (),
+    ) -> ReviewDocument:
         return ReviewDocument(
             document_id=document.id,
             tenant_id=document.tenant_id,
@@ -655,6 +780,7 @@ class PostgresDocumentReviewRepository:
             version=document.version,
             updated_at=document.updated_at,
             candidates=tuple(_candidate(row) for row in rows),
+            pages=tuple(ReviewPage(**dict(row)) for row in page_rows),
         )
 
     @staticmethod

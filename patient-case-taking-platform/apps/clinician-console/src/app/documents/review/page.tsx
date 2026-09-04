@@ -144,6 +144,7 @@ export default function DocumentReviewPage() {
   const [queue, setQueue] = useState<ReviewQueueItem[]>([]);
   const [document, setDocument] = useState<ReviewDocument | null>(null);
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [activePageId, setActivePageId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -157,10 +158,14 @@ export default function DocumentReviewPage() {
       const detail = await getReviewDocument(documentId);
       setDocument(detail);
       const first = detail.candidates[0];
+      const firstPage = first
+        ? detail.pages.find((page) => page.id === first.source_page_artifact_id)
+        : detail.pages[0];
       setActiveCandidateId(first?.candidate_id ?? null);
-      if (first) {
+      setActivePageId(firstPage?.id ?? null);
+      if (firstPage) {
         try {
-          const preview = await getPagePreview(documentId, first.source_page_artifact_id);
+          const preview = await getPagePreview(documentId, firstPage.id);
           setPreviewUrl(preview.url);
         } catch {
           setPreviewUrl(null);
@@ -193,13 +198,32 @@ export default function DocumentReviewPage() {
     () => document?.candidates.find((item) => item.candidate_id === activeCandidateId) ?? null,
     [activeCandidateId, document],
   );
+  const activePage = useMemo(
+    () => document?.pages.find((page) => page.id === activePageId) ?? null,
+    [activePageId, document],
+  );
   const unresolved = document?.candidates.filter((item) => !finalStates.has(item.review_state)).length ?? 0;
 
   async function focusCandidate(candidate: ReviewCandidate) {
     setActiveCandidateId(candidate.candidate_id);
+    setActivePageId(candidate.source_page_artifact_id);
     setPreviewError(false);
     try {
       const preview = await getPagePreview(document!.document_id, candidate.source_page_artifact_id);
+      setPreviewUrl(preview.url);
+    } catch {
+      setPreviewUrl(null);
+      setPreviewError(true);
+    }
+  }
+
+  async function focusPage(pageId: string) {
+    if (!document) return;
+    setActivePageId(pageId);
+    setActiveCandidateId(null);
+    setPreviewError(false);
+    try {
+      const preview = await getPagePreview(document.document_id, pageId);
       setPreviewUrl(preview.url);
     } catch {
       setPreviewUrl(null);
@@ -247,7 +271,7 @@ export default function DocumentReviewPage() {
 
   async function submitManual(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!document || !activeCandidate || previewError) {
+    if (!document || !activePage || previewError) {
       setStatus(t.unavailable);
       return;
     }
@@ -258,11 +282,12 @@ export default function DocumentReviewPage() {
         entity_type: String(form.get("entity_type")),
         normalized_value: String(form.get("normalized_value")),
         unit: String(form.get("unit") || "") || undefined,
-        source_page_artifact_id: activeCandidate.source_page_artifact_id,
-        source_page_number: activeCandidate.source_page_number,
+        source_page_artifact_id: activePage.id,
+        source_page_number: activePage.page_number,
         source_verified: true,
       });
       setDocument({ ...document, candidates: [...document.candidates, added] });
+      setActiveCandidateId(added.candidate_id);
       event.currentTarget.reset();
       setStatus("Manual field added with source provenance");
     } catch (error) {
@@ -324,14 +349,25 @@ export default function DocumentReviewPage() {
         </aside>
 
         <section className="mk-card source-preview-panel" aria-label={t.source}>
-          <header><h2>{t.source}</h2><span>Page {activeCandidate?.source_page_number ?? "—"}</span></header>
+          <header>
+            <h2>{t.source}</h2>
+            {document && document.pages.length > 1 ? (
+              <select
+                aria-label="Select source page"
+                value={activePageId ?? ""}
+                onChange={(event) => void focusPage(event.target.value)}
+              >
+                {document.pages.map((page) => <option key={page.id} value={page.id}>Page {page.page_number}</option>)}
+              </select>
+            ) : <span>Page {activePage?.page_number ?? "—"}</span>}
+          </header>
           <div className="source-canvas">
             {previewUrl ? (
               <Image
                 src={previewUrl}
                 alt="Clinical document page for field verification"
-                width={activeCandidate?.source_page_width ?? 1200}
-                height={activeCandidate?.source_page_height ?? 1600}
+                width={activePage?.width ?? 1200}
+                height={activePage?.height ?? 1600}
                 unoptimized
               />
             ) : null}
@@ -347,7 +383,7 @@ export default function DocumentReviewPage() {
                 }}
               />
             ) : null}
-            {previewError ? <div className="preview-error" role="alert"><strong>Preview unavailable</strong><p>{t.unavailable}</p><button onClick={() => activeCandidate && void focusCandidate(activeCandidate)}>Retry preview</button></div> : null}
+            {previewError ? <div className="preview-error" role="alert"><strong>Preview unavailable</strong><p>{t.unavailable}</p><button onClick={() => activePage && void focusPage(activePage.id)}>Retry preview</button></div> : null}
           </div>
         </section>
 
@@ -368,7 +404,7 @@ export default function DocumentReviewPage() {
               />
             ))}
           </div>
-          {document && activeCandidate ? (
+          {document && activePage ? (
             <form className="manual-entry" onSubmit={submitManual}>
               <h3>{t.manual}</h3>
               <select name="entity_type" aria-label="Field type" defaultValue="instructions">

@@ -62,6 +62,17 @@ class ReviewDocumentResponse(BaseModel):
     version: int
     updated_at: datetime
     candidates: tuple[ReviewCandidateResponse, ...]
+    pages: tuple["ReviewPageResponse", ...]
+
+
+class ReviewPageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    page_number: int
+    width: int
+    height: int
+    preprocessing_version: str
 
 
 class CandidateDecisionRequest(BaseModel):
@@ -76,6 +87,12 @@ class CandidateDecisionRequest(BaseModel):
 
 
 class ReviewFinalizeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_document_version: int = Field(gt=0)
+
+
+class OpenManualReviewRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected_document_version: int = Field(gt=0)

@@ -1,7 +1,7 @@
 # Phase 7 — Safe document ingestion, OCR and reviewed extraction
 
-**Status:** In progress; registry lifecycle domain contract implemented, durable
-document workflow not yet implemented
+**Status:** Engineering candidate implemented and locally integration-tested;
+clinical, privacy/security, accessibility, operations and facility approvals remain pending
 
 **Depends on:** authenticated tenant/actor context, consent and purpose checks,
 durable PostgreSQL workflow state, transactional outbox, private object storage,
@@ -15,14 +15,17 @@ doctor, health-information staff, clinical-safety owner, and operator
 
 | Increment | Status | Evidence |
 | --- | --- | --- |
-| 7.0 governance, hazards and evaluation fixtures | Pending owner approval | Requirements and gates are defined below; approval evidence is not yet recorded. |
-| 7.1a registry lifecycle domain contract | Implemented | `app/documents/registry.py` defines fail-closed transitions, optimistic concurrency and immutable upload attachment; focused tests cover the contract. |
-| 7.1b PostgreSQL registry, outbox and authorized API | Foundation integration-tested; incomplete | Isolated-schema tests run under a non-superuser role and prove tenant RLS, idempotency, quarantine finalization and the reference-only outbox. Active consent-reference validation and a repeatable migration runner remain pending. |
-| 7.1c direct-to-quarantine object upload | Foundation integration-tested; incomplete | Live MinIO tests prove signed upload, length/SHA-256/magic-byte verification and anonymous-read denial. Bucket bootstrap, abandoned-session expiry and non-development encryption deployment evidence remain pending. |
-| 7.2–7.7 processing, review and rollout | Not implemented | Existing OCR endpoints remain synchronous demo routes and are not the Phase 7 workflow. |
+| 7.0 governance, hazards and evaluation fixtures | Engineering artifacts implemented; owner approval pending | Synthetic frozen prescription fixtures, provenance, null release thresholds, hazard log and approval record exist. No owner approval is recorded. |
+| 7.1 registry, authorization and quarantine upload | Implemented and locally integration-tested | Eleven repeatable migrations, forced tenant RLS, active consent/purpose authorization, idempotent registration/finalization, private MinIO upload, abandoned-session expiry and reference-only outbox are tested. Production object encryption/role policy remains an external gate. |
+| 7.2 malware scan and normalization | Implemented and locally integration-tested | Pinned ClamAV service, quarantine promotion, bounded PDF/image normalization, immutable page artifacts and failure events are covered by unit and live-service tests. |
+| 7.3 versioned OCR | Implemented with mock-provider integration evidence | Durable PostgreSQL runs plus immutable MongoDB page/region artifacts, provenance, bounded retry/DLQ and provider policy are implemented. Real OCR/camera/handwriting validation remains pending. |
+| 7.4 narrow prescription extraction | Implemented as deterministic candidate | Durable immutable drafts/candidates, explicit context flags, source geometry, retry/DLQ and a seven-fixture synthetic evaluation are implemented. Lab extraction remains deliberately deferred. |
+| 7.5 source-adjacent review | Implemented; external accessibility/usability evidence pending | Nurse/doctor queue, short-lived page preview, accept/correct/reject/unreadable/rescan/defer/manual entry, optimistic concurrency, append-only decisions and bilingual keyboard-first UI are tested. |
+| 7.6 reviewed-fact promotion | Implemented and locally integration-tested | Only accepted/corrected candidates become authoritative facts; timeline/FHIR/search projections are rebuildable; withdrawal preserves history. |
+| 7.7 delivery, operations and rollout | Engineering controls implemented; controlled rollout not approved | Kafka outbox publisher, bounded delivery retry/dead-letter, aggregate operations status, OCR/extraction kill switches, manual fallback and runbook exist. Staging drills, representative evaluation and owner approvals remain pending. |
 
-This table is the implementation ledger. A later increment may change a row to
-implemented only when its code and verification evidence are committed.
+This table is the implementation ledger. “Implemented” describes repository
+behavior, not clinical validation or production approval.
 
 ## 1. Outcome
 
@@ -43,9 +46,10 @@ dictionary match, confidence score, or document label cannot bypass review.
 
 ## 2. Review of the supplied Phase 7 document
 
-The supplied `PHASE-7-COMPLETE.md` is planning material, not implementation or
-validation evidence. Its completion status and the following claims are not
-supported by this repository:
+The supplied `PHASE-7-COMPLETE.md` was planning material, not implementation or
+validation evidence. At review time its completion status and the following
+claims were unsupported. This historical gap analysis is retained so later code
+is not confused with the supplied claims:
 
 - `ocr_pipeline.py`, `document_classifier.py`, `entity_extractor.py`, the
   claimed ontology JSON files, and their stated paths do not exist.
@@ -57,10 +61,9 @@ supported by this repository:
 - No governed datasets or approvals support claims involving 500
   prescriptions, 200 lab reports, 100 discharge summaries, or clinician
   validation.
-- The current API accepts a single PNG, JPEG or WebP image up to 10 MB. It does
-  not implement durable document registration, direct object upload,
-  multi-page PDF ingestion, quarantine, malware scanning, classification,
-  entity extraction, review, or timeline promotion.
+- The earlier demo OCR API accepted a single image and had none of the durable
+  workflow controls. The Phase 7 path is now separate, gated by
+  `DOCUMENT_WORKFLOW_ENABLED`, and the demo route does not count as Phase 7 evidence.
 - Compose includes local MinIO, but the OCR route does not store uploaded files
   there and does not prove encryption, RBAC, retention, legal hold, deletion,
   backup expiry, or audited object access.
@@ -272,12 +275,12 @@ Reuse the existing standard envelope and event catalog. Existing events keep
 their names; new lifecycle events require contract review before implementation:
 
 - existing `DocumentUploaded.v1`, emitted only after upload finalization;
-- proposed `DocumentScanCompleted.v1`;
+- implemented `DocumentScanCompleted.v1`;
 - existing `ai.ocr.requested.v1` and `ai.ocr.completed.v1`;
 - existing `DocumentProcessingCompleted.v1`, emitted after the referenced OCR
   and extraction artifacts are durably persisted;
-- proposed `DocumentReviewCompleted.v1`;
-- proposed `ReviewedDocumentFactsPromoted.v1`.
+- implemented `DocumentReviewCompleted.v1`;
+- implemented `ReviewedDocumentFactsPromoted.v1`.
 
 Registry state and outbox are committed in one PostgreSQL transaction. Consumers
 use a processed-event ledger and artifact/run uniqueness constraints. Retries are

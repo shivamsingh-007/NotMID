@@ -30,8 +30,26 @@ Do not include raw audio, images, PDFs, unrestricted transcripts, prompts, compl
 | `ConsentChanged.v1` | Consent module | ABDM adapter, audit, access cache invalidator |
 | `EncounterStarted.v1` | Encounter module | Conversation orchestrator, audit |
 | `AnswerConfirmed.v1` | Encounter module | Summary worker, clinical safety evaluator |
-| `DocumentUploaded.v1` | Document registry | Malware scan/OCR worker |
-| `DocumentProcessingCompleted.v1` | Document worker | Clinical review queue, search projector |
+| `DocumentUploaded.v1` | Document registry | Malware scanner |
+| `DocumentUploadExpired.v1` | Upload cleanup worker | Operations/audit |
+| `DocumentScanStarted.v1` | Malware scanner | Operations/audit |
+| `DocumentScanCompleted.v1` | Malware scanner | Page normalizer, operations |
+| `DocumentScanFailed.v1` | Malware scanner | Operations/manual-resolution queue |
+| `DocumentNormalizationStarted.v1` | Page normalizer | Operations/audit |
+| `DocumentPagesNormalized.v1` | Page normalizer | OCR worker |
+| `DocumentNormalizationFailed.v1` | Page normalizer | Operations/manual-resolution queue |
+| `ai.ocr.requested.v1` | OCR worker | Operations/audit |
+| `ai.ocr.completed.v1` | OCR worker | Extraction worker |
+| `DocumentOcrFailed.v1` | OCR worker | Retry scheduler/operations |
+| `DocumentOcrDeadLettered.v1` | OCR worker | Manual-review/operations queue |
+| `DocumentProcessingCompleted.v1` | Extraction worker | Clinical review queue |
+| `DocumentExtractionFailed.v1` | Extraction worker | Retry scheduler/operations |
+| `DocumentExtractionDeadLettered.v1` | Extraction worker | Manual-review/operations queue |
+| `DocumentManualReviewRequested.v1` | Clinical document review | Clinical review queue/audit |
+| `DocumentReviewDecisionRecorded.v1` | Clinical document review | Audit/clinical workflow |
+| `DocumentReviewCompleted.v1` | Clinical document review | Reviewed-fact promotion worker |
+| `ReviewedDocumentFactsPromoted.v1` | Reviewed-fact promotion worker | Timeline/FHIR/search consumers |
+| `ReviewedDocumentFactsWithdrawn.v1` | Reviewed-fact promotion worker | Timeline/FHIR/search consumers |
 | `ClinicalRecordChanged.v1` | Clinical record module | Summary worker, search projector, ABDM adapter |
 | `SummaryRequested.v1` | Clinical platform | Summary worker |
 | `SummaryGenerated.v1` | Summary worker | Clinical platform, audit |
@@ -64,6 +82,7 @@ Kafka is the asynchronous backbone from MVP. PostgreSQL stores durable job state
 | `ai.translation.external.openai.requested.v1` | Submit approved OpenAI translation job | 24 hours |
 | `ai.translation.external.claude.requested.v1` | Submit approved Claude translation job | 24 hours |
 | `clinical.triage.alert-raised.v1` | Announce deterministic red-flag escalation | 90 days, subject to volume and policy |
+| `clinical.documents.v1` | Transport reference-only Phase 7 document lifecycle, review and promotion events | 30 days pending privacy/volume/recovery approval |
 | `audit.event-recorded.v1` | Transport an audit projection event | 7–30 days; never the compliance archive |
 
 Topic payloads contain metadata and artifact references only. Retention values are planning defaults and require privacy, volume and recovery validation.
@@ -78,11 +97,19 @@ Topic payloads contain metadata and artifact references only. Retention values a
 - `summary-local-workers` and provider-specific external summary groups fetch authorized inputs by reference.
 - `result-normalizers` validate local/external outputs against one schema and publish completed/failed events.
 - `triage-engine` evaluates confirmed structured facts and raises deterministic alerts; an LLM is never the sole red-flag detector.
+- `document-pipeline-workers` scan, normalize, OCR and extract from durable
+  references; they never consume raw files or OCR text from Kafka payloads.
+- `document-promotion-workers` consume completed-review references and promote
+  only accepted/corrected candidates into authoritative facts.
 - `audit-projector` writes the immutable audit sink and a time-bounded Elasticsearch projection.
 
 ## Delivery rules
 
 - Producers use a transactional outbox.
+- The Phase 7 outbox publisher leases unpublished rows with `SKIP LOCKED`, uses
+  the aggregate ID as the ordered Kafka key, retains the event ID in the
+  envelope, applies bounded retry/backoff and records terminal dead-letter
+  state. Publishing is at-least-once; consumers must remain idempotent.
 - Consumers are idempotent using a PostgreSQL processed-event ledger and uniqueness constraints such as `(job_id, stage, model_version)`. Redis may accelerate the check but is not authoritative.
 - Schemas are backward compatible within a major version.
 - Retries use a maximum of three attempts with exponential backoff and full jitter. Kafka implementations use explicit retry topics or a delayed scheduler rather than blocking partitions.

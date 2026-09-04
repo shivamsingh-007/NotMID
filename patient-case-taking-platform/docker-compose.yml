@@ -199,6 +199,7 @@ services:
       DOCUMENT_OCR_MAX_ATTEMPTS: ${DOCUMENT_OCR_MAX_ATTEMPTS:-3}
       DOCUMENT_OCR_BATCH_SIZE: ${DOCUMENT_OCR_BATCH_SIZE:-2}
       DOCUMENT_OCR_POLL_INTERVAL_SECONDS: ${DOCUMENT_OCR_POLL_INTERVAL_SECONDS:-2}
+      DOCUMENT_OCR_AUTOMATION_ENABLED: ${DOCUMENT_OCR_AUTOMATION_ENABLED:-true}
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }
@@ -228,6 +229,7 @@ services:
       DOCUMENT_EXTRACTION_MAX_ATTEMPTS: ${DOCUMENT_EXTRACTION_MAX_ATTEMPTS:-3}
       DOCUMENT_EXTRACTION_BATCH_SIZE: ${DOCUMENT_EXTRACTION_BATCH_SIZE:-2}
       DOCUMENT_EXTRACTION_POLL_INTERVAL_SECONDS: ${DOCUMENT_EXTRACTION_POLL_INTERVAL_SECONDS:-2}
+      DOCUMENT_EXTRACTION_AUTOMATION_ENABLED: ${DOCUMENT_EXTRACTION_AUTOMATION_ENABLED:-true}
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }
@@ -253,6 +255,32 @@ services:
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       postgres: { condition: service_healthy }
+
+  document-outbox-publisher:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.documents.outbox_publisher", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      KAFKA_BROKERS: kafka:29092
+      DOCUMENT_EVENT_TOPIC: ${DOCUMENT_EVENT_TOPIC:-clinical.documents.v1}
+      DOCUMENT_OUTBOX_LEASE_SECONDS: ${DOCUMENT_OUTBOX_LEASE_SECONDS:-30}
+      DOCUMENT_OUTBOX_MAX_ATTEMPTS: ${DOCUMENT_OUTBOX_MAX_ATTEMPTS:-3}
+      DOCUMENT_OUTBOX_BATCH_SIZE: ${DOCUMENT_OUTBOX_BATCH_SIZE:-25}
+      DOCUMENT_OUTBOX_POLL_INTERVAL_SECONDS: ${DOCUMENT_OUTBOX_POLL_INTERVAL_SECONDS:-1}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_started }
 
   api:
     build:

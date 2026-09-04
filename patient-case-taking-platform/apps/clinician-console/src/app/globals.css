@@ -138,12 +138,15 @@
 .review-complete-bar strong, .review-complete-bar span { display: block; }
 .review-complete-bar span { color: rgba(255,255,255,.7); font-size: .7rem; margin-top: .2rem; }
 
+@media (max-width: 1360px) {
+  .document-review-grid { grid-template-columns: 14rem minmax(0, 1fr); }
+  .review-fields-panel { grid-column: 1 / -1; }
+}
+
 @media (max-width: 1080px) {
   .metric-grid { grid-template-columns: repeat(2, 1fr); }
   .review-layout { grid-template-columns: 15rem 1fr; }
   .evidence-rail { grid-column: 1 / -1; position: static; }
-  .document-review-grid { grid-template-columns: 14rem 1fr; }
-  .review-fields-panel { grid-column: 1 / -1; }
 }
 
 @media (max-width: 780px) {

@@ -24,6 +24,7 @@ from app.documents.storage import DocumentStore, ObjectVerificationError
 from app.schemas.document_review import (
     CandidateDecisionRequest,
     ManualCandidateRequest,
+    OpenManualReviewRequest,
     PagePreviewResponse,
     ReviewCandidateResponse,
     ReviewDocumentResponse,
@@ -77,6 +78,53 @@ async def get_document_review(
         raise HTTPException(status_code=404, detail="Document not found") from exc
     if review.facility_id not in facility_ids:
         raise HTTPException(status_code=403, detail="Facility access denied")
+    return ReviewDocumentResponse.model_validate(review)
+
+
+@router.post("/{document_id}/manual", response_model=ReviewDocumentResponse)
+async def open_manual_document_review(
+    document_id: UUID,
+    body: OpenManualReviewRequest,
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=128,
+    ),
+    user: TokenPayload = Depends(get_current_user),
+    repository: DocumentReviewRepository = Depends(get_document_review_repository),
+) -> ReviewDocumentResponse:
+    tenant_id, actor_id, facility_ids = _review_identity(user)
+    try:
+        review = await repository.open_manual_review(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            facility_ids=facility_ids,
+            actor_id=actor_id,
+            actor_role=user.role,
+            expected_document_version=body.expected_document_version,
+            idempotency_key=idempotency_key,
+        )
+    except DocumentNotFound as exc:
+        raise HTTPException(status_code=404, detail="Document not found") from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (ReviewConflict, ConcurrentDocumentUpdate) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ReviewIncomplete as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    audit_emitter.emit(
+        tenant_id=tenant_id,
+        facility_id=review.facility_id,
+        actor_id=actor_id,
+        actor_type="staff",
+        actor_role=user.role,
+        action="document_manual_review_open",
+        resource_type="document",
+        resource_id=document_id,
+        purpose=review.purpose,
+        audit_metadata={"state": review.state, "page_count": len(review.pages)},
+    )
     return ReviewDocumentResponse.model_validate(review)
 
 

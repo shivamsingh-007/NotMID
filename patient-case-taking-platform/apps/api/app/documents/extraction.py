@@ -26,7 +26,7 @@ _MEDICATION_PREFIX = re.compile(
     r"(?i)\b(?:rx\s*)?(?:tab(?:let)?|cap(?:sule)?|syp|syrup|inj(?:ection)?|"
     r"eye\s+drops?|drops?)\.?\s+"
 )
-_STRENGTH = re.compile(r"(?i)\b(\d+(?:[\.,]\d+)?)\s*(mcg|mg|g|ml|%)\b")
+_STRENGTH = re.compile(r"(?i)\b(\d+(?:[\.,]\d+)?)\s*(mcg|mg|g|ml|%)(?!\w)")
 _DURATION = re.compile(r"(?i)(?:\bfor\s+|\bx\s*)(\d+)\s*(day|week|month)s?\b")
 _ROUTES = {
     "po": "oral",

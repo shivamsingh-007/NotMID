@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Evidence-led review of the MediKiosk foundation, Phase 5 dialogue, and Phase 6 deterministic triage prototype.">
-  <title>MediKiosk · Phase 5–6 Engineering Review Ledger</title>
+  <meta name="description" content="Evidence-led review of the MediKiosk foundation, Phase 5–6 prototypes, and Phase 7 document-workflow engineering candidate.">
+  <title>MediKiosk · Phase 5–7 Engineering Review Ledger</title>
   <style>
     :root {
       --paper: #f4f0e8;
@@ -239,7 +239,7 @@
   <header class="topbar">
     <div class="brand"><span class="brand-mark">N</span> NotMID / Engineering Review</div>
     <nav class="topnav" aria-label="Report sections">
-      <a href="#verdict">Verdict</a><a href="#findings">Repairs</a><a href="#workflow">Workflow</a><a href="#technology">Technology</a><a href="#evidence">Evidence</a><a href="#boundary">Boundary</a>
+      <a href="#verdict">Verdict</a><a href="#findings">Repairs</a><a href="#workflow">Workflow</a><a href="#technology">Technology</a><a href="#evidence">Evidence</a><a href="#phase7">Phase 7</a><a href="#boundary">Boundary</a>
     </nav>
   </header>
 
@@ -247,25 +247,25 @@
     <section class="hero" id="verdict">
       <div class="hero-grid">
         <div>
-          <div class="eyebrow">Phase 5 dialogue + Phase 6 Slice 6.1 · reviewed 1 September 2026</div>
-          <h1>Useful bones.<br>Unsafe claims.<br><em style="color:var(--green);font-style:italic">Now corrected.</em></h1>
-          <p class="hero-copy">Phase 5 connects confirmed Hindi/English voice answers to an offline SOCRATES provider and produces an evidence-linked editable draft. Phase 6 Slice 6.1 now routes warning detection through one versioned deterministic prototype ruleset with stable rule IDs, owner roles, source paths, bounded inputs, and an explicit “no configured flag” outcome. No durable staff alert is created yet.</p>
+          <div class="eyebrow">Phase 5–7 engineering review · updated 4 September 2026</div>
+          <h1>Durable document flow.<br>Human verification.<br><em style="color:var(--green);font-style:italic">Approval still matters.</em></h1>
+          <p class="hero-copy">Phase 7 now carries a prescription from private quarantine through scan, normalization, versioned OCR, narrow extraction and source-adjacent nurse/doctor review. Only accepted or corrected fields become provenance-linked facts and rebuildable projections. This is a locally integration-tested engineering candidate—not clinical validation or production authorization.</p>
         </div>
         <aside class="verdict-card" aria-label="Review verdict">
           <div class="seal">✓</div>
-          <small>Final disposition</small>
-          <h2>Accept with remediation</h2>
-          <p>Accept Slice 6.1 as a demo-gated software contract. Do not call it clinically validated: durable flags, authenticated ownership, acknowledgement, escalation, outbox delivery, and clinical governance remain release gates.</p>
+          <small>Current disposition</small>
+          <h2>Engineering candidate</h2>
+          <p>Accept the implementation for continued review. Keep real-patient rollout closed until representative OCR/extraction evidence, production security controls, accessibility sessions, recovery drills and named owner approvals are recorded.</p>
         </aside>
       </div>
     </section>
 
     <section class="section reveal">
       <div class="metrics" aria-label="Review metrics">
-        <div class="metric"><span class="num">29</span><span class="label">Material defects remediated</span></div>
-        <div class="metric"><span class="num">90</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">274</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">11</span><span class="label">Live Phase 7 integration tests</span></div>
         <div class="metric"><span class="num">3/3</span><span class="label">Web apps linted & built</span></div>
-        <div class="metric"><span class="num">0</span><span class="label">Known npm audit findings</span></div>
+        <div class="metric"><span class="num">7</span><span class="label">Frozen synthetic extraction fixtures</span></div>
       </div>
     </section>
 
@@ -279,9 +279,10 @@
           <h3>Verified foundation</h3>
           <ul>
             <li>Patient, clinician, and admin Next.js shells compile on the current Active LTS line.</li>
-            <li>FastAPI passes lint, type-check, and behavioral suites with 90 tests passing and four explicit real-model integration skips.</li>
+            <li>FastAPI passes Ruff, mypy across 126 source files, and 274 behavioral tests with 15 explicit provider/integration skips.</li>
             <li>Readiness checks real Postgres, MongoDB, and Redis connectivity and returns 503 when unavailable.</li>
-            <li>Compose and CI configuration parse; local Kafka addressing is valid for host and container clients.</li>
+            <li>The 19-container Compose topology starts; migrations complete; Postgres, MongoDB, Redis, MinIO and ClamAV are live-tested.</li>
+            <li>Phase 7 has forced tenant RLS, private quarantine, bounded workers, immutable OCR/extraction artifacts, review history, reviewed-fact promotion and Kafka outbox delivery.</li>
             <li>Hindi hospital-noise proxy WER is 14.21%; spontaneous Indian-English WER is 6.36%. Patient voice review and touch fallback compile in the production kiosk.</li>
           </ul>
         </article>
@@ -289,10 +290,10 @@
           <h3>Still a production boundary</h3>
           <ul>
             <li>No Clerk signature, issuer, audience, key-rotation, or webhook verification is wired.</li>
-            <li>No Postgres repositories, migrations, durable triage flags, transactional outbox, or durable audit implementation exists.</li>
-            <li>No tenant-isolation, facility-scope, consent-policy, or break-glass integration evidence exists.</li>
-            <li>Voice Redis/Kafka/S3 adapters exist but lack deployed integration proof; vLLM, Elasticsearch, and the durable Postgres outbox remain unimplemented.</li>
-            <li>No full Compose startup, browser E2E, accessibility, load, security, backup, or deployment proof exists.</li>
+            <li>Clerk/hospital SSO, durable Phase 6 alerts, signed clinical notes and break-glass remain outside the Phase 7 implementation.</li>
+            <li>Local Compose uses development credentials and a shared PostgreSQL superuser; production service identities, TLS, secrets and least-privilege grants remain unproved.</li>
+            <li>The seven-fixture extraction report does not measure real OCR, handwriting, camera capture, lab tables or clinical outcomes; release thresholds are intentionally null.</li>
+            <li>No staging accessibility/usability, load/security, backup/restore, outage/replay or deployment rollback approval exists.</li>
           </ul>
         </article>
       </div>
@@ -391,17 +392,17 @@
           <tr><td data-label="Technology"><strong>Next.js 16 + React 19</strong></td><td data-label="Project use">Patient, clinician, administration web surfaces</td><td data-label="Current evidence">Three production builds; standalone container output</td><td data-label="Disposition"><span class="pill fixed">Verified shell</span></td></tr>
           <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and domain prototypes</td><td data-label="Current evidence">Static checks pass; 90 tests pass and four real-provider suites skip by policy</td><td data-label="Disposition"><span class="pill fixed">Verified prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>Clerk</strong></td><td data-label="Project use">Web authentication; internal identity mapping</td><td data-label="Current evidence">Configuration names and demo token sketch only</td><td data-label="Disposition"><span class="pill high">Not integrated</span></td></tr>
-          <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Clinical source of truth, consent, encounter, outbox</td><td data-label="Current evidence">Compose service and readiness ping; no repositories/migrations</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
-          <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Raw artifacts, ephemeral state, binary objects</td><td data-label="Current evidence">Local services; Mongo and Redis readiness probes</td><td data-label="Disposition"><span class="pill high">Infrastructure only</span></td></tr>
-          <tr><td data-label="Technology"><strong>Kafka</strong></td><td data-label="Project use">Durable async workflows, worker isolation, replay</td><td data-label="Current evidence">Corrected dual-listener local broker configuration</td><td data-label="Disposition"><span class="pill high">No workflows yet</span></td></tr>
+          <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Document registry, consent, review decisions, authoritative facts, projections and outbox</td><td data-label="Current evidence">Eleven repeatable migrations, forced tenant RLS, optimistic concurrency, append-only review and live isolated-schema integration</td><td data-label="Disposition"><span class="pill fixed">Phase 7 source of truth</span></td></tr>
+          <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Immutable OCR/extraction artifacts, ephemeral state, private source/page objects</td><td data-label="Current evidence">Live Mongo and MinIO pipeline tests; exact-object short-lived grants; anonymous object denial</td><td data-label="Disposition"><span class="pill fixed">Phase 7 local evidence</span></td></tr>
+          <tr><td data-label="Technology"><strong>Kafka</strong></td><td data-label="Project use">Reference-only document lifecycle transport</td><td data-label="Current evidence">Transactional outbox publisher with leases, at-least-once delivery, bounded retry and dead-letter state on <code>clinical.documents.v1</code></td><td data-label="Disposition"><span class="pill medium">Local delivery candidate</span></td></tr>
           <tr><td data-label="Technology"><strong>FHIR R4 / AYUSH models</strong></td><td data-label="Project use">Interoperability and domain contract exploration</td><td data-label="Current evidence">In-memory transformations and unit tests in demo surface</td><td data-label="Disposition"><span class="pill medium">Prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>AI4Bharat ASR + Whisper small.en</strong></td><td data-label="Project use">Hindi and English voice intake with explicit language packs</td><td data-label="Current evidence">Hospital-noise Hindi proxy: 14.21% WER / 0.63 s warm p95. Spontaneous Indian English: 6.36% WER / 5.37 s warm p95 on CPU</td><td data-label="Disposition"><span class="pill fixed">Phase 4 verified locally</span></td></tr>
-          <tr><td data-label="Technology"><strong>PP-OCRv5 + PaddleOCR-VL</strong></td><td data-label="Project use">Fast routine OCR with complex-layout fallback</td><td data-label="Current evidence">Four-line OCR → 4/4 lines in 5.09 s first / 4.53 s warm on CPU; VL fallback verified separately</td><td data-label="Disposition"><span class="pill fixed">Verified locally · workers pending</span></td></tr>
+          <tr><td data-label="Technology"><strong>OCR provider adapters</strong></td><td data-label="Project use">Versioned page/region artifacts behind an approved-provider policy</td><td data-label="Current evidence">Durable mock-provider worker integration; earlier local PP-OCR candidates are not Phase 7 clinical validation</td><td data-label="Disposition"><span class="pill medium">Real-model evaluation pending</span></td></tr>
           <tr><td data-label="Technology"><strong>Offline clinical mock</strong></td><td data-label="Project use">Adaptive SOCRATES questions and evidence-linked summary contracts</td><td data-label="Current evidence">Schema validation, retry/fallback, red-flag interruption, audit-minimized metadata, connected patient UI</td><td data-label="Disposition"><span class="pill fixed">Phase 5 demo provider</span></td></tr>
           <tr><td data-label="Technology"><strong>Versioned Python rules engine</strong></td><td data-label="Project use">Canonical deterministic warning evaluation and Phase 5 interruption</td><td data-label="Current evidence">Eight focused tests cover Hindi/English mapping, negation, rule ownership/versioning, no-match semantics, bounded API input and PHI-minimized audit</td><td data-label="Disposition"><span class="pill medium">Phase 6 prototype · durable alerts pending</span></td></tr>
           <tr><td data-label="Technology"><strong>vLLM + HiMed 8B</strong></td><td data-label="Project use">Planned clinical reasoning and summarization serving</td><td data-label="Current evidence">Architecture documents only</td><td data-label="Disposition"><span class="pill high">Not implemented</span></td></tr>
           <tr><td data-label="Technology"><strong>Elasticsearch</strong></td><td data-label="Project use">Derived document and audit search</td><td data-label="Current evidence">Canonical ADR only; no index or client</td><td data-label="Disposition"><span class="pill high">Deferred</span></td></tr>
-          <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Both parse; commands aligned; full topology not started</td><td data-label="Disposition"><span class="pill medium">Partially verified</span></td></tr>
+          <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Compose parses and all local services start; API/frontends/workers build; live Phase 7 suite passes</td><td data-label="Disposition"><span class="pill fixed">Local topology verified</span></td></tr>
         </tbody>
       </table>
     </section>
@@ -409,7 +410,7 @@
     <section class="section reveal" id="evidence">
       <div class="section-head">
         <div><span class="kicker">05 · Verification evidence</span><h2>Checks run, not checks imagined.</h2></div>
-        <p class="section-intro">The report deliberately preserves the remaining warning boundary: full infrastructure startup and end-to-end clinical workflows were not executed.</p>
+        <p class="section-intro">The full local topology and the Phase 7 document path were executed. The remaining boundary is representative clinical evaluation and production operational evidence.</p>
       </div>
       <div class="evidence-grid">
         <pre class="terminal" aria-label="Verification command summary"><span class="prompt">$</span> npm run lint && npm run build <span class="note"># patient kiosk</span>
@@ -431,53 +432,85 @@
 <span class="ok">All checks passed!</span>
 
 <span class="prompt">$</span> mypy app
-<span class="ok">Success: no issues found in 86 source files</span>
+<span class="ok">Success: no issues found in 126 source files</span>
 
 <span class="prompt">$</span> pytest apps/api/tests -q
-<span class="ok">90 passed · 4 real-model suites skipped by policy</span>
+<span class="ok">274 passed · 15 provider/integration suites skipped by policy</span>
 
-<span class="prompt">$</span> real-provider verification <span class="note"># cached weights</span>
-<span class="ok">✓ Startup warmup: AI4Bharat 24.2 s · PP-OCRv5 27.0 s
-✓ AI4Bharat CUDA: 8 s Hindi → text · 0.47 s first / 0.33 s warm
-✓ Hindi + hospital ambient at 5 dB: 14.21% WER · 0.63 s warm p95
-✓ Indian-English Monsoon: 6.36% WER · 5.37 s warm p95 on CPU
-✓ PP-OCRv5 CPU: 4/4 lines · 5.09 s first / 4.53 s warm
-✓ PaddleOCR-VL CPU fallback: 4/4 lines · 493.5 s</span>
+<span class="prompt">$</span> PHASE7_INTEGRATION=1 pytest ...
+<span class="ok">11 passed · Postgres + MinIO + MongoDB + ClamAV
+✓ quarantine → scan → normalize → OCR
+✓ manual source review → authoritative fact
+✓ timeline + FHIR + search projection</span>
+
+<span class="prompt">$</span> python tools/evaluate_phase7_extraction.py ...
+<span class="ok">7 / 7 synthetic fixtures exact
+1.0 candidate match · source link · warning match</span>
 
 <span class="prompt">$</span> docker compose config --quiet
-<span class="ok">✓ parsed</span>
+<span class="ok">✓ parsed · 19 containers started · migrations exited 0</span>
 
-<span class="note">Not run: full 9-service startup, E2E browser suite,
-load test, DAST/SAST program, deployment smoke test.</span></pre>
+<span class="note">Still required: governed real-document evaluation,
+accessibility sessions, load/security, backup/restore and staging rollback drills.</span></pre>
         <div class="gates">
           <div class="gate"><span class="check">✓</span><div><strong>Frontend dependency integrity</strong><small>Fresh locks and audits</small></div><code>0 findings × 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend compilation</strong><small>Patient, clinician, admin</small></div><code>3 / 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Python packaging</strong><small>Editable project install</small></div><code>passed</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>86 app files</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, retention, dialogue and triage contracts</small></div><code>90 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>126 app files</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, dialogue, triage and document contracts</small></div><code>274 passed</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Phase 6 canonical evaluator</strong><small>Versions, ownership, evidence paths, negation and bounded demo API</small></div><code>8 focused tests</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Voice quality</strong><small>Hindi hospital proxy + spontaneous Indian English</small></div><code>14.21% · 6.36% WER</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>Fixed + adaptive assisted intake compile</small></div><code>7 routes</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Configuration syntax</strong><small>Compose and CI YAML</small></div><code>parsed</code></div>
-          <div class="gate"><span class="check">!</span><div><strong>Integration environment</strong><small>Requires image pulls and service startup</small></div><code>pending</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Phase 7 live integration</strong><small>Four durable dependencies and end-to-end promotion</small></div><code>11 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Browser review</strong><small>Semantic headings, status/live region, bilingual error state, clean console and responsive layout</small></div><code>passed</code></div>
+          <div class="gate"><span class="check">!</span><div><strong>Controlled rollout</strong><small>Representative evidence and owner signatures</small></div><code>pending</code></div>
         </div>
+      </div>
+    </section>
+
+    <section class="section reveal" id="phase7">
+      <div class="section-head">
+        <div><span class="kicker">06 · Phase 7 ledger</span><h2>Implemented controls, honest boundary.</h2></div>
+        <p class="section-intro">The software path is durable and review-gated. The evaluation and governance path is deliberately incomplete until accountable owners approve real evidence.</p>
+      </div>
+      <div class="truth-grid">
+        <article class="truth">
+          <h3>Engineering candidate</h3>
+          <ul>
+            <li>Authorized idempotent registration, consent/purpose checks, private quarantine and abandoned-upload cleanup.</li>
+            <li>ClamAV scan, bounded PDF/image normalization and immutable source/page/OCR/extraction artifacts.</li>
+            <li>Keyboard-first bilingual review with short-lived page preview, source geometry, manual entry and append-only decisions.</li>
+            <li>Accepted/corrected-only promotion, document-stated semantics, audited withdrawal and rebuildable timeline/FHIR/search projections.</li>
+            <li>Kafka outbox delivery, bounded retry/dead-letter, PHI-free operations counts and OCR/extraction kill switches.</li>
+          </ul>
+        </article>
+        <article class="truth truth--dark">
+          <h3>Release gate remains closed</h3>
+          <ul>
+            <li>Clinical safety, privacy/security, accessibility, facility operations and engineering approvals are unsigned.</li>
+            <li>Seven original synthetic regions are parser evidence only; they do not establish OCR or clinical accuracy.</li>
+            <li>Handwriting, real capture quality and lab-table extraction are excluded; lab support is deferred by design.</li>
+            <li>Production roles, encryption, retention/legal hold, incident response, backup/restore and rollback drills need deployment evidence.</li>
+            <li>No claim of clinical validation, DPDP compliance or production readiness is supported.</li>
+          </ul>
+        </article>
       </div>
     </section>
 
     <section class="section reveal" id="boundary">
       <div class="section-head">
-        <div><span class="kicker">06 · Production boundary</span><h2>The next work is not more scaffolding.</h2></div>
-        <p class="section-intro">The safest sequencing is identity and durable clinical truth first, then asynchronous model workflows. RAG is not required for the initial case-taking product.</p>
+        <div><span class="kicker">07 · Production boundary</span><h2>The next proof is operational and clinical.</h2></div>
+        <p class="section-intro">Phase 7 no longer needs more document scaffolding. It needs identity hardening, representative evaluation, owner review and staged recovery evidence. RAG is not required.</p>
       </div>
       <div class="boundary">
         <aside class="boundary-callout"><div class="huge">No RAG<br>for V1.</div><p>Structured intake, deterministic red-flag rules, document timelines, and clinician-edited summaries can ship without a retrieval-generation layer. Add semantic retrieval only after access-filtered search has a measured clinical use case and evaluation set.</p></aside>
         <div class="next-list">
           <div class="next"><div><strong>Clerk verification + internal identity</strong><span>JWT/JWKS validation, subject mapping, facility membership, caregiver relationships, signed webhooks, MFA and SSO policy.</span></div></div>
-          <div class="next"><div><strong>Postgres persistence + migrations</strong><span>Repositories, optimistic concurrency, durable triage flags and lifecycle history, signed clinical records, consent versions, audit evidence and transactional outbox.</span></div></div>
+          <div class="next"><div><strong>Production data-service controls</strong><span>Separate worker/API roles, TLS, managed secrets, encryption policy, retention/legal hold, backup restoration and negative tenant-isolation evidence.</span></div></div>
           <div class="next"><div><strong>Authorization at every boundary</strong><span>Tenant and facility scoping, purpose-of-use, patient/caregiver access, break-glass approval and negative integration tests.</span></div></div>
           <div class="next"><div><strong>Durable triage ownership and escalation</strong><span>Authenticated acknowledge, handoff, resolve and governed override commands; facility-owned timers; reference-only events; broker/provider failure recovery.</span></div></div>
-          <div class="next"><div><strong>Async AI workers after the workflow is durable</strong><span>Outbox to Kafka, idempotent workers, model registry, vLLM routing, failure fallbacks, evaluation and PHI-safe telemetry.</span></div></div>
-          <div class="next"><div><strong>Operational proof</strong><span>Compose/integration environment, accessibility and browser tests, threat model, load profile, backup/restore, staged deployment and rollback.</span></div></div>
+          <div class="next"><div><strong>Representative document evaluation</strong><span>Governed prescription fixtures across sites, scripts and capture quality; thresholds approved before evaluation; handwriting and lab tables remain separate gates.</span></div></div>
+          <div class="next"><div><strong>Operational proof</strong><span>Accessibility/usability sessions, threat model, load profile, Kafka/object/Mongo/Postgres outage drills, backup/restore and staged rollback.</span></div></div>
         </div>
       </div>
     </section>
@@ -485,7 +518,7 @@ load test, DAST/SAST program, deployment smoke test.</span></pre>
 
   <footer>
     <div class="footer-inner">
-      <div><div class="signoff">Phase 6 canonical evaluator started.<br>Durable alert readiness still gated.</div><small>Evidence snapshot · commit 8c6f747 · 1 September 2026 · Asia/Kolkata</small></div>
+      <div><div class="signoff">Phase 7 engineering candidate built.<br>Controlled rollout remains gated.</div><small>Evidence snapshot · codex/phase-7-build · 4 September 2026 · Asia/Kolkata</small></div>
       <small>Source reviewed: <a href="https://opncd.ai/share/egsk269W">OpenCode shared session</a><br>Canonical decisions: <a href="../docs/architecture/decisions/">docs/architecture/decisions</a></small>
     </div>
   </footer>

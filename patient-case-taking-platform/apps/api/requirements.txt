@@ -8,6 +8,7 @@ python-multipart>=0.0.9
 asyncpg>=0.29.0
 motor>=3.5.0
 redis>=5.0
+aiokafka>=0.11
 boto3>=1.35
 Pillow==12.3.0
 pypdfium2==5.13.0

@@ -318,11 +318,12 @@ class PostgresReviewedFactRepository:
         facility_ids: set[UUID],
     ) -> list[ReviewedDocumentFact]:
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            document = await self._document(connection, tenant_id, document_id)
-            if document.facility_id not in facility_ids:
-                raise PermissionError("Facility access denied")
-            rows = await connection.fetch(_LIST_FACTS, tenant_id, document_id)
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                document = await self._document(connection, tenant_id, document_id)
+                if document.facility_id not in facility_ids:
+                    raise PermissionError("Facility access denied")
+                rows = await connection.fetch(_LIST_FACTS, tenant_id, document_id)
         return [ReviewedDocumentFact(**dict(row)) for row in rows]
 
     async def list_timeline(
@@ -336,10 +337,11 @@ class PostgresReviewedFactRepository:
         if not facility_ids or not 1 <= limit <= 200:
             return []
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            rows = await connection.fetch(
-                _LIST_TIMELINE, tenant_id, patient_id, list(facility_ids), limit
-            )
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                rows = await connection.fetch(
+                    _LIST_TIMELINE, tenant_id, patient_id, list(facility_ids), limit
+                )
         return [DocumentTimelineEntry(**dict(row)) for row in rows]
 
     async def list_fhir_resources(
@@ -350,11 +352,12 @@ class PostgresReviewedFactRepository:
         facility_ids: set[UUID],
     ) -> list[dict[str, object]]:
         async with self._pool.acquire() as connection:
-            await self._set_tenant(connection, tenant_id)
-            document = await self._document(connection, tenant_id, document_id)
-            if document.facility_id not in facility_ids:
-                raise PermissionError("Facility access denied")
-            rows = await connection.fetch(_LIST_FHIR, tenant_id, document_id)
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                document = await self._document(connection, tenant_id, document_id)
+                if document.facility_id not in facility_ids:
+                    raise PermissionError("Facility access denied")
+                rows = await connection.fetch(_LIST_FHIR, tenant_id, document_id)
         resources: list[dict[str, object]] = []
         for row in rows:
             resource = row["resource"]

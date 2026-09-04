@@ -158,6 +158,9 @@ class _ReviewRepository:
             }
         )
 
+    async def open_manual_review(self, **_scope: object) -> ReviewDocument:
+        return self.review
+
     async def finalize(self, **_scope: object) -> ReviewDocument:
         if self.finalize_error:
             raise self.finalize_error
@@ -290,6 +293,19 @@ def test_manual_entry_is_source_linked_and_immediately_reviewed(
     assert response.status_code == 200
     assert response.json()["review_state"] == "corrected"
     assert response.json()["source_ocr_artifact_id"] is None
+
+
+def test_manual_fallback_endpoint_returns_review_workspace(
+    review_repository: _ReviewRepository,
+) -> None:
+    response = client.post(
+        f"/api/v1/document-reviews/{review_repository.document_id}/manual",
+        headers=_headers(review_repository),
+        json={"expected_document_version": 7},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["state"] == "review_required"
 
 
 def test_preview_failure_is_actionable_and_does_not_leak_storage_details(

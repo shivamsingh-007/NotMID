@@ -106,7 +106,7 @@ sequenceDiagram
 4. **PostgreSQL is the transactional and clinical source of truth**
 5. **MongoDB stores flexible raw AI artifacts, never signed clinical truth**
 6. **Object storage holds immutable source documents** and audio
-7. **Clinical generation is mock-only and offline**; unsupported providers fail closed
+7. **Clinical dialogue and summary generation are mock-only and offline**; document OCR is a separate real PP-OCRv5 worker
 8. **Every clinical assertion retains provenance**
 
 ### Tech Stack

@@ -81,6 +81,17 @@ DOCUMENT_OCR_AUTOMATION_ENABLED=true
 DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 ```
 
+Provider names are independent; `mock` does not describe the whole AI stack:
+
+| Capability | Local provider | Runtime status |
+|---|---|---|
+| Clinical dialogue and summaries | `LLM_PROVIDER=mock` | Offline deterministic contract scaffolding |
+| Document OCR | `OCR_PROVIDER=paddleocr_fast` | Real CPU PP-OCRv5 mobile detector and recognizer |
+| Speech output | `TTS_PROVIDER=mock` | Deterministic WAV cue, not production speech synthesis |
+
+The default document path therefore does **not** use mock OCR. The mock OCR
+adapter is retained only for isolated development and contract tests.
+
 `mock` is the only supported clinical dialogue/summary provider. The local
 stack does **not** start vLLM, download HiMed weights, require a GPU, ask for an
 OpenAI/Claude key, or send patient text to an external model API. A different

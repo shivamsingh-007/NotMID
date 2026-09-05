@@ -1,4 +1,4 @@
-"""OCR provider selection with a safe, dependency-light default."""
+"""OCR provider selection with real OCR by default and explicit test overrides."""
 
 from app.config import settings
 from app.ocr.base import OCRProvider

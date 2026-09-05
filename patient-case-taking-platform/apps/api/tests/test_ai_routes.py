@@ -4,15 +4,26 @@ import base64
 import io
 import wave
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.ocr.mock_provider import MockOCRProvider
+from app.ocr.registry import set_active_provider
 from app.routers import asr, ocr
 
 app = FastAPI()
 app.include_router(asr.router)
 app.include_router(ocr.router)
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _use_mock_ocr_provider():
+    """Keep route contract tests deterministic without weakening runtime defaults."""
+    set_active_provider(MockOCRProvider())
+    yield
+    set_active_provider(None)
 
 
 def _silent_wav() -> bytes:

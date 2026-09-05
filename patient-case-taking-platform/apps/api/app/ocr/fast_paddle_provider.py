@@ -71,11 +71,11 @@ class FastPaddleOCRProvider(OCRProvider):
 
     @property
     def model_version(self) -> str:
-        return "PP-OCRv5"
+        return "PP-OCRv5-mobile"
 
     @property
     def language_pack_version(self) -> str:
-        return f"paddleocr-{self.language}"
+        return "PP-OCRv5_mobile_rec"
 
     def _ensure_pipeline(self) -> None:
         if self._pipeline is not None:
@@ -88,8 +88,8 @@ class FastPaddleOCRProvider(OCRProvider):
             from paddleocr import PaddleOCR
 
             self._pipeline = PaddleOCR(
-                lang=self.language,
-                ocr_version="PP-OCRv5",
+                text_detection_model_name="PP-OCRv5_mobile_det",
+                text_recognition_model_name="PP-OCRv5_mobile_rec",
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,

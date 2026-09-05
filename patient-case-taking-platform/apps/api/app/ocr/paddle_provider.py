@@ -72,6 +72,9 @@ class PaddleOCRProvider(OCRProvider):
                 logger.exception("Failed to load PaddleOCR-VL")
                 raise
 
+    async def warmup(self) -> None:
+        await asyncio.to_thread(self._ensure_pipeline)
+
     async def recognize(self, image_bytes: bytes, mime_type: str = "image/png") -> OCRResult:
         """Recognize text in an image using PaddleOCR-VL."""
         if not image_bytes:

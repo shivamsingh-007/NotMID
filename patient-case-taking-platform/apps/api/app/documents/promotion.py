@@ -140,6 +140,16 @@ ORDER BY timeline.occurred_at DESC, timeline.id
 LIMIT $4
 """
 
+_COUNT_TIMELINE = """
+SELECT COUNT(*)
+FROM clinical_timeline_projection AS timeline
+JOIN document_registry AS document
+  ON document.tenant_id = timeline.tenant_id
+ AND document.id = timeline.document_id
+WHERE timeline.tenant_id = $1 AND timeline.patient_id = $2
+  AND document.facility_id = ANY($3::UUID[])
+"""
+
 _LIST_FHIR = """
 SELECT fhir.resource
 FROM document_fhir_projection AS fhir
@@ -343,6 +353,23 @@ class PostgresReviewedFactRepository:
                     _LIST_TIMELINE, tenant_id, patient_id, list(facility_ids), limit
                 )
         return [DocumentTimelineEntry(**dict(row)) for row in rows]
+
+    async def count_timeline(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+    ) -> int:
+        if not facility_ids:
+            return 0
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                count = await connection.fetchval(
+                    _COUNT_TIMELINE, tenant_id, patient_id, list(facility_ids)
+                )
+        return int(count or 0)
 
     async def list_fhir_resources(
         self,

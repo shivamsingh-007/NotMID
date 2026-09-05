@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
-from app.summary_workflow.contracts import SummaryAction, SummaryRecord
+from app.summary_workflow.contracts import SummaryAction, SummaryRecord, SummaryStatus
 
 
 class SummaryNotFound(Exception):
@@ -27,6 +27,23 @@ class SummaryRepository(Protocol):
     async def list_for_encounter(
         self, *, tenant_id: UUID, encounter_id: UUID
     ) -> list[SummaryRecord]: ...
+
+    async def list_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+        limit: int = 100,
+    ) -> list[SummaryRecord]: ...
+
+    async def count_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+    ) -> int: ...
 
     async def replace(
         self, *, record: SummaryRecord, action: SummaryAction, expected_version: int
@@ -90,6 +107,44 @@ class InMemorySummaryRepository:
             if record_tenant == tenant_id and record.encounter_id == encounter_id
         ]
         return sorted(records, key=lambda item: (item.generation, item.created_at))
+
+    async def list_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+        limit: int = 100,
+    ) -> list[SummaryRecord]:
+        if not facility_ids or not 1 <= limit <= 200:
+            return []
+        records = [
+            record.model_copy(deep=True)
+            for (record_tenant, _), record in self._records.items()
+            if record_tenant == tenant_id
+            and record.patient_id == patient_id
+            and record.facility_id in facility_ids
+            and record.status is SummaryStatus.SIGNED
+        ]
+        return sorted(records, key=lambda item: item.signed_at or item.updated_at, reverse=True)[
+            :limit
+        ]
+
+    async def count_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+    ) -> int:
+        return sum(
+            1
+            for (record_tenant, _), record in self._records.items()
+            if record_tenant == tenant_id
+            and record.patient_id == patient_id
+            and record.facility_id in facility_ids
+            and record.status is SummaryStatus.SIGNED
+        )
 
     async def replace(
         self, *, record: SummaryRecord, action: SummaryAction, expected_version: int
@@ -180,6 +235,24 @@ WHERE tenant_id = $1 AND encounter_id = $2
 ORDER BY generation, created_at
 """
 
+_LIST_SIGNED_FOR_PATIENT = """
+SELECT * FROM clinical_summary_workflow
+WHERE tenant_id = $1
+  AND patient_id = $2
+  AND facility_id = ANY($3::UUID[])
+  AND status = 'signed'
+ORDER BY signed_at DESC, id
+LIMIT $4
+"""
+
+_COUNT_SIGNED_FOR_PATIENT = """
+SELECT COUNT(*) FROM clinical_summary_workflow
+WHERE tenant_id = $1
+  AND patient_id = $2
+  AND facility_id = ANY($3::UUID[])
+  AND status = 'signed'
+"""
+
 _UPDATE_SUMMARY = """
 UPDATE clinical_summary_workflow SET
     status = $4, content = $5::JSONB, evidence = $6::JSONB,
@@ -267,6 +340,48 @@ class PostgresSummaryRepository:
                 await self._set_tenant(connection, tenant_id)
                 rows = await connection.fetch(_LIST_SUMMARIES, tenant_id, encounter_id)
         return [self._record(row) for row in rows]
+
+    async def list_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+        limit: int = 100,
+    ) -> list[SummaryRecord]:
+        if not facility_ids or not 1 <= limit <= 200:
+            return []
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                rows = await connection.fetch(
+                    _LIST_SIGNED_FOR_PATIENT,
+                    tenant_id,
+                    patient_id,
+                    list(facility_ids),
+                    limit,
+                )
+        return [self._record(row) for row in rows]
+
+    async def count_signed_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+    ) -> int:
+        if not facility_ids:
+            return 0
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                count = await connection.fetchval(
+                    _COUNT_SIGNED_FOR_PATIENT,
+                    tenant_id,
+                    patient_id,
+                    list(facility_ids),
+                )
+        return int(count or 0)
 
     async def replace(
         self, *, record: SummaryRecord, action: SummaryAction, expected_version: int

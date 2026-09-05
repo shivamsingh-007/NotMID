@@ -36,6 +36,15 @@ WHERE tenant_id = $1 AND id = $2
 FOR UPDATE
 """
 
+_LIST_FOR_PATIENT = """
+SELECT * FROM document_registry
+WHERE tenant_id = $1
+  AND patient_id = $2
+  AND facility_id = ANY($3::UUID[])
+ORDER BY created_at DESC, id
+LIMIT $4
+"""
+
 _FINALIZE_UPLOAD = """
 UPDATE document_registry
 SET state = $4, object_key = $5, source_checksum_sha256 = $6,
@@ -92,6 +101,15 @@ class DocumentRepository(Protocol):
     async def create(self, document: DocumentRegistryEntry) -> DocumentCreateResult: ...
 
     async def get(self, tenant_id: UUID, document_id: UUID) -> DocumentRegistryEntry: ...
+
+    async def list_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+        limit: int = 100,
+    ) -> list[DocumentRegistryEntry]: ...
 
     async def finalize_upload(
         self,
@@ -180,6 +198,30 @@ class PostgresDocumentRepository:
                 if row is None:
                     raise DocumentNotFound("Document not found")
                 return DocumentRegistryEntry.model_validate(dict(row))
+
+    async def list_for_patient(
+        self,
+        *,
+        tenant_id: UUID,
+        patient_id: UUID,
+        facility_ids: set[UUID],
+        limit: int = 100,
+    ) -> list[DocumentRegistryEntry]:
+        if not facility_ids or not 1 <= limit <= 200:
+            return []
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await connection.execute(
+                    "SELECT set_config('app.tenant_id', $1, true)", str(tenant_id)
+                )
+                rows = await connection.fetch(
+                    _LIST_FOR_PATIENT,
+                    tenant_id,
+                    patient_id,
+                    list(facility_ids),
+                    limit,
+                )
+        return [DocumentRegistryEntry.model_validate(dict(row)) for row in rows]
 
     async def finalize_upload(
         self,

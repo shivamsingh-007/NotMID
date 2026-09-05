@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     MONGODB_URL: str = "mongodb://localhost:27017"
     REDIS_URL: str = "redis://localhost:6379"
     KAFKA_BROKERS: str = "localhost:9092"
+    ELASTICSEARCH_URL: str = "http://localhost:9200"
+    CLINICAL_SEARCH_INDEX_ALIAS: str = "medikiosk-clinical-search"
+    CLINICAL_SEARCH_ENABLED: bool = False
     S3_ENDPOINT: str = "http://localhost:9000"
     S3_PUBLIC_ENDPOINT: str = ""
     S3_BUCKET: str = "notmid-clinical"
@@ -90,6 +93,7 @@ class Settings(BaseSettings):
     SUMMARY_OUTBOX_BATCH_SIZE: int = 25
     SUMMARY_OUTBOX_POLL_INTERVAL_SECONDS: float = 1
     SUMMARY_EVENT_TOPIC: str = "clinical.summaries.v1"
+    SEARCH_CONSUMER_GROUP: str = "medikiosk-clinical-search-v1"
     MODEL_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
     SUMMARY_WORKFLOW_ENABLED: bool = False

@@ -105,8 +105,8 @@ def test_cursor_round_trip_and_rejection() -> None:
 
 
 def test_synonym_file_is_versioned_and_loads_safe_unicode_rules() -> None:
-    root = Path(__file__).resolve().parents[3]
-    path = root / "packages" / "clinical-ontology" / "medical_synonyms.json"
+    api_root = Path(__file__).resolve().parents[1]
+    path = api_root / "app" / "search" / "medical_synonyms.json"
     payload = json.loads(path.read_text(encoding="utf-8"))
     rules = load_synonym_rules(path)
 
@@ -119,4 +119,3 @@ def test_synonym_loader_rejects_unsafe_or_single_term_entries(tmp_path: Path) ->
     path.write_text('{"entries":[{"terms":["only"]}]}', encoding="utf-8")
     with pytest.raises(InvalidSynonymConfiguration):
         load_synonym_rules(path)
-

@@ -133,7 +133,8 @@ future slices that require durable canonical resources and mappings first.
   security labels.
 - Text fields: title/content using a Unicode-safe standard analyzer, lowercase,
   ASCII folding with original tokens retained, and a small reviewed synonym
-  graph stored in `packages/clinical-ontology/medical_synonyms.json`.
+  graph stored with the API at `app/search/medical_synonyms.json` so the same
+  reviewed artifact is packaged into the search container.
 - Dates use strict Elasticsearch date mapping.
 - Highlight fragments are bounded and source text is never returned wholesale
   from the index.
@@ -249,9 +250,9 @@ docker compose run --rm search-index-worker python -m tools.verify_phase9_search
 
 ### P9.3 — Real Elasticsearch adapter
 
-- [ ] Add Elasticsearch 9.3.0 client/service, health check and index mapping.
-- [ ] Implement index/search/facet/delete and versioned alias rebuild.
-- [ ] Pass real-container integration tests including synonym and isolation cases.
+- [x] Add Elasticsearch 9.3.0 client/service, health check and index mapping.
+- [x] Implement index/search/facet/delete and versioned alias rebuild.
+- [x] Pass real-container integration tests including synonym and isolation cases.
 
 ### P9.4 — Event-driven synchronization
 

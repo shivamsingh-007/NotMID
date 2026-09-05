@@ -12,6 +12,7 @@ CursorValue: TypeAlias = str | int | float
 _CURSOR_VERSION = 1
 _SOURCE_FIELDS = [
     "record_id",
+    "tenant_id",
     "facility_id",
     "patient_id",
     "encounter_id",

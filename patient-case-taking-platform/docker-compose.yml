@@ -51,6 +51,22 @@ services:
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     volumes: ["kafka-data:/var/lib/kafka/data"]
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.0
+    ports: ["127.0.0.1:9200:9200"]
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    volumes: ["elasticsearchdata:/usr/share/elasticsearch/data"]
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9200/_cluster/health?wait_for_status=yellow || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -323,6 +339,9 @@ services:
       MONGODB_URL: mongodb://mongodb:27017
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:29092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      CLINICAL_SEARCH_INDEX_ALIAS: ${CLINICAL_SEARCH_INDEX_ALIAS:-medikiosk-clinical-search}
+      CLINICAL_SEARCH_ENABLED: ${CLINICAL_SEARCH_ENABLED:-false}
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
       S3_BUCKET: notmid-clinical
@@ -340,6 +359,7 @@ services:
       mongodb: { condition: service_healthy }
       redis: { condition: service_healthy }
       kafka: { condition: service_started }
+      elasticsearch: { condition: service_healthy }
       minio-init: { condition: service_completed_successfully }
 
   patient-kiosk:
@@ -373,5 +393,6 @@ volumes:
   miniodata:
   clamavdata:
   kafka-data:
+  elasticsearchdata:
   ocr-model-cache:
   paddle-cache:

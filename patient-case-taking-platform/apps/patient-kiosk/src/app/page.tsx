@@ -33,7 +33,6 @@ const COPY = {
 
 export default function Home() {
   const [lang, setLang] = useState<"hi" | "en">("hi");
-  const [listening, setListening] = useState(false);
   const copy = COPY[lang];
 
   return (
@@ -57,21 +56,20 @@ export default function Home() {
 
         <section className="mk-card patient-card mk-enter" aria-live="polite">
           <span className="mk-pill mk-pill--success">● निजी और सुरक्षित · Private & secure</span>
-          <button
+          <Link
             className="voice-orb"
-            type="button"
-            data-listening={listening}
-            aria-pressed={listening}
-            aria-label={listening ? copy.stop : copy.speak}
-            onClick={() => setListening((value) => !value)}
+            href="/kiosk-session"
+            aria-label={copy.speak}
           >
-            {listening ? "■" : "●"}
-          </button>
-          <h2 className="voice-title">{listening ? copy.stop : copy.voiceTitle}</h2>
-          <p className="voice-help">{listening ? "सुन रहा हूँ… Listening…" : copy.voiceHelp}</p>
+            ●
+          </Link>
+          <h2 className="voice-title">{copy.voiceTitle}</h2>
+          <p className="voice-help">{copy.voiceHelp}</p>
           <div className="patient-actions">
-            <Link className="mk-button mk-button--success" href="/kiosk-session">{listening ? copy.stop : copy.speak} <span aria-hidden="true">→</span></Link>
+            <Link className="mk-button mk-button--success" href="/kiosk-session">{copy.speak} <span aria-hidden="true">→</span></Link>
             <Link className="mk-button mk-button--soft" href="/case-taking">{copy.touch}</Link>
+            <Link className="mk-button mk-button--soft" href="/records">Records · रिकॉर्ड</Link>
+            <Link className="mk-button mk-button--soft" href="/consents">Consent · सहमति</Link>
           </div>
           <p className="patient-note"><span aria-hidden="true">✦</span>{copy.helper}</p>
         </section>

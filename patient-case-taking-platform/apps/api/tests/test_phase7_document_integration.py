@@ -83,7 +83,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 12
+        assert first_count == 13
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -107,6 +107,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "clinical_summary_workflow",
             "clinical_summary_action",
             "clinical_summary_outbox",
+            "patient_intake_submission",
             "schema_migration",
         }
     finally:
@@ -725,12 +726,17 @@ async def test_clean_document_is_normalized_and_ocr_artifact_is_durable(
             patient_id=document.patient_id,
             facility_ids={document.facility_id},
         )
+        timeline_total = await fact_repository.count_timeline(
+            tenant_id=document.tenant_id,
+            patient_id=document.patient_id,
+            facility_ids={document.facility_id},
+        )
         fhir_resources = await fact_repository.list_fhir_resources(
             tenant_id=document.tenant_id,
             document_id=document.id,
             facility_ids={document.facility_id},
         )
-        assert len(facts) == len(timeline) == len(fhir_resources) == 1
+        assert len(facts) == len(timeline) == timeline_total == len(fhir_resources) == 1
         assert facts[0].normalized_value == "Synthetic medicine"
         assert timeline[0].statement_status == "document_stated"
         assert fhir_resources[0]["resourceType"] == "Basic"

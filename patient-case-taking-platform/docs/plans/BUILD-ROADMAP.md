@@ -9,10 +9,13 @@
 
 ## Current implementation milestone
 
-The repository's **Phase 4–7 engineering slices are implemented and Phase 8 is
-in progress**. Exact evidence and remaining release gates are recorded in the
-phase plans. The current clinical dialogue/summary policy is mock-only under
-[ADR-008](../architecture/decisions/ADR-008-MOCK-ONLY-CLINICAL-SUMMARY.md).
+The repository's **Phase 4–8 engineering slices are implemented**, and the
+pre-Phase 9 patient dashboard/services completion slice is an engineering
+candidate. Exact evidence and remaining release gates are recorded in the phase
+plans. Clinical dialogue/summary remains mock-only under
+[ADR-008](../architecture/decisions/ADR-008-MOCK-ONLY-CLINICAL-SUMMARY.md);
+patient self-scope and mock TTS are governed by
+[ADR-009](../architecture/decisions/ADR-009-PATIENT-SELF-SCOPE-AND-MOCK-TTS.md).
 
 ## Approved stack baseline
 
@@ -20,7 +23,9 @@ phase plans. The current clinical dialogue/summary policy is mock-only under
 - FastAPI for the modular clinical core, WebSocket gateway and Python-facing APIs.
 - Clerk for staff/patient web authentication, with hospital SSO integration where available and a constrained kiosk pre-auth flow.
 - Offline deterministic mock clinical provider plus safe template fallback; no generative model download or hosted LLM API.
-- AI4Bharat/Bhashini-compatible ASR, Indic/Bhashini-compatible TTS, an OCR ensemble and PyTorch clinical NLP services.
+- Existing ASR boundary, deterministic mock TTS, a real CPU PP-OCRv5 document
+  worker with gated PaddleOCR-VL fallback, and reviewed-fact extraction. Real
+  speech and representative OCR clinical quality still require approval.
 - Versioned Python rules service for deterministic red flags and policies.
 - PostgreSQL for transactional/clinical truth; MongoDB for raw transcript/OCR/model artifacts; Redis for ephemeral state; S3-compatible object storage for binaries.
 - WebSockets for interactive updates; Kafka from MVP with durable PostgreSQL state/outbox, retries, DLQs and idempotent consumers.

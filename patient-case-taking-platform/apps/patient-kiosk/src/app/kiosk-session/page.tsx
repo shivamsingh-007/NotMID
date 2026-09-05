@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { startLocalKioskSession } from "../../lib/kioskSession";
 
 const translations = {
   en: {
@@ -25,11 +26,20 @@ const translations = {
 export default function KioskSessionPage() {
   const router = useRouter();
   const [lang, setLang] = useState<"en" | "hi">("hi");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const t = translations[lang];
 
-  const handleStart = () => {
-    // TODO: POST /api/v1/auth/kiosk/session then redirect to /consent
-    router.push("/consent");
+  const handleStart = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await startLocalKioskSession(lang);
+      router.push("/consent");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Kiosk session is unavailable");
+      setBusy(false);
+    }
   };
 
   return (
@@ -72,10 +82,13 @@ export default function KioskSessionPage() {
 
           <button
             onClick={handleStart}
+            disabled={busy}
             className="w-full bg-accent text-white py-5 rounded-xl text-xl font-bold hover:bg-accent/90 transition min-h-[64px] mb-4"
           >
-            {t.start_button}
+            {busy ? (lang === "hi" ? "सुरक्षित सत्र बन रहा है…" : "Starting secure session…") : t.start_button}
           </button>
+
+          {error && <p className="mb-4 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700" role="alert">{error}</p>}
 
           <p className="text-xs text-gray-500 text-center">{t.device_info}</p>
         </div>

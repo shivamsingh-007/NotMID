@@ -25,10 +25,12 @@ from app.routers import (
     intake_sessions,
     llm,
     ocr,
+    patient_portal,
     patients,
     reviewed_documents,
     summary_workflows,
     triage,
+    tts,
 )
 
 
@@ -85,6 +87,8 @@ app.include_router(document_reviews.router)
 app.include_router(reviewed_documents.router)
 app.include_router(document_operations.router)
 app.include_router(summary_workflows.router)  # Durable; fails closed unless enabled.
+app.include_router(tts.router)  # Offline deterministic mock; unsupported providers fail closed.
+app.include_router(patient_portal.router)  # Authenticated patient-self projections only.
 
 # These in-memory routes are useful for contract and UI prototyping, but they do
 # not yet provide Clerk verification, durable persistence, tenant isolation, or

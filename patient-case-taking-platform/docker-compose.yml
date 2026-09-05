@@ -172,12 +172,12 @@ services:
   document-ocr-worker:
     build:
       context: ./apps/api
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.ocr
     command: ["python", "-m", "app.documents.ocr_worker", "forever"]
     read_only: true
     tmpfs:
       - /tmp:size=128m,noexec,nosuid
-    mem_limit: 1g
+    mem_limit: 2g
     cpus: 2.0
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
@@ -190,7 +190,7 @@ services:
       S3_BUCKET: notmid-clinical
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-notmid-local}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
-      OCR_PROVIDER: ${OCR_PROVIDER:-mock}
+      OCR_PROVIDER: ${OCR_PROVIDER:-paddleocr_fast}
       OCR_LANGUAGE: ${OCR_LANGUAGE:-en}
       OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER: ${OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER:-false}
       DOCUMENT_OCR_TIMEOUT_SECONDS: ${DOCUMENT_OCR_TIMEOUT_SECONDS:-60}
@@ -200,6 +200,10 @@ services:
       DOCUMENT_OCR_BATCH_SIZE: ${DOCUMENT_OCR_BATCH_SIZE:-2}
       DOCUMENT_OCR_POLL_INTERVAL_SECONDS: ${DOCUMENT_OCR_POLL_INTERVAL_SECONDS:-2}
       DOCUMENT_OCR_AUTOMATION_ENABLED: ${DOCUMENT_OCR_AUTOMATION_ENABLED:-true}
+      PADDLE_PDX_MODEL_SOURCE: ${PADDLE_PDX_MODEL_SOURCE:-BOS}
+    volumes:
+      - ocr-model-cache:/home/appuser/.paddlex
+      - paddle-cache:/home/appuser/.paddle
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }
@@ -329,6 +333,7 @@ services:
       DOCUMENT_WORKFLOW_ENABLED: ${DOCUMENT_WORKFLOW_ENABLED:-false}
       S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
       LLM_PROVIDER: mock
+      TTS_PROVIDER: mock
       SUMMARY_WORKFLOW_ENABLED: ${SUMMARY_WORKFLOW_ENABLED:-false}
     depends_on:
       api-migrate: { condition: service_completed_successfully }
@@ -368,3 +373,5 @@ volumes:
   miniodata:
   clamavdata:
   kafka-data:
+  ocr-model-cache:
+  paddle-cache:

@@ -36,10 +36,12 @@ ai-asr = [
     "onnxruntime==1.20.1",
 ]
 ai-ocr-fast = [
+    "paddlepaddle==3.1.1",
     "paddleocr>=3.7,<3.8",
     "torch>=2.2",
 ]
 ai-ocr-vl = [
+    "paddlepaddle==3.1.1",
     "paddleocr[doc-parser]>=3.7,<3.8",
     "torch>=2.2",
 ]

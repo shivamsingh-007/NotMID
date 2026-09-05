@@ -48,8 +48,8 @@ def test_provider_versions_are_explicit_and_stable() -> None:
 
     assert mock.model_version == "mock-ocr-v1"
     assert mock.language_pack_version == "synthetic-en-v1"
-    assert paddle.model_version == "PP-OCRv5"
-    assert paddle.language_pack_version == "paddleocr-en"
+    assert paddle.model_version == "PP-OCRv5-mobile"
+    assert paddle.language_pack_version == "PP-OCRv5_mobile_rec"
 
 
 def test_paddleocr_37_object_block_is_normalized():

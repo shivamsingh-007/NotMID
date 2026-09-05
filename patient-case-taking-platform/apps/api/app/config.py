@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     ASR_PARTIAL_INTERVAL_BYTES: int = 64_000
     ASR_MIN_SIGNAL_QUALITY: float = 0.35
     ASR_MIN_CONFIDENCE: float = 0.65
+    TTS_PROVIDER: str = "mock"
     VOICE_CONTEXT_TTL_SECONDS: int = 1_800
     VOICE_REDIS_ENABLED: bool = False
     VOICE_KAFKA_ENABLED: bool = False
@@ -58,7 +59,7 @@ class Settings(BaseSettings):
     S3_ACCESS_KEY: str = ""
     S3_SECRET_KEY: str = ""
     HUGGINGFACE_TOKEN: str = ""
-    OCR_PROVIDER: str = "mock"  # "mock", "paddleocr_fast", "paddleocr_vl"
+    OCR_PROVIDER: str = "paddleocr_fast"  # "mock", "paddleocr_fast", "paddleocr_vl"
     OCR_LANGUAGE: str = "en"
     OCR_ENABLE_MKLDNN: bool = False
     OCR_ALLOW_COMPLEX_LAYOUT_PROVIDER: bool = False

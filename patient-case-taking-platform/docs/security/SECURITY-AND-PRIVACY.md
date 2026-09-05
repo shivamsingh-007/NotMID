@@ -12,10 +12,18 @@
 - Record emergency break-glass reason and notify governance reviewers.
 - Verify Clerk webhook signatures, enforce idempotency and treat webhook data as identity lifecycle input rather than immediate clinical authorization.
 - Kiosk anonymous/pre-auth sessions are opaque, short-lived and limited to starting intake; record search and PHI display require verified identity or an attributed staff-assisted flow.
+- Patient record APIs use a `/me` boundary: patient, tenant and facility scope
+  come from the verified token rather than a client-supplied patient ID.
+- Local synthetic patient tokens exist only behind `ENABLE_DEMO_ROUTES`; they are
+  not production authentication and must never be enabled with real patient data.
 
 ## Patient consent
 
 Consent records contain purpose, data categories, recipient, time range, expiry, delegation and revocation. ABDM consent exchange is implemented through the adapter; internal authorization still enforces local policy.
+
+Patient document upload and confirmed-intake submission require an active,
+matching treatment consent. Revocation prevents subsequent authorized use; it
+does not rewrite already signed clinical history.
 
 ## PHI protection
 
@@ -26,6 +34,11 @@ Consent records contain purpose, data categories, recipient, time range, expiry,
 - Use signed, short-lived object access; never public buckets.
 - Prevent CDN caching of authenticated clinical content.
 - Scan uploads and quarantine before processing.
+- Return only clinician-reviewed document facts and clinician-signed summaries
+  to the patient portal. Raw OCR, extraction candidates and draft summaries stay
+  behind clinician workflow boundaries.
+- Mark patient report responses private/no-store and generate downloads only
+  after repeating the self/facility/status checks.
 
 ## Audit events
 

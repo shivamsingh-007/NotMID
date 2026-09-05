@@ -19,6 +19,20 @@ schema, evidence and clinician-review controls.
 6. Clinician correction and sign-off.
 7. Post-release monitoring and incident review.
 
+## Patient speech and record controls
+
+- Only a transcript explicitly confirmed or corrected by the patient advances
+  adaptive questioning and enters the patient-confirmed intake submission.
+- Emergency-rule output interrupts routine questions and is announced through
+  an assertive live region. The UI says to seek staff help; it never claims an
+  ambulance, clinician or emergency service was contacted.
+- Mock TTS is an acknowledgement cue, not clinical speech. Failure leaves the
+  text prompt and manual workflow available.
+- Patient accept/reject stores an intake decision, not a signed clinical record.
+  Only a clinician-signed Phase 8 summary appears in patient reports.
+- Patient upload screens expose processing state; raw OCR and unreviewed
+  extraction candidates are excluded from patient-facing APIs.
+
 ## Phase 8 summary controls
 
 - A nurse or doctor confirms encounter context before generation; the generation

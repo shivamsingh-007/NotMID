@@ -92,7 +92,7 @@ button, a, input, select, textarea {
 }
 
 .patient-header { align-items: center; display: flex; justify-content: space-between; margin: 0 auto; max-width: 78rem; position: relative; z-index: 2; }
-.patient-trust { color: var(--mk-ink-muted); font-size: 0.82rem; }
+.patient-trust { color: var(--mk-ink-muted); font-size: 0.82rem; margin-right: 4.75rem; }
 .patient-main { display: grid; gap: 2rem; grid-template-columns: minmax(0, 1.05fr) minmax(20rem, .75fr); margin: 5rem auto 0; max-width: 68rem; position: relative; z-index: 1; }
 .patient-copy { padding: 2rem 0; }
 .patient-title { font-size: clamp(3rem, 7vw, 6.25rem); margin: 0.7rem 0 1.2rem; max-width: 12ch; }

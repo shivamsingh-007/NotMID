@@ -12,6 +12,7 @@ import {
   generateClinicalSummary,
   getNextQuestion,
 } from "@/lib/clinicalAi";
+import { readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
 
 type Phase = "complaint" | "question" | "emergency" | "summary";
 type ReviewDecision = "editing" | "accepted" | "rejected";
@@ -84,7 +85,7 @@ export default function AssistedQuestionPage() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const emergencyRef = useRef<HTMLElement>(null);
-  const [context] = useState(() => ({
+  const [context, setContext] = useState(() => ({
     tenantId: crypto.randomUUID(),
     sessionId: crypto.randomUUID(),
     encounterId: crypto.randomUUID(),
@@ -97,6 +98,23 @@ export default function AssistedQuestionPage() {
   useEffect(() => {
     if (phase === "emergency") emergencyRef.current?.focus();
   }, [phase]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const patient = readPatientSession();
+      const storedLanguage = localStorage.getItem("notmid-language");
+      if (storedLanguage === "hi" || storedLanguage === "en") setLanguage(storedLanguage);
+      setContext((current) => ({
+        ...current,
+        tenantId: patient?.tenantId || current.tenantId,
+        sessionId: localStorage.getItem("notmid-kiosk-session-id") || current.sessionId,
+        encounterId: localStorage.getItem("notmid-encounter-id") || current.encounterId,
+        consentId: localStorage.getItem("notmid-consent-id") || current.consentId,
+        retainAudio: localStorage.getItem("notmid-retain-audio") === "true",
+        audioRetentionConsent: localStorage.getItem("notmid-retain-audio") === "true",
+      }));
+    });
+  }, []);
 
   async function loadNextQuestion(
     complaint: string,
@@ -162,6 +180,47 @@ export default function AssistedQuestionPage() {
     void loadNextQuestion(chiefComplaint, nextAnswers, answer);
   }
 
+  async function finalizeDecision(nextDecision: "accepted" | "rejected") {
+    if (!summary) return;
+    const patient = readPatientSession();
+    if (!patient) {
+      setError(copy.unavailable);
+      return;
+    }
+    const history = historyDraft.split("\n").map((item) => item.trim()).filter(Boolean);
+    const uncertainties = uncertaintyDraft.split("\n").map((item) => item.trim()).filter(Boolean);
+    setBusy(true);
+    setError("");
+    setStatus(language === "hi" ? "पुष्टि सुरक्षित रूप से सहेजी जा रही है…" : "Saving your confirmation securely…");
+    try {
+      await submitPatientIntake(patient, {
+        encounterId: context.encounterId,
+        sessionId: context.sessionId,
+        consentId: context.consentId,
+        language,
+        chiefComplaint,
+        confirmedAnswers: answers,
+        summaryDraft: {
+          chief_complaint: summary.chief_complaint,
+          history_of_present_illness: history.length > 0 ? history : summary.history_of_present_illness,
+          relevant_negatives: summary.relevant_negatives,
+          document_facts: summary.document_facts,
+          red_flags: summary.red_flags,
+          uncertainties,
+        },
+        decision: nextDecision,
+        provider: summary.provider === "template-fallback" ? "template-fallback" : "mock",
+      });
+      setDecision(nextDecision);
+      setStatus(nextDecision === "accepted" ? copy.accepted : copy.rejected);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : copy.unavailable);
+      setStatus(copy.unavailable);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main className="min-h-dvh bg-[var(--mk-canvas)] px-4 py-8 text-[var(--mk-ink)] sm:px-8">
       <AccessibilityControls />
@@ -194,7 +253,7 @@ export default function AssistedQuestionPage() {
         {phase === "question" && question && (
           <section className="mk-card p-6 sm:p-10">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><span className="mk-pill">SOCRATES · {question.next_domain.replaceAll("_", " ")}</span><span className="text-xs text-[var(--mk-ink-muted)]">Provider: {question.provider} · no external network</span></div>
-            <AudioPrompt text={question.question} language={language}/><h1 className="mk-display my-5 text-3xl sm:text-5xl">{question.question}</h1>
+            <AudioPrompt text={question.question} language={language} autoPlay/><h1 className="mk-display my-5 text-3xl sm:text-5xl">{question.question}</h1>
             <VoiceInput key={question.next_domain} language={language} context={context} disabled={busy} onTranscription={(text) => submitAnswer(text)}/>
             <div className="my-5 flex items-center gap-3 text-sm text-[var(--mk-ink-muted)]"><span className="h-px flex-1 bg-[var(--mk-border)]"/>or / या<span className="h-px flex-1 bg-[var(--mk-border)]"/></div>
             <label className="block font-bold" htmlFor="assisted-answer">{copy.answer}</label><textarea id="assisted-answer" className="mt-2 min-h-28 w-full rounded-xl border border-[var(--mk-border)] bg-white p-4 text-lg" value={answerDraft} onChange={(event) => setAnswerDraft(event.target.value)}/><TouchButton className="mt-3" variant="success" size="large" disabled={busy || !answerDraft.trim()} onClick={() => submitAnswer(answerDraft)}>{copy.submitAnswer}</TouchButton>
@@ -203,14 +262,14 @@ export default function AssistedQuestionPage() {
 
         {phase === "emergency" && question && (
           <section ref={emergencyRef} tabIndex={-1} className="rounded-3xl border-4 border-[var(--mk-danger)] bg-[var(--mk-danger-soft)] p-6 sm:p-10" role="alert" aria-live="assertive">
-            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><p className="max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{question.question}</p><p className="mb-5 text-sm">Routine questions are paused · सामान्य प्रश्न रोक दिए गए हैं</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
+            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><AudioPrompt text={`${copy.emergencyTitle}. ${copy.emergencyBody}`} language={language} autoPlay/><p className="mt-5 max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{question.question}</p><p className="mb-5 text-sm">Routine questions are paused · सामान्य प्रश्न रोक दिए गए हैं</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
           </section>
         )}
 
         {phase === "summary" && summary && (
           <section className="mk-card p-6 sm:p-10">
             <span className="mk-pill mk-pill--warning">Mock-generated draft · clinician review required</span><h1 className="mk-display my-4 text-4xl sm:text-5xl">{copy.summaryTitle}</h1><p className="text-[var(--mk-ink-muted)]">{copy.summaryHelp}</p>
-            {decision === "editing" ? <div className="mt-7 space-y-5"><label className="block font-bold" htmlFor="summary-history">{copy.history}</label><textarea id="summary-history" className="min-h-44 w-full rounded-xl border border-[var(--mk-border)] bg-[var(--mk-paper-50)] p-4" value={historyDraft} onChange={(event) => setHistoryDraft(event.target.value)}/><label className="block font-bold" htmlFor="summary-uncertainty">{copy.uncertainties}</label><textarea id="summary-uncertainty" className="min-h-24 w-full rounded-xl border border-[var(--mk-border)] bg-[var(--mk-paper-50)] p-4" value={uncertaintyDraft} onChange={(event) => setUncertaintyDraft(event.target.value)}/>{summary.red_flags.length > 0 && <div className="rounded-xl bg-[var(--mk-danger-soft)] p-4"><strong>{copy.warnings}</strong><p>{summary.red_flags.join(", ")}</p></div>}<div className="flex flex-wrap gap-3"><TouchButton variant="danger" size="large" onClick={() => setDecision("rejected")}>{copy.reject}</TouchButton><TouchButton variant="success" size="large" onClick={() => setDecision("accepted")}>{copy.accept}</TouchButton></div></div> : <div className={`mt-6 rounded-2xl p-5 ${decision === "accepted" ? "bg-[var(--mk-success-soft)]" : "bg-[var(--mk-danger-soft)]"}`} role="status"><p className="font-bold">{decision === "accepted" ? copy.accepted : copy.rejected}</p>{decision === "rejected" && <Link className="mk-button mk-button--soft mt-3" href="/case-taking">{copy.manual}</Link>}</div>}
+            {decision === "editing" ? <div className="mt-7 space-y-5"><label className="block font-bold" htmlFor="summary-history">{copy.history}</label><textarea id="summary-history" className="min-h-44 w-full rounded-xl border border-[var(--mk-border)] bg-[var(--mk-paper-50)] p-4" value={historyDraft} onChange={(event) => setHistoryDraft(event.target.value)}/><label className="block font-bold" htmlFor="summary-uncertainty">{copy.uncertainties}</label><textarea id="summary-uncertainty" className="min-h-24 w-full rounded-xl border border-[var(--mk-border)] bg-[var(--mk-paper-50)] p-4" value={uncertaintyDraft} onChange={(event) => setUncertaintyDraft(event.target.value)}/>{summary.red_flags.length > 0 && <div className="rounded-xl bg-[var(--mk-danger-soft)] p-4"><strong>{copy.warnings}</strong><p>{summary.red_flags.join(", ")}</p></div>}<div className="flex flex-wrap gap-3"><TouchButton variant="danger" size="large" disabled={busy} onClick={() => void finalizeDecision("rejected")}>{copy.reject}</TouchButton><TouchButton variant="success" size="large" disabled={busy} onClick={() => void finalizeDecision("accepted")}>{copy.accept}</TouchButton></div></div> : <div className={`mt-6 rounded-2xl p-5 ${decision === "accepted" ? "bg-[var(--mk-success-soft)]" : "bg-[var(--mk-danger-soft)]"}`} role="status"><p className="font-bold">{decision === "accepted" ? copy.accepted : copy.rejected}</p><div className="mt-3 flex flex-wrap gap-3"><Link className="mk-button mk-button--success" href="/records">Records · रिकॉर्ड</Link>{decision === "rejected" && <Link className="mk-button mk-button--soft" href="/case-taking">{copy.manual}</Link>}</div></div>}
           </section>
         )}
       </div>

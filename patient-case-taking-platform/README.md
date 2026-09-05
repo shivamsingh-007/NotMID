@@ -42,7 +42,10 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open the patient experience at `http://localhost:3000`, the nurse dashboard at `http://localhost:3001`, and the doctor review at `http://localhost:3001/doctor`.
+Open the patient experience at `http://localhost:3000`, the nurse dashboard at
+`http://localhost:3001`, and the doctor review at `http://localhost:3001/doctor`.
+The patient app now uses real local APIs for treatment consent, confirmed intake,
+document upload status, reviewed-document timeline and clinician-signed reports.
 
 > **Local engineering environment:** use synthetic information only. The Phase 8
 > doctor screen uses the durable API, but this is not a clinical deployment.
@@ -115,8 +118,8 @@ sequenceDiagram
 | **Realtime & async** | WebSockets + Kafka from MVP; Redis remains cache/session state |
 | **Identity** | Clerk for staff/patient web surfaces; hospital SSO where available; constrained kiosk pre-auth |
 | **Clinical summary provider** | Offline deterministic mock plus template fallback; no model downloads or external APIs |
-| **Speech** | AI4Bharat/Bhashini ASR + Indic/Bhashini-compatible TTS |
-| **Documents & NLP** | PaddleOCR/Tesseract/TrOCR/Donut ensemble + specialist handwriting model + PyTorch clinical NLP |
+| **Speech** | Existing ASR boundary + deterministic local mock TTS WAV cue; production speech providers remain gated |
+| **Documents & NLP** | Real CPU PP-OCRv5 mobile worker, explicitly gated PaddleOCR-VL option, reviewed-fact extraction |
 | **Rules** | Versioned Python rules service; Drools-style engine only if authoring complexity justifies it |
 | **Data** | PostgreSQL, MongoDB, Redis, S3-compatible object storage, derived Elasticsearch |
 | **Infrastructure** | Docker; Kubernetes for pilot/production; KServe/Ray Serve optional later |
@@ -174,6 +177,9 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`PHASE-6-RED-FLAG-TRIAGE.md`](docs/plans/PHASE-6-RED-FLAG-TRIAGE.md) | In-progress deterministic triage and durable alert implementation plan |
 | [`PHASE-7-DOCUMENT-INGESTION-OCR.md`](docs/plans/PHASE-7-DOCUMENT-INGESTION-OCR.md) | Phase 7 implementation ledger, safety invariants and remaining rollout gates |
 | [`PHASE-8-SUMMARY-WORKFLOW.md`](docs/plans/PHASE-8-SUMMARY-WORKFLOW.md) | Mock-only evidence-linked summary workflow and implementation ledger |
+| [`PRE-PHASE-9-PATIENT-DASHBOARD-AND-S2S.md`](docs/plans/PRE-PHASE-9-PATIENT-DASHBOARD-AND-S2S.md) | Patient dashboard/services completion contract and verification ledger |
+| [`PATIENT-PORTAL-API.md`](docs/contracts/PATIENT-PORTAL-API.md) | Self-scoped consent, intake, upload, timeline and signed-report API |
+| [`ADR-009`](docs/architecture/decisions/ADR-009-PATIENT-SELF-SCOPE-AND-MOCK-TTS.md) | Patient identity boundary and deterministic mock TTS decision |
 | [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5–8 engineering review |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |

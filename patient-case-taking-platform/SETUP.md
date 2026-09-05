@@ -8,7 +8,7 @@ This guide is for developers, designers and reviewers starting MediKiosk on a ne
 
 | Service | Address | Purpose |
 |---|---|---|
-| Patient experience | <http://localhost:3000> | Bilingual voice/touch-first intake |
+| Patient experience | <http://localhost:3000> | Bilingual intake, consent, uploads and signed reports |
 | Nurse dashboard | <http://localhost:3001> | Triage, vitals, alerts and handoffs |
 | Doctor dashboard | <http://localhost:3001/doctor> | Evidence review, editing and sign-off |
 | Document review | <http://localhost:3001/documents/review> | Source-adjacent prescription candidate review |
@@ -75,7 +75,8 @@ ENABLE_DEMO_ROUTES=true
 DOCUMENT_WORKFLOW_ENABLED=true
 SUMMARY_WORKFLOW_ENABLED=true
 LLM_PROVIDER=mock
-OCR_PROVIDER=mock
+OCR_PROVIDER=paddleocr_fast
+TTS_PROVIDER=mock
 DOCUMENT_OCR_AUTOMATION_ENABLED=true
 DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 ```
@@ -84,8 +85,12 @@ DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 stack does **not** start vLLM, download HiMed weights, require a GPU, ask for an
 OpenAI/Claude key, or send patient text to an external model API. A different
 `LLM_PROVIDER` value makes the Phase 8 API fail closed.
-The Phase 7 mock OCR provider is deterministic contract scaffolding; it is not
-clinical OCR validation.
+The document worker uses the real CPU PP-OCRv5 mobile detector and recognizer. On its first start it
+downloads official PaddleOCR model artifacts into named Docker cache volumes;
+no API key is required. `OCR_PROVIDER=mock` remains available only for isolated
+development/tests. Real inference is still engineering evidence, not clinical
+accuracy validation. The local mock TTS WAV cue is contract scaffolding, not
+production speech.
 
 ## 4. Start everything with Docker
 
@@ -120,8 +125,10 @@ Invoke-RestMethod http://localhost:8000/readyz
 
 Open the dashboard URLs from the table in section 1.
 
-The Compose topology intentionally has no vLLM service. Phase 5 uses the mock
-provider, and Phase 7 OCR uses the configured provider adapter.
+The Compose topology intentionally has no vLLM service. Dialogue and summaries
+use the mock provider, the document worker uses real PP-OCRv5, and TTS returns a
+local deterministic WAV cue. PP-OCRv5 downloads its public weights on first use;
+no component needs a hosted inference API or API key.
 
 To verify the mock clinical assistant after enabling demo routes:
 
@@ -130,6 +137,15 @@ curl http://localhost:8000/api/v1/clinical-ai/health
 ```
 
 The response should report `"provider":"mock"`, `"ready":true` and `"external_network_used":false`. Then open <http://localhost:3000/case-taking/assisted>.
+
+Verify the actual OCR model after the first worker build/download:
+
+```bash
+docker compose run --rm --no-deps document-ocr-worker python -m tools.verify_real_ocr
+```
+
+The command must print `PASS provider=paddleocr_fast model=PP-OCRv5-mobile`. It creates
+only a synthetic printed image in memory; it does not use a patient document.
 
 To exercise the Phase 6 Slice 6.1 contract with synthetic data:
 
@@ -235,11 +251,38 @@ Nurses may confirm, generate, read and submit, but cannot edit, reject,
 regenerate or sign. Warning flags are read-only. Use synthetic data only; this
 workflow has engineering tests but no clinical/production approval.
 
+### Use the patient workflow locally
+
+Enable the complete demo flags from section 3, then open
+<http://localhost:3000>. The production patient runtime is
+`apps/patient-kiosk`; `frontend/apps/patient-dashboard` is a non-runtime scaffold.
+
+1. Choose **Start case taking**. The app creates an opaque kiosk session and a
+   synthetic patient development session; no record data is available to the
+   kiosk pre-auth token.
+2. Review and grant bounded treatment consent. The consent is stored in
+   PostgreSQL and can later be revoked from <http://localhost:3000/consents>.
+3. Choose **Assisted questions**. Confirm or correct each captured answer before
+   it feeds the next mock-provider SOCRATES question. The mock TTS control plays
+   an acknowledgement tone, not intelligible clinical speech.
+4. Accept or reject the editable summary draft. That decision is durably stored
+   as patient-confirmed intake; it is not a signed record.
+5. Open <http://localhost:3000/records/upload> to upload a synthetic PNG, JPEG,
+   WebP or bounded PDF. The patient ID is taken from the token, the object goes
+   directly to quarantine, and the UI reports the real scan/OCR/review state.
+6. Open <http://localhost:3000/records> to see only clinician-signed reports and
+   clinician-reviewed document facts. Drafts and raw OCR are deliberately absent.
+
+All patient record APIs are under `/api/v1/patient-portal/me`. They derive the
+patient, tenant and permitted facilities from the token. See
+[`docs/contracts/PATIENT-PORTAL-API.md`](docs/contracts/PATIENT-PORTAL-API.md).
+
 ## 5. Frontend-only development
 
 Run each application in a separate terminal. The API URL defaults to
-`http://localhost:8000`. The Phase 8 doctor page requires the API and a stored
-development token; other dashboard scaffolds may still show synthetic content.
+`http://localhost:8000`. The doctor page and patient records, consent and upload
+pages require the API and a stored development token. Nurse-only demonstration
+cards still contain clearly labelled synthetic content.
 
 ### Patient experience — port 3000
 
@@ -303,7 +346,11 @@ python -m app.migrations up
 uvicorn app.main:app --reload --port 8000
 ```
 
-The default providers are mocks. Large ASR/OCR model dependencies and Hugging Face credentials are optional and are not required for dashboard development.
+Dialogue and TTS remain mocks. The dedicated Compose OCR worker includes the
+real PP-OCRv5 mobile CPU runtime and downloads its public model artifacts into named
+cache volumes on first start. When running that worker directly, install
+`.[dev,ai-ocr-fast]`; a Hugging Face credential is not required because the
+documented local configuration uses Paddle's public BOS model source.
 
 ## 7. How to use the prototype
 
@@ -311,9 +358,14 @@ The default providers are mocks. Large ASR/OCR model dependencies and Hugging Fa
 
 1. Open <http://localhost:3000>.
 2. Switch between Hindi and English.
-3. Press the microphone control to see the listening state, or choose the touch flow.
-4. Choose **Assisted Questions** to exercise adaptive SOCRATES questions through the offline mock provider, or continue through the fixed touch questionnaire.
-5. Use the accessibility controls to test larger text and higher contrast.
+3. Start a case, review the treatment consent and choose voice-assisted or manual entry.
+4. In **Assisted questions**, record or type an answer, confirm/correct it, and
+   continue through adaptive SOCRATES questions from the offline mock provider.
+5. Edit and accept/reject the summary draft; the API stores the real decision.
+6. Use **My records** to view/download signed reports, review the reviewed-fact
+   timeline, manage consent and upload a synthetic document into the OCR pipeline.
+7. Use the accessibility controls to test larger text, higher contrast and
+   assistant/emergency status announcements.
 
 Browser microphone permission is needed only when exercising real recording components. Do not record real patient conversations in local development.
 
@@ -385,6 +437,24 @@ pytest tests/test_phase8_summary_service.py tests/test_phase8_summary_api.py tes
 PHASE8_INTEGRATION=1 pytest tests/test_phase8_summary_integration.py -q
 ```
 
+Run the self-scoped patient portal integration suite against the same local
+PostgreSQL service. It creates and removes an isolated schema and does not touch
+the application's `public` schema.
+
+Windows PowerShell:
+
+```powershell
+$env:PATIENT_PORTAL_INTEGRATION = "1"
+pytest tests/test_patient_portal_integration.py -q
+Remove-Item Env:PATIENT_PORTAL_INTEGRATION
+```
+
+macOS/Linux:
+
+```bash
+PATIENT_PORTAL_INTEGRATION=1 pytest tests/test_patient_portal_integration.py -q
+```
+
 Run the frozen synthetic prescription-extraction evaluation:
 
 ```bash
@@ -442,11 +512,16 @@ Stop the development server, remove the affected app's `.next` directory, and ru
 
 ## 10. Current limitations
 
-- The redesigned dashboards currently display synthetic demonstration data.
-- The visual sign-off interaction is not yet a durable or authenticated clinical signature.
+- Patient consent, confirmed intake, document state and signed-report views use
+  durable APIs. Local identity remains a synthetic demo boundary; do not use it
+  with real patient information.
+- Phase 8 sign-off is durable, version-locked and hash-bound, but the engineering
+  integrity hash is not represented as a legally qualified digital signature.
 - Clerk and hospital SSO integration are not required for the local prototype and are not production-configured.
 - Demo API routes are disabled by default. Set `ENABLE_DEMO_ROUTES=true` in `.env` only for local contract/UI prototyping; those routes do not provide production authorization or persistence guarantees.
 - Phase 5 intentionally has no vLLM integration. Any generative provider requires separate clinical, privacy, licensing and rollback approval.
+- Mock TTS emits a deterministic acknowledgement WAV, not intelligible speech.
+  Production bilingual TTS needs separate accessibility, privacy and quality approval.
 - Phase 6 Slice 6.1 provides a canonical prototype evaluator only. Durable flags,
   staff ownership, acknowledgement, escalation, outbox delivery, clinical
   approval and measured validation are not implemented.

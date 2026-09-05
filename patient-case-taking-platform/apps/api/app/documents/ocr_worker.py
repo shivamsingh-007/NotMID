@@ -101,13 +101,19 @@ async def _run() -> None:
     args = parser.parse_args()
     if not settings.DATABASE_MAINTENANCE_URL:
         raise RuntimeError("DATABASE_MAINTENANCE_URL is required for document OCR")
+    provider = get_active_provider()
+    warmup = getattr(provider, "warmup", None)
+    if warmup is not None:
+        # Load/download the configured model before claiming a document. This
+        # keeps first-start latency outside the per-page inference timeout and
+        # fails the worker visibly if the real provider cannot initialize.
+        await warmup()
     pool = await asyncpg.create_pool(settings.DATABASE_MAINTENANCE_URL, min_size=1, max_size=4)
     mongo: AsyncIOMotorClient[dict[str, Any]] = AsyncIOMotorClient(settings.MONGODB_URL)
     artifact_store = MongoOcrArtifactStore(
         mongo[settings.OCR_ARTIFACT_DATABASE][settings.OCR_ARTIFACT_COLLECTION]
     )
     await artifact_store.ensure_indexes()
-    provider = get_active_provider()
     processor = DocumentOcrService(
         PostgresDocumentOcrRepository(
             pool,

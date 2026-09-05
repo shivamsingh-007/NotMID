@@ -1,6 +1,15 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useSyncExternalStore } from "react";
+
+const subscribeToRecorderSupport = () => () => undefined;
+const getServerRecorderSupport = () => false;
+const getRecorderSupport = () =>
+  typeof navigator !== "undefined" &&
+  Boolean(
+    navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === "function"
+  );
 
 interface UseVoiceRecorderOptions {
   language?: string;
@@ -26,14 +35,14 @@ export function useVoiceRecorder(
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const isSupported = useSyncExternalStore(
+    subscribeToRecorderSupport,
+    getRecorderSupport,
+    getServerRecorderSupport
+  );
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-
-  const isSupported =
-    typeof window !== "undefined" &&
-    navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function";
 
   const startRecording = useCallback(async () => {
     if (!isSupported) {

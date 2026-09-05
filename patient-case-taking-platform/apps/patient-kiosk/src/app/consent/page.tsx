@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { grantPatientConsent, readPatientSession } from "../../lib/patientPortal";
 
 const translations = {
   en: {
@@ -72,15 +73,33 @@ export default function ConsentPage() {
   const [lang, setLang] = useState<"en" | "hi">("hi");
   const [step, setStep] = useState<"consent" | "confirm" | "granted" | "denied">("consent");
   const [retainAudio, setRetainAudio] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const t = translations[lang];
 
   const handleGrant = () => setStep("confirm");
-  const handleConfirm = () => {
-    // TODO: POST /api/v1/consents
-    localStorage.setItem("notmid-consent-id", crypto.randomUUID());
-    localStorage.setItem("notmid-retain-audio", String(retainAudio));
-    localStorage.setItem("notmid-language", lang);
-    setStep("granted");
+  const handleConfirm = async () => {
+    const session = readPatientSession();
+    const encounterId = localStorage.getItem("notmid-encounter-id");
+    if (!session || !encounterId) {
+      setError(lang === "hi" ? "सुरक्षित सत्र नहीं मिला। कृपया फिर से शुरू करें।" : "Secure session not found. Please start again.");
+      setStep("consent");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const consent = await grantPatientConsent(session, encounterId, retainAudio);
+      localStorage.setItem("notmid-consent-id", consent.id);
+      localStorage.setItem("notmid-retain-audio", String(retainAudio));
+      localStorage.setItem("notmid-language", lang);
+      setStep("granted");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Consent could not be saved");
+      setStep("consent");
+    } finally {
+      setBusy(false);
+    }
   };
   const handleDeny = () => {
     localStorage.removeItem("notmid-consent-id");
@@ -150,6 +169,7 @@ export default function ConsentPage() {
       <div className="max-w-2xl mx-auto p-8 pt-16">
         <h1 className="text-3xl font-bold text-primary mb-2">{t.title}</h1>
         <p className="text-gray-600 mb-8">{t.subtitle}</p>
+        {error && <p className="mb-6 rounded-xl border-2 border-red-500 bg-red-50 p-4 font-bold text-red-700" role="alert">{error}</p>}
 
         <div className="mb-8 p-6 bg-blue-50 rounded-xl">
           <h2 className="font-bold text-primary mb-2">{t.purpose_label}</h2>
@@ -231,9 +251,10 @@ export default function ConsentPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleConfirm}
+                  disabled={busy}
                   className="flex-1 bg-accent text-white py-4 rounded-xl font-bold text-lg hover:bg-accent/90 transition"
                 >
-                  {t.confirm_yes}
+                  {busy ? (lang === "hi" ? "सहेजा जा रहा है…" : "Saving…") : t.confirm_yes}
                 </button>
                 <button
                   onClick={() => setStep("consent")}

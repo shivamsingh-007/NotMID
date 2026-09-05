@@ -1,14 +1,34 @@
 {
   "project": "MediKiosk Patient Case-Taking Platform",
-  "reviewed_at": "2026-09-04T00:00:00+05:30",
-  "current_stage": "phase8_engineering_candidate",
-  "provider_policy": "mock_only_no_model_downloads_no_hosted_llm_api",
+  "reviewed_at": "2026-09-05T00:00:00+05:30",
+  "current_stage": "pre_phase9_patient_services_engineering_candidate",
+  "provider_policy": "mock_dialogue_summary_tts_real_ppocrv5_no_hosted_api",
   "status_model": {
     "verified": "Implemented and exercised by an automated repository check",
     "engineering_candidate": "Implemented locally; external owner/release evidence pending",
     "pending": "Not implemented or not approved"
   },
   "workstreams": [
+    {
+      "name": "Patient dashboard and self-services",
+      "status": "engineering_candidate",
+      "evidence": [
+        "Token-derived /patient-portal/me boundary for signed reports and reviewed timeline",
+        "Durable patient treatment consent and confirmed intake submission",
+        "Patient document upload reuses quarantine, scanning, real PP-OCRv5-mobile, extraction and review pipeline",
+        "Dedicated OCR image recognized METFORMIN 500 from a generated prescription with the official PP-OCRv5 mobile models",
+        "Adaptive SOCRATES flow persists accepted or rejected editable draft decisions",
+        "Deterministic local mock TTS WAV route and accessible assistant/emergency states",
+        "Focused API tests plus live isolated PostgreSQL self-scope integration"
+      ],
+      "remaining_release_gates": [
+        "Production patient identity, linking, recovery and revocation",
+        "Representative OCR and production bilingual speech evaluation",
+        "Formal patient accessibility and comprehension sessions",
+        "Clinical safety, privacy/security and facility owner approval",
+        "Load, security, backup/restore and staged rollback evidence"
+      ]
+    },
     {
       "name": "Phase 8 summary workflow",
       "status": "engineering_candidate",
@@ -34,10 +54,10 @@
       "name": "Provider policy",
       "status": "verified",
       "evidence": [
-        "LLM_PROVIDER defaults to mock",
-        "Provider factory rejects every other name",
+        "LLM_PROVIDER and TTS_PROVIDER default to mock while the document worker defaults to real PP-OCRv5-mobile",
+        "LLM and TTS factories reject every non-mock name; OCR accepts governed real Paddle providers",
         "Compose contains no vLLM or generative model service",
-        "ADR-008 supersedes earlier HiMed/vLLM/OpenAI/Claude planning"
+        "ADR-008 excludes generative providers and ADR-009 governs mock TTS"
       ]
     },
     {

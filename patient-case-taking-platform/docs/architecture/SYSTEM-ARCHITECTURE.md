@@ -47,8 +47,8 @@ Detailed ownership, admission control and implementation slices are defined in `
 | Realtime | WebSockets | Interactive transcript/status updates only; reconnect and authorization are explicit |
 | Async jobs/events | Kafka from MVP with isolated consumer groups, retry topics and DLQs | PostgreSQL retains durable job state; Kafka is transport/replay, not clinical truth |
 | Clinical dialogue/summary | Offline deterministic mock behind a versioned task router | No model downloads, GPU serving, hosted LLM API or client-selected provider; unsupported configuration fails closed |
-| ASR/TTS | AI4Bharat/Bhashini-compatible ASR and Indic/Bhashini-compatible TTS | Stream through dedicated speech services; preserve confidence, timing and language metadata |
-| OCR | Routed ensemble of PaddleOCR/Tesseract plus TrOCR/Donut and a Hindi handwriting specialist | Original documents remain immutable; every extraction retains page/region provenance |
+| ASR/TTS | Existing ASR boundary plus deterministic mock TTS for current engineering | Confirm transcripts before use; mock TTS is a local WAV cue, while real speech providers remain gated |
+| OCR | Real CPU PP-OCRv5 mobile worker; PaddleOCR-VL is an explicitly approved complex-layout option | Original documents remain immutable; every extraction retains page/region provenance and clinician review |
 | Clinical NLP | PyTorch inference services | Versioned entity, negation, temporality and classification outputs |
 | Rules | Versioned Python rules service first | Deterministic urgent-symptom and policy rules; consider Drools only for demonstrated authoring needs |
 | Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + Elasticsearch | Elasticsearch holds rebuildable search/analytics projections, never transactional truth |
@@ -61,6 +61,12 @@ Detailed ownership, admission control and implementation slices are defined in `
 3. The authorization layer evaluates role, facility, care relationship, consent, purpose and record sensitivity on every request.
 4. Hospital SSO identities are linked to the same internal identity model; Clerk is replaceable at the adapter boundary.
 5. Kiosk pre-auth may create only an opaque, expiring intake session. It cannot search records or display PHI until the patient or an attributed operator completes identity verification.
+
+Patient record operations use the authenticated `/api/v1/patient-portal/me`
+boundary. Tenant, internal patient ID and permitted facilities are derived from
+the token. This boundary owns self-service consent, confirmed intake, upload
+status, reviewed timeline and signed-report projections; it never exposes raw
+OCR or an unsigned clinical summary. Local synthetic tokens are demo-only.
 
 ## Core modules
 
@@ -82,6 +88,11 @@ consent, emergency escalation or record signing.
 Pipeline:
 
 `audio → voice activity detection → language identification → ASR → normalization → clinical entity extraction → workflow decision → safety validation → response text → TTS`
+
+In the current implementation the adaptive dialogue stage and TTS output are
+deterministic mocks. TTS produces a bounded WAV acknowledgement cue rather than
+intelligible clinical speech. This proves the request/playback/accessibility
+contract without downloading a model or contacting a hosted provider.
 
 WebSockets carry partial transcript and job-status updates. Durable workflow changes are written through FastAPI/PostgreSQL, then a transactional outbox publishes reference-only jobs to Kafka. Interactive audio is never routed through Kafka.
 

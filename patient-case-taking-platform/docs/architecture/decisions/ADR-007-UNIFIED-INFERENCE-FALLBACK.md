@@ -2,7 +2,9 @@
 
 ## Status
 
-Superseded by ADR-008. External providers and local model downloads are not part of the project runtime.
+Superseded by ADR-008. External generative providers and local LLM downloads are
+not part of the project runtime. This does not remove the separately governed
+real PP-OCRv5 document provider.
 
 ## Decision
 

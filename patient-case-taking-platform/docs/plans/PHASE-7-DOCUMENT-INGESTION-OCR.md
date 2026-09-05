@@ -18,7 +18,7 @@ doctor, health-information staff, clinical-safety owner, and operator
 | 7.0 governance, hazards and evaluation fixtures | Engineering artifacts implemented; owner approval pending | Synthetic frozen prescription fixtures, provenance, null release thresholds, hazard log and approval record exist. No owner approval is recorded. |
 | 7.1 registry, authorization and quarantine upload | Implemented and locally integration-tested | Eleven repeatable migrations, forced tenant RLS, active consent/purpose authorization, idempotent registration/finalization, private MinIO upload, abandoned-session expiry and reference-only outbox are tested. Production object encryption/role policy remains an external gate. |
 | 7.2 malware scan and normalization | Implemented and locally integration-tested | Pinned ClamAV service, quarantine promotion, bounded PDF/image normalization, immutable page artifacts and failure events are covered by unit and live-service tests. |
-| 7.3 versioned OCR | Implemented with mock-provider integration evidence | Durable PostgreSQL runs plus immutable MongoDB page/region artifacts, provenance, bounded retry/DLQ and provider policy are implemented. Real OCR/camera/handwriting validation remains pending. |
+| 7.3 versioned OCR | Implemented with PP-OCRv5 runtime plus deterministic test provider | The dedicated worker image contains PaddlePaddle/PaddleOCR, defaults to real CPU PP-OCRv5, and stores durable PostgreSQL runs plus immutable MongoDB page/region provenance. Representative camera/handwriting clinical validation remains pending. |
 | 7.4 narrow prescription extraction | Implemented as deterministic candidate | Durable immutable drafts/candidates, explicit context flags, source geometry, retry/DLQ and a seven-fixture synthetic evaluation are implemented. Lab extraction remains deliberately deferred. |
 | 7.5 source-adjacent review | Implemented; external accessibility/usability evidence pending | Nurse/doctor queue, short-lived page preview, accept/correct/reject/unreadable/rescan/defer/manual entry, optimistic concurrency, append-only decisions and bilingual keyboard-first UI are tested. |
 | 7.6 reviewed-fact promotion | Implemented and locally integration-tested | Only accepted/corrected candidates become authoritative facts; timeline/FHIR/search projections are rebuildable; withdrawal preserves history. |
@@ -85,14 +85,15 @@ ideas that can pass the project’s safety and evidence gates.
 | --- | --- | --- |
 | `apps/api/app/ocr/base.py` | Provider-neutral `OCRProvider`, `OCRResult` and region contract. | In-memory result only; no page/artifact identity or schema version. |
 | `apps/api/app/ocr/registry.py` | Fail-closed selection of mock, PP-OCRv5 or PaddleOCR-VL providers. | No policy router by document class, quality or approved model version. |
-| `apps/api/app/ocr/fast_paddle_provider.py` | PP-OCRv5 adapter with normalized text, score and bounding boxes. | Optional local dependency; not a validated clinical extraction pipeline. |
+| `apps/api/app/ocr/fast_paddle_provider.py` | PP-OCRv5 adapter with normalized text, score and bounding boxes; installed in the dedicated OCR worker image. | Real inference implementation, but not a validated clinical extraction pipeline. |
 | `apps/api/app/ocr/paddle_provider.py` | Lazy PaddleOCR-VL complex-layout adapter. | Very heavy fallback; no admission control, durable job or clinical validation. |
 | `apps/api/app/routers/ocr.py` | Demo-gated, bounded upload/base64 endpoints; MIME allowlist, empty/size checks and sanitized failures. | Single-image synchronous prototype; raw OCR text is returned directly to the caller. |
 | OCR tests | Provider-contract, payload-normalization and bounded-route tests. | Do not establish field accuracy, handwriting quality, tables, multi-page behavior or review safety. |
 | Architecture documents | `document_registry`, object quarantine, MongoDB OCR artifacts, outbox events and reviewed-fact promotion are already assigned owners. | Conceptual only; no migrations, repositories, workers or integration proof. |
 
-The mock provider remains the default for contract development. PP-OCRv5 is the
-first printed-text candidate; PaddleOCR-VL is a separately measured
+The mock provider remains available for isolated contract tests. The Compose
+document worker defaults to real PP-OCRv5 as the printed-text provider;
+PaddleOCR-VL is a separately measured
 complex-layout candidate. A Hindi handwriting model is not selected until its
 dataset provenance, license, quality, hardware and failure behavior are
 evaluated.

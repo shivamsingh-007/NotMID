@@ -62,3 +62,28 @@ Phase 8 is an engineering candidate, not a production clinical system. Identity
 hardening, owner approvals, representative clinical evaluation, accessibility,
 production telemetry, load/security, backup/restore and rollback drills
 remain release gates.
+
+## Pre-Phase 9 — patient dashboard, services and real OCR (2026-09-05)
+
+- Replaced the patient records placeholder with authenticated, token-derived
+  `/patient-portal/me` dashboard, signed-report detail/download, reviewed timeline
+  and patient-owned document status/upload services.
+- Added durable patient treatment consent and confirmed intake decisions,
+  including idempotent accept/reject persistence and cross-scope denial.
+- Connected kiosk session creation, consent, confirmed voice/touch answers,
+  adaptive mock-provider SOCRATES questions, accessible emergency interruption
+  and deterministic mock TTS WAV playback.
+- Kept HiMed-8B, vLLM, OpenAI and hosted inference out of the runtime.
+- Corrected the OCR deployment truth: the document worker now has a dedicated
+  PaddlePaddle/PaddleOCR image, defaults to the official PP-OCRv5 mobile detector
+  and recognizer, warms before claiming work and persists model caches.
+- Verified actual recognition inside that image: a generated prescription
+  produced three regions and asserted `METFORMIN 500` successfully.
+- Passed Ruff, mypy across 146 source files, 307 backend tests (22 gated skips),
+  patient ESLint/production build, isolated live patient persistence and the live
+  Phase 7 durable document-chain check.
+
+This is an engineering candidate. Production patient identity, representative
+OCR/clinical evaluation, intelligible production speech, accessibility/usability
+sessions, security/privacy approval and operational recovery evidence remain
+release gates.

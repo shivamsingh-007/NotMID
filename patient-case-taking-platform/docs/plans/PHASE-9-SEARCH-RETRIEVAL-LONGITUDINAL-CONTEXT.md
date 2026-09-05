@@ -237,9 +237,9 @@ docker compose run --rm search-index-worker python -m tools.verify_phase9_search
 
 ### P9.1 — Search contracts and safe query construction
 
-- [ ] Add typed records, requests, hits, facets and opaque cursor contracts.
-- [ ] Add Unicode/medical synonym configuration and deterministic query builder.
-- [ ] Unit-test validation, scope filters, pagination and highlighting limits.
+- [x] Add typed records, requests, hits, facets and opaque cursor contracts.
+- [x] Add Unicode/medical synonym configuration and deterministic query builder.
+- [x] Unit-test validation, scope filters, pagination and highlighting limits.
 
 ### P9.2 — Canonical projection and longitudinal assembly
 

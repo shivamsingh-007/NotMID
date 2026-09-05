@@ -21,6 +21,7 @@ class ClinicalSearchRecord(BaseModel):
     facility_id: UUID
     patient_id: UUID
     encounter_id: UUID
+    document_id: UUID | None = None
     source_kind: SourceKind
     source_id: UUID
     title: str = Field(min_length=1, max_length=500)
@@ -97,6 +98,7 @@ class ClinicalSearchHit(BaseModel):
     facility_id: UUID
     patient_id: UUID
     encounter_id: UUID
+    document_id: UUID | None = None
     source_kind: SourceKind
     source_id: UUID
     title: str
@@ -117,4 +119,3 @@ class ClinicalSearchResponse(BaseModel):
     facets: SearchFacets
     took_ms: int = Field(ge=0)
     next_cursor: str | None = None
-

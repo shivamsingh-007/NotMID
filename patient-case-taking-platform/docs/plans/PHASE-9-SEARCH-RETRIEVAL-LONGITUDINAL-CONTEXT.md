@@ -243,9 +243,9 @@ docker compose run --rm search-index-worker python -m tools.verify_phase9_search
 
 ### P9.2 — Canonical projection and longitudinal assembly
 
-- [ ] Load signed summaries and active reviewed facts under tenant/facility scope.
-- [ ] Assemble deterministic multi-encounter timeline and truthful counts.
-- [ ] Prove raw OCR and unsigned summaries cannot enter either result.
+- [x] Load signed summaries and active reviewed facts under tenant/facility scope.
+- [x] Assemble deterministic multi-encounter timeline and truthful counts.
+- [x] Prove raw OCR and unsigned summaries cannot enter either result.
 
 ### P9.3 — Real Elasticsearch adapter
 

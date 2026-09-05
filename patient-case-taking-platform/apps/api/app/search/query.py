@@ -15,6 +15,7 @@ _SOURCE_FIELDS = [
     "facility_id",
     "patient_id",
     "encounter_id",
+    "document_id",
     "source_kind",
     "source_id",
     "title",
@@ -156,4 +157,3 @@ def load_synonym_rules(path: Path) -> list[str]:
             raise InvalidSynonymConfiguration("synonym terms must be distinct")
         rules.append(", ".join(normalized))
     return rules
-

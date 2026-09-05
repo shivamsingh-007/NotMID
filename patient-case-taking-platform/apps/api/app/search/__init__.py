@@ -8,6 +8,7 @@ from app.search.contracts import (
     SearchFacets,
     SourceKind,
 )
+from app.search.timeline import LongitudinalTimeline, build_longitudinal_timeline
 
 __all__ = [
     "ClinicalSearchHit",
@@ -16,4 +17,6 @@ __all__ = [
     "ClinicalSearchResponse",
     "SearchFacets",
     "SourceKind",
+    "LongitudinalTimeline",
+    "build_longitudinal_timeline",
 ]

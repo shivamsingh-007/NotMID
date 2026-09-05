@@ -12,6 +12,7 @@ import {
   getQuestionnaire,
   Question,
 } from "@/lib/questionnaires";
+import { readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
 
 type Step =
   | { type: "choose_type" }
@@ -35,6 +36,7 @@ export default function CaseTakingPage() {
   const [step, setStep] = useState<Step>({ type: "choose_type" });
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [selectedType, setSelectedType] = useState<"allopathic" | "ayush" | null>(null);
+  const [submitError, setSubmitError] = useState("");
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -42,8 +44,12 @@ export default function CaseTakingPage() {
       if (selectedLanguage === "en" || selectedLanguage === "hi") setLang(selectedLanguage);
       const storedConsentId = localStorage.getItem("notmid-consent-id");
       const retainAudio = localStorage.getItem("notmid-retain-audio") === "true";
+      const patient = readPatientSession();
       setVoiceContext((current) => ({
         ...current,
+        tenantId: patient?.tenantId || current.tenantId,
+        sessionId: localStorage.getItem("notmid-kiosk-session-id") || current.sessionId,
+        encounterId: localStorage.getItem("notmid-encounter-id") || current.encounterId,
         consentId: storedConsentId || current.consentId,
         retainAudio,
         audioRetentionConsent: retainAudio,
@@ -86,6 +92,48 @@ export default function CaseTakingPage() {
     },
     [step, currentSection, sections.length]
   );
+
+  async function submitCase() {
+    const patient = readPatientSession();
+    if (!patient) {
+      setSubmitError(lang === "hi" ? "सुरक्षित रोगी सत्र नहीं मिला।" : "Secure patient session not found.");
+      return;
+    }
+    const confirmedAnswers = Object.fromEntries(
+      Object.entries(answers).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : value]),
+    );
+    const history = Object.entries(confirmedAnswers).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`);
+    if (history.length === 0) {
+      setSubmitError(lang === "hi" ? "जमा करने से पहले कम से कम एक उत्तर दें।" : "Answer at least one question before submitting.");
+      return;
+    }
+    setSubmitError("");
+    setStep({ type: "submitting" });
+    try {
+      await submitPatientIntake(patient, {
+        encounterId: voiceContext.encounterId,
+        sessionId: voiceContext.sessionId,
+        consentId: voiceContext.consentId,
+        language: lang,
+        chiefComplaint: selectedType === "ayush" ? "Structured AYUSH intake" : "Structured allopathic intake",
+        confirmedAnswers,
+        summaryDraft: {
+          chief_complaint: selectedType === "ayush" ? "Structured AYUSH intake" : "Structured allopathic intake",
+          history_of_present_illness: history,
+          relevant_negatives: [],
+          document_facts: [],
+          red_flags: [],
+          uncertainties: [],
+        },
+        decision: "accepted",
+        provider: "template-fallback",
+      });
+      setStep({ type: "done" });
+    } catch (caught) {
+      setSubmitError(caught instanceof Error ? caught.message : "Intake could not be saved");
+      setStep({ type: "review" });
+    }
+  }
 
   // --- Choose type ---
   if (step.type === "choose_type") {
@@ -213,10 +261,11 @@ export default function CaseTakingPage() {
           <TouchButton variant="secondary" size="large" onClick={() => setStep({ type: "section_intro", sectionIndex: 0 })}>
             {lang === "hi" ? "संपादित करें" : "Edit"}
           </TouchButton>
-          <TouchButton variant="success" size="large" onClick={() => { setStep({ type: "submitting" }); setTimeout(() => setStep({ type: "done" }), 1500); }}>
+          <TouchButton variant="success" size="large" onClick={() => void submitCase()}>
             {lang === "hi" ? "जमा करें" : "Submit"}
           </TouchButton>
         </div>
+        {submitError && <p className="rounded-xl border-2 border-red-500 bg-red-50 p-4 font-bold text-red-700" role="alert">{submitError}</p>}
       </main>
     );
   }

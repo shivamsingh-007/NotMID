@@ -57,6 +57,7 @@ class FakeClient:
         self.bulk_errors = False
         self.count_value: int | None = None
         self.result_record: ClinicalSearchRecord | None = None
+        self.reconciliation_ids: list[str] = []
         self.closed = False
 
     def options(self, **_kwargs):
@@ -88,6 +89,17 @@ class FakeClient:
 
     async def search(self, **kwargs):
         self.search_call = kwargs
+        if "record_ids" in kwargs.get("aggregations", {}):
+            return {
+                "aggregations": {
+                    "record_ids": {
+                        "buckets": [
+                            {"key": {"record_id": record_id}, "doc_count": 1}
+                            for record_id in self.reconciliation_ids
+                        ]
+                    }
+                }
+            }
         result_record = self.result_record or _record()
         return {
             "took": 7,
@@ -264,6 +276,37 @@ async def test_replace_tenant_records_is_scoped_and_rejects_mixed_tenants() -> N
             tenant_id=tenant_id,
             records=[_record()],
         )
+
+
+@pytest.mark.asyncio
+async def test_reconcile_tenant_reports_missing_and_unexpected_ids() -> None:
+    client = FakeClient()
+    client.indices.aliases = {"medikiosk-clinical-search-v1-current": {"aliases": {}}}
+    client.reconciliation_ids = ["summary:shared", "fact:unexpected"]
+
+    result = await _store(client).reconcile_tenant(
+        tenant_id=uuid4(),
+        canonical_record_ids={"summary:shared", "fact:missing"},
+    )
+
+    assert result.matches is False
+    assert result.canonical_count == 2
+    assert result.indexed_count == 2
+    assert result.missing_record_ids == ("fact:missing",)
+    assert result.unexpected_record_ids == ("fact:unexpected",)
+
+
+@pytest.mark.asyncio
+async def test_reconcile_tenant_does_not_create_a_missing_index() -> None:
+    client = FakeClient()
+
+    result = await _store(client).reconcile_tenant(
+        tenant_id=uuid4(), canonical_record_ids={"summary:missing"}
+    )
+
+    assert result.matches is False
+    assert result.missing_record_ids == ("summary:missing",)
+    assert client.indices.created == []
 
 
 @pytest.mark.asyncio

@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -88,7 +89,9 @@ async def consume_forever(
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Maintain the MediKiosk search projection")
-    parser.add_argument("command", choices=("forever", "rebuild-tenant"))
+    parser.add_argument(
+        "command", choices=("forever", "rebuild-tenant", "reconcile-tenant")
+    )
     parser.add_argument("--tenant-id", type=UUID)
     return parser
 
@@ -116,16 +119,43 @@ async def _run(command: str, tenant_id: UUID | None) -> None:
     try:
         if not await store.ready():
             raise RuntimeError("Elasticsearch is not ready")
-        await store.ensure_index()
-        if command == "rebuild-tenant":
+        if command != "reconcile-tenant":
+            await store.ensure_index()
+        if command in {"rebuild-tenant", "reconcile-tenant"}:
             if tenant_id is None:
-                raise RuntimeError("--tenant-id is required for rebuild-tenant")
+                raise RuntimeError(f"--tenant-id is required for {command}")
             records = await repository.list_tenant_records(tenant_id=tenant_id)
-            indexed = await store.replace_tenant_records(
+            if command == "rebuild-tenant":
+                await store.replace_tenant_records(
+                    tenant_id=tenant_id,
+                    records=records,
+                )
+            reconciliation = await store.reconcile_tenant(
                 tenant_id=tenant_id,
-                records=records,
+                canonical_record_ids={record.record_id for record in records},
             )
-            print(f"Rebuilt tenant {tenant_id}: {indexed} record(s)")
+            print(
+                json.dumps(
+                    {
+                        "command": command,
+                        "tenant_id": str(tenant_id),
+                        "canonical_count": reconciliation.canonical_count,
+                        "indexed_count": reconciliation.indexed_count,
+                        "missing_count": len(reconciliation.missing_record_ids),
+                        "unexpected_count": len(reconciliation.unexpected_record_ids),
+                        "missing_record_ids": list(
+                            reconciliation.missing_record_ids[:20]
+                        ),
+                        "unexpected_record_ids": list(
+                            reconciliation.unexpected_record_ids[:20]
+                        ),
+                        "matches": reconciliation.matches,
+                    },
+                    sort_keys=True,
+                )
+            )
+            if not reconciliation.matches:
+                raise RuntimeError("clinical search reconciliation mismatch")
             return
 
         from aiokafka import AIOKafkaConsumer

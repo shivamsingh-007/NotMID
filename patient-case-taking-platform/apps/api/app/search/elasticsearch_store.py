@@ -28,6 +28,18 @@ class RebuildResult:
     previous_indexes: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class TenantReconciliationResult:
+    canonical_count: int
+    indexed_count: int
+    missing_record_ids: tuple[str, ...]
+    unexpected_record_ids: tuple[str, ...]
+
+    @property
+    def matches(self) -> bool:
+        return not self.missing_record_ids and not self.unexpected_record_ids
+
+
 def build_index_definition(synonym_rules: list[str]) -> dict[str, object]:
     if not synonym_rules:
         raise ValueError("at least one reviewed synonym rule is required")
@@ -200,6 +212,56 @@ class ElasticsearchClinicalSearchStore:
         if int(count_response.get("count", 0)) != indexed_count:
             raise SearchIndexError("tenant rebuild count does not match canonical source")
         return indexed_count
+
+    async def reconcile_tenant(
+        self, *, tenant_id: UUID, canonical_record_ids: set[str]
+    ) -> TenantReconciliationResult:
+        """Compare canonical IDs with the derived index without reading narrative."""
+        indexed_ids: set[str] = set()
+        if not await self._client.indices.exists_alias(name=self.alias):
+            return TenantReconciliationResult(
+                canonical_count=len(canonical_record_ids),
+                indexed_count=0,
+                missing_record_ids=tuple(sorted(canonical_record_ids)),
+                unexpected_record_ids=(),
+            )
+        after: dict[str, object] | None = None
+        while True:
+            composite: dict[str, object] = {
+                "size": 500,
+                "sources": [{"record_id": {"terms": {"field": "record_id"}}}],
+            }
+            if after is not None:
+                composite["after"] = after
+            response = _body(
+                await self._client.search(
+                    index=self.alias,
+                    size=0,
+                    query={"term": {"tenant_id": str(tenant_id)}},
+                    aggregations={"record_ids": {"composite": composite}},
+                )
+            )
+            aggregation = response.get("aggregations", {}).get("record_ids", {})
+            if not isinstance(aggregation, dict):
+                raise SearchIndexError("reconciliation aggregation is missing")
+            buckets = aggregation.get("buckets", [])
+            if not isinstance(buckets, list):
+                raise SearchIndexError("reconciliation buckets are invalid")
+            for bucket in buckets:
+                key = bucket.get("key", {}) if isinstance(bucket, dict) else {}
+                record_id = key.get("record_id") if isinstance(key, dict) else None
+                if isinstance(record_id, str):
+                    indexed_ids.add(record_id)
+            next_after = aggregation.get("after_key")
+            if not buckets or not isinstance(next_after, dict):
+                break
+            after = next_after
+        return TenantReconciliationResult(
+            canonical_count=len(canonical_record_ids),
+            indexed_count=len(indexed_ids),
+            missing_record_ids=tuple(sorted(canonical_record_ids - indexed_ids)),
+            unexpected_record_ids=tuple(sorted(indexed_ids - canonical_record_ids)),
+        )
 
     async def search(self, criteria: ClinicalSearchQuery) -> ClinicalSearchResponse:
         await self.ensure_index()

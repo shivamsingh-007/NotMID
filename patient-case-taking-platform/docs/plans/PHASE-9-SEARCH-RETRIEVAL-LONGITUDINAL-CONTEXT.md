@@ -152,8 +152,10 @@ future slices that require durable canonical resources and mappings first.
    deletes the corresponding search records.
 5. Elasticsearch outages do not roll back clinical writes. Kafka offsets are
    committed only after successful indexing; retries are bounded and observable.
-6. A tenant-scoped rebuild command creates a new backing index, loads canonical
-   records, validates counts and atomically swaps the alias.
+6. A tenant-scoped repair deletes/reloads only that tenant's derived records,
+   then compares canonical and indexed opaque IDs/counts. A versioned backing
+   index is atomically swapped only when the complete canonical corpus is loaded;
+   an incomplete tenant list must never replace a shared alias.
 
 ## Durable search audit
 
@@ -210,9 +212,10 @@ docker compose run --rm api-migrate
 $env:PHASE9_INTEGRATION='1'
 .\.venv\Scripts\python.exe -m pytest tests\test_phase9_search_integration.py -q
 
-# Rebuild and benchmark a declared synthetic corpus
-docker compose run --rm search-index-worker python -m app.search.rebuild --tenant-id <uuid>
-docker compose run --rm search-index-worker python -m tools.verify_phase9_search
+# Reconcile/repair one tenant, then run a disposable synthetic benchmark
+docker compose run --rm search-index-worker python -m app.search.worker reconcile-tenant --tenant-id <uuid>
+docker compose run --rm search-index-worker python -m app.search.worker rebuild-tenant --tenant-id <uuid>
+docker compose run --rm search-index-worker python -m tools.verify_phase9_search --record-count 250 --iterations 5
 ```
 
 ## Testing strategy
@@ -229,6 +232,14 @@ docker compose run --rm search-index-worker python -m tools.verify_phase9_search
 - Browser: doctor and nurse workflows plus patient longitudinal fallback.
 - Performance: frozen synthetic corpus and exact machine/corpus/result metadata;
   no extrapolation to one million records.
+
+The measured local benchmark output is stored in
+[`docs/evidence/phase9-search-benchmark.json`](../evidence/phase9-search-benchmark.json).
+It contains 250 visible records plus one cross-tenant control, four golden
+English/Hindi queries repeated five times, the exact runtime versions and
+observed latency. All golden queries and ID reconciliation passed. This small
+synthetic run is not representative clinical relevance or production capacity
+evidence and defines no release SLO.
 
 ## Implementation tasks
 
@@ -281,7 +292,7 @@ Compose migration image; an unprivileged real-PostgreSQL test proved durable
 metadata-only insertion, forced tenant RLS and cross-tenant read/write denial;
 60 focused authorization/API/audit/search tests passed; the combined real
 PostgreSQL, Elasticsearch and Kafka checkpoint passed; and the complete backend
-gate passed with Ruff, mypy and 368 tests (25 explicitly gated integrations
+gate passed with Ruff, mypy and 376 tests (25 explicitly gated integrations
 skipped). The packaged API returned healthy liveness/readiness responses and a
 correlated 401 from the new search route without authentication.
 
@@ -304,10 +315,23 @@ unsigned drafts are explicitly excluded from every displayed search state.
 
 ### P9.7 — Operations, benchmark and documentation
 
-- [ ] Add Compose worker/service, environment examples and setup runbook.
-- [ ] Add rebuild/reconciliation and reproducible synthetic benchmark tools.
-- [ ] Update architecture, safety, security, roadmap, todo, completed-work record
+- [x] Add Compose worker/service, environment examples and setup runbook.
+- [x] Add rebuild/reconciliation and reproducible synthetic benchmark tools.
+- [x] Update architecture, safety, security, roadmap, todo, completed-work record
   and Phase 9 HTML ledger using measured evidence only.
+
+Evidence recorded 6 September 2026: both environment examples declare the
+document-event topic; the packaged search worker reconciled an empty canonical
+tenant without creating a missing index, and its tenant rebuild returned exact
+canonical/indexed agreement. The disposable 250-record benchmark passed all
+four English/Hindi golden queries, excluded its cross-tenant control and
+reconciled 250 canonical IDs to 250 indexed IDs; the exact output is stored in
+[`docs/evidence/phase9-search-benchmark.json`](../evidence/phase9-search-benchmark.json).
+The final backend gate passed Ruff, mypy across 160 source files, and 376 tests
+with 25 explicitly gated provider/integration tests; the three real Phase 9
+PostgreSQL/Elasticsearch/Kafka checks also passed. The setup guide, operations
+runbook, architecture, safety, security, roadmap, status files and HTML ledger
+now state the implemented boundary and retain the production rollout gates.
 
 ## Checkpoints
 

@@ -10,6 +10,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY migrations ./migrations
+COPY tools ./tools
 
 RUN useradd --create-home --uid 10001 appuser
 USER appuser

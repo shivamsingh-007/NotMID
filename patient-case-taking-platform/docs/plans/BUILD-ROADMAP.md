@@ -9,10 +9,12 @@
 
 ## Current implementation milestone
 
-The repository's **Phase 4–8 engineering slices are implemented**, and the
-pre-Phase 9 patient dashboard/services completion slice is an engineering
-candidate. Exact evidence and remaining release gates are recorded in the phase
-plans. Clinical dialogue/summary remains mock-only under
+The repository's **Phase 4–9 engineering slices are implemented**, including
+the self-scoped patient services and rebuildable reviewed-record search. Phase 9
+is an engineering candidate backed by real PostgreSQL/Kafka/Elasticsearch tests,
+packaged rebuild/reconciliation tools and a small synthetic benchmark—not a
+production or clinical-relevance approval. Exact evidence and remaining release
+gates are recorded in the phase plans. Clinical dialogue/summary remains mock-only under
 [ADR-008](../architecture/decisions/ADR-008-MOCK-ONLY-CLINICAL-SUMMARY.md);
 patient self-scope and mock TTS are governed by
 [ADR-009](../architecture/decisions/ADR-009-PATIENT-SELF-SCOPE-AND-MOCK-TTS.md).
@@ -29,7 +31,9 @@ patient self-scope and mock TTS are governed by
 - Versioned Python rules service for deterministic red flags and policies.
 - PostgreSQL for transactional/clinical truth; MongoDB for raw transcript/OCR/model artifacts; Redis for ephemeral state; S3-compatible object storage for binaries.
 - WebSockets for interactive updates; Kafka from MVP with durable PostgreSQL state/outbox, retries, DLQs and idempotent consumers.
-- Elasticsearch for rebuildable document search, audit exploration and operational analytics; optional vector search only after representative evaluation.
+- Elasticsearch 9.3 for rebuildable lexical search of signed summaries and
+  reviewed facts; audit exploration, analytics and vector search remain outside
+  the implemented slice and require representative evaluation.
 - Docker for local deployables; shared pilot/production topology remains an external design gate.
 
 ## Phase 0 — Discovery, governance and contracts
@@ -50,7 +54,9 @@ Duration target: 3–5 weeks.
 - Define edge route classes, TLS ownership, direct-upload limits and the public-gateway/internal-model-router trust boundary.
 - Record and test the mock-only, no-external-inference policy.
 - Define Kafka topic/envelope ownership, partition keys, schema compatibility, retention, retry tiers, DLQs and replay runbooks before implementation.
-- Benchmark Elasticsearch on multilingual clinical search and filtered vector retrieval; validate licensing, residency, recovery and operating cost rather than adopting vendor headline numbers.
+- Extend the current small Hindi/English lexical-search benchmark into a governed,
+  representative relevance/load evaluation; filtered vector retrieval, licensing,
+  residency, recovery and operating cost remain approval gates.
 - Establish baseline metrics for consultation and documentation time.
 
 ### Exit gate
@@ -84,7 +90,8 @@ Duration target: 8–12 weeks.
 
 ### Defer
 
-- Elasticsearch, Kubernetes service mesh and multi-region deployment.
+- Production approval/scaling of the implemented Elasticsearch derived-search
+  slice, Kubernetes service mesh and multi-region deployment.
 - Generative model serving and Drools-style rule authoring; neither is authorized by the current product scope.
 - Autonomous diagnosis, prescription or AI-only emergency decisions.
 - Full longitudinal reasoning across every available patient document.
@@ -132,7 +139,8 @@ Duration target: 12–16 weeks after pilot evidence.
 - ABDM production onboarding and HIP/HIU flows.
 - HPR/HFR verification where applicable.
 - HIS, LIMS and PACS adapters.
-- Introduce Elasticsearch for derived clinical-document search, audit exploration and aggregate dashboards.
+- Validate and scale the implemented reviewed-record Elasticsearch projection;
+  separately design audit exploration and aggregate dashboards.
 - Scale Kafka partitions from measured queue age and throughput without adding model-provider routing.
 - Keep summary execution mock-only; a different provider requires explicit scope change and a new ADR.
 - Autoscale non-model workers from measured queue depth and latency where justified.
@@ -142,7 +150,8 @@ Duration target: 12–16 weeks after pilot evidence.
 ### Exit gate
 
 - Load, failover, privacy and clinical-safety targets pass at projected peak volume.
-- Search indexes and summaries can be rebuilt from source systems.
+- Search rebuild/reconciliation is rehearsed at projected scale and summaries can
+  be rebuilt from source systems.
 - Kafka replay and idempotency exercises pass at projected peak scale.
 - Facility onboarding is repeatable without code forks.
 
@@ -179,3 +188,4 @@ Every advanced feature requires a new hazard analysis, clinical evaluation and r
 | S6 | Patient receives a simple approved summary | Signed note, multilingual renderer/TTS |
 | S7 | [Uploaded prescription becomes a reviewed structured document](PHASE-7-DOCUMENT-INGESTION-OCR.md) | Object storage, scanning, OCR worker |
 | S8 | ABHA-linked record flow works in sandbox | Consent service, ABDM adapter |
+| S9 | Authorized staff search signed summaries/reviewed facts and patients see a self-scoped longitudinal view | Phase 8 signing, Phase 7 promotion, Elasticsearch, durable search audit |

@@ -49,6 +49,11 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
       KAFKA_LOG_DIRS: "/tmp/kraft-logs"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_MIN_INSYNC_REPLICAS: "1"
     volumes: ["kafka-data:/var/lib/kafka/data"]
 
   elasticsearch:
@@ -328,6 +333,35 @@ services:
       postgres: { condition: service_healthy }
       kafka: { condition: service_started }
 
+  search-index-worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.search.worker", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 384m
+    cpus: 0.75
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      KAFKA_BROKERS: kafka:29092
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      CLINICAL_SEARCH_INDEX_ALIAS: ${CLINICAL_SEARCH_INDEX_ALIAS:-medikiosk-clinical-search}
+      CLINICAL_SEARCH_ENABLED: ${CLINICAL_SEARCH_ENABLED:-true}
+      SEARCH_CONSUMER_GROUP: ${SEARCH_CONSUMER_GROUP:-medikiosk-clinical-search-v1}
+      SUMMARY_EVENT_TOPIC: ${SUMMARY_EVENT_TOPIC:-clinical.summaries.v1}
+      DOCUMENT_EVENT_TOPIC: ${DOCUMENT_EVENT_TOPIC:-clinical.documents.v1}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_started }
+      elasticsearch: { condition: service_healthy }
+
   api:
     build:
       context: ./apps/api
@@ -341,7 +375,7 @@ services:
       KAFKA_BROKERS: kafka:29092
       ELASTICSEARCH_URL: http://elasticsearch:9200
       CLINICAL_SEARCH_INDEX_ALIAS: ${CLINICAL_SEARCH_INDEX_ALIAS:-medikiosk-clinical-search}
-      CLINICAL_SEARCH_ENABLED: ${CLINICAL_SEARCH_ENABLED:-false}
+      CLINICAL_SEARCH_ENABLED: ${CLINICAL_SEARCH_ENABLED:-true}
       S3_ENDPOINT: http://minio:9000
       S3_PUBLIC_ENDPOINT: http://127.0.0.1:9000
       S3_BUCKET: notmid-clinical

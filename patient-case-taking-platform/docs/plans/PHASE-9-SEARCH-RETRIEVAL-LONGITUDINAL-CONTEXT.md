@@ -25,7 +25,9 @@ container and browser evidence recorded below.
 Give patients and care staff fast, explainable retrieval over MediKiosk records
 that have already crossed a human-review boundary. PostgreSQL remains clinical
 truth. Elasticsearch is a disposable, rebuildable read model. Search must not
-turn OCR text, mock output or unsigned drafts into clinical facts.
+turn raw OCR text, mock clinical-generation output or unsigned drafts into
+clinical facts. Document OCR itself uses the real PP-OCRv5 mobile worker; its
+output becomes searchable only after clinician review and fact promotion.
 
 ## Users and allowed operations
 
@@ -256,9 +258,16 @@ docker compose run --rm search-index-worker python -m tools.verify_phase9_search
 
 ### P9.4 — Event-driven synchronization
 
-- [ ] Consume existing summary/document Kafka topics with a dedicated group.
-- [ ] Index only relevant events by re-reading canonical PostgreSQL state.
-- [ ] Prove retry, idempotent replay, deletion and offset-after-success behavior.
+- [x] Consume existing summary/document Kafka topics with a dedicated group.
+- [x] Index only relevant events by re-reading canonical PostgreSQL state.
+- [x] Prove retry, idempotent replay, deletion and offset-after-success behavior.
+
+Evidence recorded 6 September 2026: the focused search/synchronization suite
+passes; real Kafka-to-Elasticsearch replay and the real Elasticsearch isolation,
+synonym, deletion and alias-rebuild cases pass; the packaged Compose worker is
+running; and an empty synthetic tenant rebuild completed without touching
+clinical records. The same run corrected the single-node Kafka internal-topic
+replication settings and made migration checksums stable across LF/CRLF checkouts.
 
 ### P9.5 — Authorized APIs and durable audit
 

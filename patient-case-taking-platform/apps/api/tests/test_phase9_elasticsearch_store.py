@@ -246,6 +246,27 @@ async def test_replace_document_records_deletes_only_tenant_document_scope() -> 
 
 
 @pytest.mark.asyncio
+async def test_replace_tenant_records_is_scoped_and_rejects_mixed_tenants() -> None:
+    client = FakeClient()
+    tenant_id = uuid4()
+    record = _record(tenant_id=tenant_id)
+    store = _store(client)
+
+    assert await store.replace_tenant_records(
+        tenant_id=tenant_id, records=[record]
+    ) == 1
+    assert client.delete_by_query_calls[0]["query"] == {
+        "term": {"tenant_id": str(tenant_id)}
+    }
+
+    with pytest.raises(ValueError, match="share the requested tenant"):
+        await store.replace_tenant_records(
+            tenant_id=tenant_id,
+            records=[_record()],
+        )
+
+
+@pytest.mark.asyncio
 async def test_rebuild_validates_count_then_atomically_swaps_alias() -> None:
     client = FakeClient()
     client.indices.aliases = {"medikiosk-clinical-search-v1-old": {"aliases": {}}}

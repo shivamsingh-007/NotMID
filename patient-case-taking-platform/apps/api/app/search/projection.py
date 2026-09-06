@@ -47,6 +47,23 @@ WHERE tenant_id = $1 AND document_id = $2 AND active
 ORDER BY promoted_at, id
 """
 
+_LIST_TENANT_SIGNED_SUMMARIES = """
+SELECT id, tenant_id, facility_id, patient_id, encounter_id, status, content,
+       signed_at
+FROM clinical_summary_workflow
+WHERE tenant_id = $1 AND status = 'signed'
+ORDER BY signed_at DESC, id
+"""
+
+_LIST_TENANT_REVIEWED_FACTS = """
+SELECT id, tenant_id, facility_id, patient_id, encounter_id, document_id,
+       entity_type, normalized_value, unit, document_statement,
+       clinician_confirmed_current, active, promoted_at
+FROM reviewed_document_fact
+WHERE tenant_id = $1 AND active
+ORDER BY promoted_at DESC, id
+"""
+
 
 class InvalidCanonicalSearchSource(ValueError):
     pass
@@ -70,6 +87,10 @@ class ClinicalProjectionRepository(Protocol):
 
     async def list_document_fact_records(
         self, *, tenant_id: UUID, document_id: UUID
+    ) -> list[ClinicalSearchRecord]: ...
+
+    async def list_tenant_records(
+        self, *, tenant_id: UUID
     ) -> list[ClinicalSearchRecord]: ...
 
 
@@ -205,6 +226,22 @@ class PostgresClinicalProjectionRepository:
                 await self._set_tenant(connection, tenant_id)
                 rows = await connection.fetch(_LIST_DOCUMENT_FACTS, tenant_id, document_id)
         return [reviewed_fact_to_record(row) for row in rows]
+
+    async def list_tenant_records(
+        self, *, tenant_id: UUID
+    ) -> list[ClinicalSearchRecord]:
+        async with self._pool.acquire() as connection:
+            async with connection.transaction():
+                await self._set_tenant(connection, tenant_id)
+                summary_rows = await connection.fetch(
+                    _LIST_TENANT_SIGNED_SUMMARIES, tenant_id
+                )
+                fact_rows = await connection.fetch(_LIST_TENANT_REVIEWED_FACTS, tenant_id)
+        records = [signed_summary_to_record(row) for row in summary_rows]
+        records.extend(reviewed_fact_to_record(row) for row in fact_rows)
+        records.sort(key=lambda item: item.record_id)
+        records.sort(key=lambda item: item.occurred_at, reverse=True)
+        return records
 
     @staticmethod
     async def _set_tenant(connection: Any, tenant_id: UUID) -> None:

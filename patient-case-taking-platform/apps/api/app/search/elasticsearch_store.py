@@ -178,6 +178,29 @@ class ElasticsearchClinicalSearchStore:
         )
         return await self.bulk_upsert(records)
 
+    async def replace_tenant_records(
+        self, *, tenant_id: UUID, records: list[ClinicalSearchRecord]
+    ) -> int:
+        if any(record.tenant_id != tenant_id for record in records):
+            raise ValueError("tenant rebuild records must share the requested tenant")
+        await self.ensure_index()
+        await self._client.delete_by_query(
+            index=self.alias,
+            query={"term": {"tenant_id": str(tenant_id)}},
+            conflicts="proceed",
+            refresh=True,
+        )
+        indexed_count = await self.bulk_upsert(records)
+        count_response = _body(
+            await self._client.count(
+                index=self.alias,
+                query={"term": {"tenant_id": str(tenant_id)}},
+            )
+        )
+        if int(count_response.get("count", 0)) != indexed_count:
+            raise SearchIndexError("tenant rebuild count does not match canonical source")
+        return indexed_count
+
     async def search(self, criteria: ClinicalSearchQuery) -> ClinicalSearchResponse:
         await self.ensure_index()
         response = _body(

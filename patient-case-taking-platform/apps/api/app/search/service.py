@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import io
+import logging
 import time
 from dataclasses import dataclass
 from datetime import datetime
@@ -22,6 +23,8 @@ from app.search.contracts import (
     SourceKind,
 )
 from app.search.timeline import LongitudinalTimeline, build_longitudinal_timeline
+
+logger = logging.getLogger(__name__)
 
 
 class SearchStore(Protocol):
@@ -75,6 +78,10 @@ class ClinicalSearchService:
         try:
             result = await self._store.search(criteria)
         except Exception as exc:
+            logger.exception(
+                "Clinical search store query failed",
+                extra={"correlation_id": str(correlation_id)},
+            )
             await self._audit(
                 identity,
                 action="search",
@@ -123,6 +130,10 @@ class ClinicalSearchService:
             )
             result = build_longitudinal_timeline(identity.patient_id, records)
         except Exception as exc:
+            logger.exception(
+                "Canonical clinical timeline read failed",
+                extra={"correlation_id": str(correlation_id)},
+            )
             await self._audit(
                 identity,
                 action="timeline",

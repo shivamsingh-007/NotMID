@@ -287,9 +287,20 @@ correlated 401 from the new search route without authentication.
 
 ### P9.6 — Clinician and patient interfaces
 
-- [ ] Add accessible clinician search/timeline UI with complete states.
-- [ ] Add patient longitudinal view with direct-record fallback.
-- [ ] Browser-test doctor, nurse denial/export behavior and patient self-scope.
+- [x] Add accessible clinician search/timeline UI with complete states.
+- [x] Add patient longitudinal view with direct-record fallback.
+- [x] Browser-test doctor, nurse denial/export behavior and patient self-scope.
+
+Evidence recorded 6 September 2026: both frontend lint gates and both clean
+Next.js production builds passed; the packaged clinician and patient images
+started and served their new routes; and browser testing with synthetic local
+identities proved the doctor search/timeline and export control, nurse search
+with doctor-only export messaging, and the Hindi patient self-scoped
+longitudinal empty state with no browser-console errors. The browser run also
+found and repaired an incorrect PostgreSQL bind count in the canonical timeline
+reader; the focused projection/service regression suite now passes 14 tests,
+and the repaired packaged API returns the timeline successfully. Raw OCR and
+unsigned drafts are explicitly excluded from every displayed search state.
 
 ### P9.7 — Operations, benchmark and documentation
 

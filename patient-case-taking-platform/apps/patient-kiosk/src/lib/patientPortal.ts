@@ -53,6 +53,33 @@ export interface TimelineEntry {
   occurred_at: string;
 }
 
+export interface PatientLongitudinalEvent {
+  record_id: string;
+  facility_id: string;
+  encounter_id: string;
+  document_id: string | null;
+  source_kind: "signed_summary" | "reviewed_fact";
+  source_id: string;
+  title: string;
+  details: string[];
+  entity_type: string | null;
+  statement_status: string | null;
+  occurred_at: string;
+}
+
+export interface PatientLongitudinalTimeline {
+  patient_id: string;
+  events: PatientLongitudinalEvent[];
+  summary: {
+    total_events: number;
+    encounter_count: number;
+    signed_summary_count: number;
+    reviewed_fact_count: number;
+    first_event_at: string | null;
+    last_event_at: string | null;
+  };
+}
+
 export interface PatientDashboard {
   patient_id: string;
   signed_report_count: number;
@@ -166,6 +193,15 @@ export function listPatientReports(
   session: PatientSession,
 ): Promise<PatientReportListItem[]> {
   return patientJson(session, "/api/v1/patient-portal/me/reports");
+}
+
+export function getPatientLongitudinalTimeline(
+  session: PatientSession,
+): Promise<PatientLongitudinalTimeline> {
+  return patientJson(
+    session,
+    "/api/v1/patient-portal/me/longitudinal-timeline?purpose=treatment",
+  );
 }
 
 export function getPatientReport(

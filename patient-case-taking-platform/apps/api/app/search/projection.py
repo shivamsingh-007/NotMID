@@ -196,7 +196,6 @@ class PostgresClinicalProjectionRepository:
                         list(facility_ids),
                         from_date,
                         to_date,
-                        entity_type,
                     )
                 if source_kind in (None, SourceKind.REVIEWED_FACT):
                     fact_rows = await connection.fetch(
@@ -206,6 +205,7 @@ class PostgresClinicalProjectionRepository:
                         list(facility_ids),
                         from_date,
                         to_date,
+                        entity_type,
                     )
         records = [signed_summary_to_record(row) for row in summary_rows]
         records.extend(reviewed_fact_to_record(row) for row in fact_rows)

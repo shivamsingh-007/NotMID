@@ -6,6 +6,7 @@ import pytest
 from app.search.contracts import SourceKind
 from app.search.projection import (
     InvalidCanonicalSearchSource,
+    PostgresClinicalProjectionRepository,
     reviewed_fact_to_record,
     signed_summary_to_record,
 )
@@ -94,3 +95,47 @@ def test_inactive_or_empty_fact_cannot_be_projected() -> None:
         reviewed_fact_to_record(_fact_row(active=False))
     with pytest.raises(InvalidCanonicalSearchSource, match="missing searchable"):
         reviewed_fact_to_record(_fact_row(normalized_value=" "))
+
+
+class _FetchConnection:
+    def __init__(self) -> None:
+        self.fetch_parameter_counts: list[int] = []
+
+    def transaction(self):
+        return self
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args) -> None:
+        return None
+
+    async def execute(self, *_args) -> None:
+        return None
+
+    async def fetch(self, _query, *parameters):
+        self.fetch_parameter_counts.append(len(parameters))
+        return []
+
+
+class _FetchPool:
+    def __init__(self, connection: _FetchConnection) -> None:
+        self.connection = connection
+
+    def acquire(self):
+        return self.connection
+
+
+@pytest.mark.asyncio
+async def test_repository_uses_the_sql_parameter_count_for_each_source() -> None:
+    connection = _FetchConnection()
+    repository = PostgresClinicalProjectionRepository(_FetchPool(connection))
+
+    records = await repository.list_patient_records(
+        tenant_id=uuid4(),
+        patient_id=uuid4(),
+        facility_ids={uuid4()},
+    )
+
+    assert records == []
+    assert connection.fetch_parameter_counts == [5, 6]

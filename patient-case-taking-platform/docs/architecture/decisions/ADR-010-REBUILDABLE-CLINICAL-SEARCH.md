@@ -81,4 +81,3 @@ false clinical assertion.
   and an update to the Phase 9 contract.
 - Performance and relevance claims must name the corpus and environment; they
   cannot be extrapolated from a small local benchmark.
-

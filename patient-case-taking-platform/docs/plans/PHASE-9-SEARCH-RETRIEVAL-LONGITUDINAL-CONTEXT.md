@@ -271,9 +271,19 @@ replication settings and made migration checksums stable across LF/CRLF checkout
 
 ### P9.5 — Authorized APIs and durable audit
 
-- [ ] Add migration 0014 and tenant-scoped audit repository.
-- [ ] Add clinical search, timeline, patient-self timeline and doctor-only CSV.
-- [ ] Add supported FHIR search-set endpoints and bounded OperationOutcome errors.
+- [x] Add migration 0014 and tenant-scoped audit repository.
+- [x] Add clinical search, timeline, patient-self timeline and doctor/patient CSV;
+  deny nurse export.
+- [x] Add supported FHIR search-set endpoints and bounded OperationOutcome errors.
+
+Evidence recorded 6 September 2026: migration 0014 was applied by the packaged
+Compose migration image; an unprivileged real-PostgreSQL test proved durable
+metadata-only insertion, forced tenant RLS and cross-tenant read/write denial;
+60 focused authorization/API/audit/search tests passed; the combined real
+PostgreSQL, Elasticsearch and Kafka checkpoint passed; and the complete backend
+gate passed with Ruff, mypy and 368 tests (25 explicitly gated integrations
+skipped). The packaged API returned healthy liveness/readiness responses and a
+correlated 401 from the new search route without authentication.
 
 ### P9.6 — Clinician and patient interfaces
 

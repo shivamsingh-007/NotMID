@@ -1,8 +1,9 @@
 import asyncio
 from contextlib import asynccontextmanager
 from typing import Callable
+from uuid import UUID, uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -13,6 +14,7 @@ from app.routers import (
     auth,
     ayush,
     clinical,
+    clinical_search,
     clinical_summaries,
     consent,
     document_operations,
@@ -21,6 +23,7 @@ from app.routers import (
     encounters,
     facilities,
     fhir,
+    fhir_search,
     health,
     intake_sessions,
     llm,
@@ -61,6 +64,9 @@ async def lifespan(_app: FastAPI):
     try:
         yield
     finally:
+        from app.search.dependencies import close_clinical_search_store
+
+        await close_clinical_search_store()
         await close_postgres_pool()
 
 
@@ -77,8 +83,27 @@ app.add_middleware(
     allow_origins=settings.cors_allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "PUT", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "Idempotency-Key"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Idempotency-Key",
+        "X-Correlation-ID",
+    ],
+    expose_headers=["X-Correlation-ID"],
 )
+
+
+@app.middleware("http")
+async def correlation_id_header(request: Request, call_next):
+    supplied = request.headers.get("X-Correlation-ID")
+    try:
+        correlation_id = UUID(supplied) if supplied else uuid4()
+    except ValueError:
+        correlation_id = uuid4()
+    request.state.correlation_id = correlation_id
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = str(correlation_id)
+    return response
 
 app.include_router(health.router)
 app.include_router(asr.router)  # ASR always available (not behind demo gate)
@@ -89,6 +114,8 @@ app.include_router(document_operations.router)
 app.include_router(summary_workflows.router)  # Durable; fails closed unless enabled.
 app.include_router(tts.router)  # Offline deterministic mock; unsupported providers fail closed.
 app.include_router(patient_portal.router)  # Authenticated patient-self projections only.
+app.include_router(clinical_search.router)  # Token-scoped, audited reviewed-record retrieval.
+app.include_router(fhir_search.router)  # Bounded FHIR search over canonical reviewed records.
 
 # These in-memory routes are useful for contract and UI prototyping, but they do
 # not yet provide Clerk verification, durable persistence, tenant isolation, or

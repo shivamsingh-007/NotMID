@@ -28,6 +28,7 @@ WHERE tenant_id = $1 AND patient_id = $2
   AND facility_id = ANY($3::UUID[]) AND active
   AND ($4::TIMESTAMPTZ IS NULL OR promoted_at >= $4)
   AND ($5::TIMESTAMPTZ IS NULL OR promoted_at <= $5)
+  AND ($6::VARCHAR IS NULL OR entity_type = $6)
 ORDER BY promoted_at DESC, id
 """
 
@@ -79,6 +80,7 @@ class ClinicalProjectionRepository(Protocol):
         source_kind: SourceKind | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
+        entity_type: str | None = None,
     ) -> list[ClinicalSearchRecord]: ...
 
     async def get_signed_summary_record(
@@ -177,6 +179,7 @@ class PostgresClinicalProjectionRepository:
         source_kind: SourceKind | None = None,
         from_date: datetime | None = None,
         to_date: datetime | None = None,
+        entity_type: str | None = None,
     ) -> list[ClinicalSearchRecord]:
         if not facility_ids:
             return []
@@ -193,6 +196,7 @@ class PostgresClinicalProjectionRepository:
                         list(facility_ids),
                         from_date,
                         to_date,
+                        entity_type,
                     )
                 if source_kind in (None, SourceKind.REVIEWED_FACT):
                     fact_rows = await connection.fetch(

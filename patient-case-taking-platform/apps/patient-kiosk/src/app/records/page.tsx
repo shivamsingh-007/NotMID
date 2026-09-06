@@ -4,8 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AccessibilityControls } from "../../components/AccessibilityControls";
 import { TouchButton } from "../../components/TouchButton";
+import { PatientLongitudinalPanel } from "../../components/records/PatientLongitudinalPanel";
 import {
   PatientDashboard,
+  PatientLongitudinalTimeline,
   PatientReportDetail,
   PatientReportListItem,
   PatientSession,
@@ -13,6 +15,7 @@ import {
   createDemoPatientSession,
   downloadPatientReport,
   getPatientDashboard,
+  getPatientLongitudinalTimeline,
   getPatientReport,
   listPatientReports,
   readPatientSession,
@@ -64,6 +67,8 @@ export default function RecordsPage() {
   const [session, setSession] = useState<PatientSession | null>(null);
   const [dashboard, setDashboard] = useState<PatientDashboard | null>(null);
   const [reports, setReports] = useState<PatientReportListItem[]>([]);
+  const [longitudinal, setLongitudinal] = useState<PatientLongitudinalTimeline | null>(null);
+  const [timelineUnavailable, setTimelineUnavailable] = useState(false);
   const [selected, setSelected] = useState<PatientReportDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -79,6 +84,13 @@ export default function RecordsPage() {
       ]);
       setDashboard(nextDashboard);
       setReports(nextReports);
+      try {
+        setLongitudinal(await getPatientLongitudinalTimeline(activeSession));
+        setTimelineUnavailable(false);
+      } catch {
+        setLongitudinal(null);
+        setTimelineUnavailable(true);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Patient records are unavailable");
     } finally {
@@ -136,6 +148,8 @@ export default function RecordsPage() {
     setSession(null);
     setDashboard(null);
     setReports([]);
+    setLongitudinal(null);
+    setTimelineUnavailable(false);
     setSelected(null);
   }
 
@@ -210,14 +224,8 @@ export default function RecordsPage() {
                 )}
               </section>
 
-              <section className="mk-card p-6" aria-labelledby="timeline-heading">
-                <h2 id="timeline-heading" className="mk-display text-3xl">{copy.timeline}</h2>
-                {dashboard.recent_timeline.length === 0 ? <p className="mt-5 text-[var(--mk-ink-muted)]">No reviewed document facts yet · अभी कोई जाँचा हुआ दस्तावेज़ नहीं</p> : (
-                  <ul className="mt-5 space-y-3">
-                    {dashboard.recent_timeline.map((item) => <li key={item.id} className="rounded-xl bg-[var(--mk-surface-muted)] p-4"><p className="font-bold">{item.display_value}{item.unit ? ` ${item.unit}` : ""}</p><p className="text-xs text-[var(--mk-ink-muted)]">{item.event_type.replaceAll("_", " ")} · {item.statement_status.replaceAll("_", " ")}</p></li>)}
-                  </ul>
-                )}
-              </section>
+              <PatientLongitudinalPanel language={language} timeline={longitudinal}
+                fallback={dashboard.recent_timeline} unavailable={timelineUnavailable} />
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">

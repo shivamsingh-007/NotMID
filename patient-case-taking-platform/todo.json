@@ -1,7 +1,7 @@
 {
   "project": "MediKiosk Patient Case-Taking Platform",
-  "reviewed_at": "2026-09-05T00:00:00+05:30",
-  "current_stage": "pre_phase9_patient_services_engineering_candidate",
+  "reviewed_at": "2026-09-06T00:00:00+05:30",
+  "current_stage": "phase9_reviewed_search_engineering_candidate",
   "provider_policy": "mock_dialogue_summary_tts_real_ppocrv5_no_hosted_api",
   "status_model": {
     "verified": "Implemented and exercised by an automated repository check",
@@ -61,10 +61,30 @@
       ]
     },
     {
+      "name": "Phase 9 reviewed-record search",
+      "status": "engineering_candidate",
+      "evidence": [
+        "Only signed summaries and active clinician-reviewed document facts enter the strict Elasticsearch projection",
+        "Kafka consumer re-reads canonical PostgreSQL and commits offsets only after successful projection",
+        "Tenant, patient, facility, role and treatment-purpose authorization precedes every search",
+        "Forced-RLS metadata-only audit hashes query text and excludes returned clinical narrative",
+        "Doctor and nurse clinician search plus patient self-scoped longitudinal browser paths pass",
+        "Packaged tenant reconciliation and rebuild commands report matching canonical/index IDs",
+        "Disposable 250-record benchmark passed four English/Hindi golden queries and cross-tenant isolation"
+      ],
+      "remaining_release_gates": [
+        "Production Clerk/JWKS identity and care-relationship authorization",
+        "Representative multilingual clinical relevance evaluation with owner-approved thresholds",
+        "Projected-volume load, recovery, alias rollback and Kafka replay drills",
+        "Formal accessibility, clinical safety, privacy/security and facility approval",
+        "Managed Elasticsearch licensing, residency, encryption, backup and restore evidence"
+      ]
+    },
+    {
       "name": "Production readiness",
       "status": "pending",
       "next": [
-        "Close the owner approval gates recorded in the Phase 8 plan",
+        "Close the owner approval gates recorded in the Phase 8 and Phase 9 plans",
         "Exercise manual downtime and database recovery runbooks",
         "Exercise reference-only summary outbox broker outage and dead-letter recovery in staging",
         "Run governed browser accessibility, load and security verification"

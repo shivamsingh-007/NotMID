@@ -106,7 +106,7 @@ sequenceDiagram
 4. **PostgreSQL is the transactional and clinical source of truth**
 5. **MongoDB stores flexible raw AI artifacts, never signed clinical truth**
 6. **Object storage holds immutable source documents** and audio
-7. **Clinical generation is mock-only and offline**; unsupported providers fail closed
+7. **Clinical dialogue and summary generation are mock-only and offline**; document OCR is a separate real PP-OCRv5 worker
 8. **Every clinical assertion retains provenance**
 
 ### Tech Stack
@@ -178,9 +178,12 @@ Full detail: [`BUILD-ROADMAP.md`](docs/plans/BUILD-ROADMAP.md).
 | [`PHASE-7-DOCUMENT-INGESTION-OCR.md`](docs/plans/PHASE-7-DOCUMENT-INGESTION-OCR.md) | Phase 7 implementation ledger, safety invariants and remaining rollout gates |
 | [`PHASE-8-SUMMARY-WORKFLOW.md`](docs/plans/PHASE-8-SUMMARY-WORKFLOW.md) | Mock-only evidence-linked summary workflow and implementation ledger |
 | [`PRE-PHASE-9-PATIENT-DASHBOARD-AND-S2S.md`](docs/plans/PRE-PHASE-9-PATIENT-DASHBOARD-AND-S2S.md) | Patient dashboard/services completion contract and verification ledger |
+| [`PHASE-9-SEARCH-RETRIEVAL-LONGITUDINAL-CONTEXT.md`](docs/plans/PHASE-9-SEARCH-RETRIEVAL-LONGITUDINAL-CONTEXT.md) | Reviewed-record search, longitudinal context and measured implementation ledger |
 | [`PATIENT-PORTAL-API.md`](docs/contracts/PATIENT-PORTAL-API.md) | Self-scoped consent, intake, upload, timeline and signed-report API |
 | [`ADR-009`](docs/architecture/decisions/ADR-009-PATIENT-SELF-SCOPE-AND-MOCK-TTS.md) | Patient identity boundary and deterministic mock TTS decision |
-| [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5–8 engineering review |
+| [`ADR-010`](docs/architecture/decisions/ADR-010-REBUILDABLE-CLINICAL-SEARCH.md) | Rebuildable, human-reviewed search projection decision |
+| [`PHASE-9-SEARCH-RUNBOOK.md`](docs/operations/PHASE-9-SEARCH-RUNBOOK.md) | Search outage, reconciliation, tenant repair and benchmark procedure |
+| [`medikiosk-change-ledger.html`](review/medikiosk-change-ledger.html) | Evidence-led Phase 5–9 engineering review |
 | [`SYSTEM-ARCHITECTURE.md`](docs/architecture/SYSTEM-ARCHITECTURE.md) | Target architecture & request flows |
 | [`TRAFFIC-CONTROL-AND-MODEL-ROUTING.md`](docs/architecture/TRAFFIC-CONTROL-AND-MODEL-ROUTING.md) | NGINX, gateway, uploads, provider routing & implementation slices |
 | [`SERVICE-BOUNDARIES.md`](docs/architecture/SERVICE-BOUNDARIES.md) | Logical contexts, MVP deployables & extraction triggers |

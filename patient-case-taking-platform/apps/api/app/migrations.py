@@ -23,6 +23,7 @@ class Migration:
     name: str
     path: Path
     checksum_sha256: str
+    accepted_checksums: frozenset[str]
 
     @property
     def sql(self) -> str:
@@ -46,12 +47,22 @@ def discover_migrations(directory: Path = DEFAULT_MIGRATION_DIRECTORY) -> list[M
         if version in seen_versions:
             raise ValueError(f"Duplicate migration version: {version}")
         seen_versions.add(version)
+        sql = path.read_text(encoding="utf-8")
+        canonical_bytes = sql.encode("utf-8")
+        crlf_bytes = sql.replace("\n", "\r\n").encode("utf-8")
         migrations.append(
             Migration(
                 version=version,
                 name=match.group("name"),
                 path=path,
-                checksum_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                checksum_sha256=hashlib.sha256(canonical_bytes).hexdigest(),
+                accepted_checksums=frozenset(
+                    {
+                        hashlib.sha256(canonical_bytes).hexdigest(),
+                        hashlib.sha256(crlf_bytes).hexdigest(),
+                        hashlib.sha256(path.read_bytes()).hexdigest(),
+                    }
+                ),
             )
         )
     return sorted(migrations, key=lambda migration: migration.version)
@@ -76,7 +87,7 @@ async def apply_migrations(connection: Any, directory: Path = DEFAULT_MIGRATION_
         for migration in discover_migrations(directory):
             applied_checksum = applied.get(migration.version)
             if applied_checksum is not None:
-                if applied_checksum != migration.checksum_sha256:
+                if applied_checksum not in migration.accepted_checksums:
                     raise MigrationChecksumMismatch(
                         migration.version,
                         applied_checksum,

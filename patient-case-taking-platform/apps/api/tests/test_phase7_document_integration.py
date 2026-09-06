@@ -41,6 +41,8 @@ from app.documents.scanning import ClamAVScanner, MalwareScanOutcome
 from app.documents.storage import S3DocumentStore
 from app.migrations import apply_migrations
 from app.ocr.mock_provider import MockOCRProvider
+from app.search.contracts import SourceKind
+from app.search.projection import PostgresClinicalProjectionRepository
 
 pytestmark = pytest.mark.skipif(
     os.getenv("PHASE7_INTEGRATION") != "1",
@@ -83,7 +85,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 13
+        assert first_count == 14
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -108,6 +110,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "clinical_summary_action",
             "clinical_summary_outbox",
             "patient_intake_submission",
+            "clinical_search_audit",
             "schema_migration",
         }
     finally:
@@ -740,6 +743,16 @@ async def test_clean_document_is_normalized_and_ocr_artifact_is_durable(
         assert facts[0].normalized_value == "Synthetic medicine"
         assert timeline[0].statement_status == "document_stated"
         assert fhir_resources[0]["resourceType"] == "Basic"
+        search_records = await PostgresClinicalProjectionRepository(
+            pool
+        ).list_patient_records(
+            tenant_id=document.tenant_id,
+            patient_id=document.patient_id,
+            facility_ids={document.facility_id},
+            source_kind=SourceKind.REVIEWED_FACT,
+        )
+        assert [record.source_id for record in search_records] == [facts[0].id]
+        assert search_records[0].document_id == document.id
         operations = await PostgresDocumentOperationsRepository(pool).snapshot(
             document.tenant_id
         )

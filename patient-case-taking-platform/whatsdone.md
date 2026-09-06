@@ -87,3 +87,34 @@ This is an engineering candidate. Production patient identity, representative
 OCR/clinical evaluation, intelligible production speech, accessibility/usability
 sessions, security/privacy approval and operational recovery evidence remain
 release gates.
+
+## Phase 9 — reviewed-record search and longitudinal context (2026-09-06)
+
+- Replaced the supplied completion narrative with an evidence-gated plan and
+  ADR-010; unsupported million-record, latency and production-readiness claims
+  were removed.
+- Added strict search contracts, Unicode-safe lexical analysis, reviewed medical
+  synonyms, opaque cursors, bounded escaped highlights and deterministic
+  longitudinal assembly.
+- Projected only doctor-signed summaries and active clinician-reviewed document
+  facts. Raw OCR, extraction candidates and unsigned/rejected/superseded drafts
+  cannot enter the search document contract.
+- Added Elasticsearch 9.3 indexing/search/facets/delete, Kafka synchronization,
+  idempotent replay, tenant repair and metadata-only reconciliation.
+- Added migration 0014 and forced-RLS audit rows for search, timeline, FHIR and
+  export; query text is stored only as SHA-256 and returned narrative is absent.
+- Added role/facility/patient/purpose authorization, self-scoped patient timeline,
+  doctor/patient CSV with formula neutralization, and supported FHIR search sets.
+- Added a complete clinician search/timeline interface and bilingual patient
+  longitudinal panel with direct canonical-record fallback.
+- Browser-tested synthetic doctor, nurse and patient paths. The test found and
+  repaired a real canonical SQL bind-count defect before this phase was labelled
+  an engineering candidate.
+- Added packaged tenant reconciliation/rebuild commands and a disposable,
+  deterministic 250-record benchmark. Four English/Hindi golden queries passed,
+  cross-tenant control held, and 250 canonical IDs reconciled to 250 indexed IDs.
+
+Phase 9 remains an engineering candidate. Production Clerk/SSO identity,
+representative relevance and multilingual evaluation, projected-scale load and
+recovery testing, privacy/clinical/accessibility owner approvals, backup/restore
+and staged rollback remain closed release gates.

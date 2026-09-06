@@ -38,6 +38,7 @@ export default function LoginPage() {
         throw new Error(payload?.detail ?? "Development sign-in is unavailable.");
       }
       window.sessionStorage.setItem("medikiosk.access_token", payload.token);
+      window.sessionStorage.setItem("medikiosk.clinician_role", role);
       router.push("/doctor");
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : "Development sign-in failed.");

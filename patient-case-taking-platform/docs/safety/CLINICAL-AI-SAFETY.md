@@ -48,6 +48,25 @@ schema, evidence and clinician-review controls.
 - Regeneration creates a linked version and never rewrites signed history.
 - Audit and outbox metadata exclude chief complaint, answers and narrative content.
 
+## Phase 9 search and longitudinal controls
+
+- Only doctor-signed summaries and active clinician-reviewed document facts are
+  projected. Raw OCR, extraction candidates, rejected/superseded versions and
+  unsigned summaries are excluded at the canonical reader and event consumer.
+- Tenant, patient and facility filters are mandatory server-side. The patient
+  endpoint derives self-scope from the token; it never accepts another patient
+  identifier from the browser.
+- Search highlights are escaped and bounded. They are evidence-navigation aids,
+  not new clinical assertions or a diagnosis.
+- Document-stated medication/allergy facts remain labelled as document-stated;
+  the timeline does not infer current status unless a clinician confirmed it.
+- Elasticsearch failure produces a visible unavailable state. Direct canonical
+  signed-report/reviewed-fact views remain the fallback and no broader query is
+  attempted.
+- The local synthetic benchmark measures deterministic retrieval correctness and
+  observed engineering latency only. It is not a clinical relevance, scale or
+  production-safety approval.
+
 ## Release gates
 
 Measure separately by language, code-switching pattern, microphone quality, sex/age cohorts where permitted, and clinical category:

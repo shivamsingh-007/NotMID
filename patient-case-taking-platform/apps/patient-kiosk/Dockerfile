@@ -17,8 +17,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 COPY --from=builder --chown=node:node /workspace/apps/patient-kiosk/.next/standalone ./
-COPY --from=builder --chown=node:node /workspace/apps/patient-kiosk/.next/static ./.next/static
+COPY --from=builder --chown=node:node /workspace/apps/patient-kiosk/.next/static ./apps/patient-kiosk/.next/static
 
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "apps/patient-kiosk/server.js"]

@@ -1,6 +1,6 @@
 # Clinical assistance platform
 
-## Current provider policy
+## Current clinical-generation provider policy
 
 The clinical dialogue and summary boundary is offline and mock-only. Set
 `LLM_PROVIDER=mock`; any other value fails closed. The repository does not
@@ -31,6 +31,9 @@ ASR, TTS and OCR have separate provider boundaries. The dedicated document OCR
 worker installs PaddlePaddle/PaddleOCR and defaults to the real CPU PP-OCRv5 mobile models; mock
 OCR is retained for isolated tests. These packages are not summary dependencies,
 and Phase 8 generation does not load ASR or OCR weights.
+
+In short: `LLM_PROVIDER=mock` does not imply `OCR_PROVIDER=mock`. The supported
+Compose defaults are `LLM_PROVIDER=mock` and `OCR_PROVIDER=paddleocr_fast`.
 
 ## Summary execution
 

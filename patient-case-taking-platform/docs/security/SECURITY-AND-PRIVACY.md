@@ -39,6 +39,15 @@ does not rewrite already signed clinical history.
   behind clinician workflow boundaries.
 - Mark patient report responses private/no-store and generate downloads only
   after repeating the self/facility/status checks.
+- Apply tenant, patient, facility, role and treatment-purpose authorization before
+  constructing an Elasticsearch request; never rely on index filtering alone.
+- Store clinical search audit metadata under forced tenant RLS. Persist a SHA-256
+  of query text rather than the query or returned narrative, and attach a
+  correlation ID to the response and audit row.
+- Restrict CSV export to doctors and self-scoped patients, set private/no-store
+  and nosniff headers, bound rows, and neutralize spreadsheet formula prefixes.
+- Use synthetic data only in the local search benchmark. Its disposable alias is
+  deleted after the run and never shares the clinical index alias.
 
 ## Audit events
 
@@ -56,3 +65,5 @@ Capture successful and denied access, searches, exports, consent changes, patien
 - Stolen kiosk or shared-device session.
 - Event replay, duplicate delivery and stale authorization caches.
 - Malicious or incorrect patient merges.
+- Search-index poisoning, stale projections, cross-tenant hits and spreadsheet
+  formula injection in exports.

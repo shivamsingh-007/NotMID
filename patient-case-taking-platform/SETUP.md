@@ -11,13 +11,15 @@ This guide is for developers, designers and reviewers starting MediKiosk on a ne
 | Patient experience | <http://localhost:3000> | Bilingual intake, consent, uploads and signed reports |
 | Nurse dashboard | <http://localhost:3001> | Triage, vitals, alerts and handoffs |
 | Doctor dashboard | <http://localhost:3001/doctor> | Evidence review, editing and sign-off |
+| Clinical search | <http://localhost:3001/search> | Authorized reviewed-record search and longitudinal timeline |
 | Document review | <http://localhost:3001/documents/review> | Source-adjacent prescription candidate review |
 | Admin console | <http://localhost:3002> | Workforce and facility administration scaffold |
 | API | <http://localhost:8000> | FastAPI application |
 | API documentation | <http://localhost:8000/docs> | Interactive development API reference |
 | MinIO console | <http://localhost:9002> | Local object-storage administration |
 
-PostgreSQL, MongoDB, Redis, Kafka and MinIO also run locally through Docker. Their data persists in named Docker volumes.
+PostgreSQL, MongoDB, Redis, Kafka, Elasticsearch and MinIO also run locally
+through Docker. Their data persists in named Docker volumes.
 
 ## 2. Prerequisites
 
@@ -26,7 +28,8 @@ PostgreSQL, MongoDB, Redis, Kafka and MinIO also run locally through Docker. The
 - Git 2.40 or newer
 - Docker Desktop on Windows/macOS, or Docker Engine with the Compose plugin on Linux
 - At least 8 GB RAM available to Docker
-- Ports `3000`, `3001`, `3002`, `5432`, `6379`, `8000`, `9000`, `9002`, `9092` and `27017` available
+- Ports `3000`, `3001`, `3002`, `5432`, `6379`, `8000`, `9000`, `9002`,
+  `9092`, `9200` and `27017` available
 
 Verify the tools:
 
@@ -80,6 +83,17 @@ TTS_PROVIDER=mock
 DOCUMENT_OCR_AUTOMATION_ENABLED=true
 DOCUMENT_EXTRACTION_AUTOMATION_ENABLED=true
 ```
+
+Provider names are independent; `mock` does not describe the whole AI stack:
+
+| Capability | Local provider | Runtime status |
+|---|---|---|
+| Clinical dialogue and summaries | `LLM_PROVIDER=mock` | Offline deterministic contract scaffolding |
+| Document OCR | `OCR_PROVIDER=paddleocr_fast` | Real CPU PP-OCRv5 mobile detector and recognizer |
+| Speech output | `TTS_PROVIDER=mock` | Deterministic WAV cue, not production speech synthesis |
+
+The default document path therefore does **not** use mock OCR. The mock OCR
+adapter is retained only for isolated development and contract tests.
 
 `mock` is the only supported clinical dialogue/summary provider. The local
 stack does **not** start vLLM, download HiMed weights, require a GPU, ask for an
@@ -250,6 +264,52 @@ In <http://localhost:8000/docs>, authorize with `Bearer PASTE_TOKEN_HERE` and:
 Nurses may confirm, generate, read and submit, but cannot edit, reject,
 regenerate or sign. Warning flags are read-only. Use synthetic data only; this
 workflow has engineering tests but no clinical/production approval.
+
+### Use Phase 9 clinical search locally
+
+Keep the complete demo flags from section 3 enabled. Compose starts
+Elasticsearch 9.3.0 and `search-index-worker`; the worker consumes only signed
+summary and reviewed-document events and rebuilds its derived index from
+PostgreSQL. Raw OCR and unsigned drafts are never indexed.
+
+1. Open <http://localhost:3001/login> and start a synthetic Doctor or Nurse
+   session with tenant, user and facility UUIDs.
+2. Choose **Clinical search** in the navigation and enter the synthetic patient
+   UUID. Confirm **Treatment purpose** before opening any record.
+3. Search reviewed text, use the source/date/fact-type filters, or switch to the
+   chronological timeline. Empty and unavailable states do not expose raw
+   backend details.
+4. Doctors may export a private, formula-neutralized CSV. Nurses see the
+   doctor-only policy and receive 403 if they call the export API directly.
+5. Patient sessions use <http://localhost:3000/records>; that `/me` route shows
+   the same longitudinal reviewed sources without accepting a patient ID from
+   the browser.
+
+Run reconciliation before and after a tenant repair. These commands compare
+opaque record IDs only and print machine-readable counts; a mismatch exits
+non-zero. Replace the example with a synthetic/local tenant UUID.
+
+```bash
+docker compose run --rm search-index-worker python -m app.search.worker reconcile-tenant --tenant-id 11111111-1111-4111-8111-111111111111
+docker compose run --rm search-index-worker python -m app.search.worker rebuild-tenant --tenant-id 11111111-1111-4111-8111-111111111111
+```
+
+`rebuild-tenant` deletes and reloads only that tenant in the derived alias, then
+reconciles IDs and counts. It never changes PostgreSQL clinical truth. The
+versioned whole-index alias swap is exercised by the integration/benchmark
+path; do not replace a shared alias from an incomplete tenant list.
+
+Run the disposable correctness/latency benchmark:
+
+```bash
+docker compose run --rm search-index-worker python -m tools.verify_phase9_search --record-count 250 --iterations 5
+```
+
+The verifier creates an isolated alias, loads a deterministic synthetic corpus,
+checks English synonym, medication, allergy, Hindi and cross-tenant isolation
+cases, reports observed local latency, reconciles IDs and removes its indices.
+Its output is engineering evidence, not a production load or clinical-relevance
+claim.
 
 ### Use the patient workflow locally
 
@@ -435,6 +495,28 @@ macOS/Linux:
 ```bash
 pytest tests/test_phase8_summary_service.py tests/test_phase8_summary_api.py tests/test_phase8_outbox_publisher.py -q
 PHASE8_INTEGRATION=1 pytest tests/test_phase8_summary_integration.py -q
+```
+
+Run the Phase 9 unit/API suite and the real Elasticsearch/Kafka/audit checks:
+
+Windows PowerShell:
+
+```powershell
+pytest tests -k phase9 -q
+$env:PHASE9_INTEGRATION = "1"
+$env:PHASE9_KAFKA_INTEGRATION = "1"
+$env:PHASE9_POSTGRES_INTEGRATION = "1"
+pytest tests/test_phase9_search_integration.py tests/test_phase9_search_kafka_integration.py tests/test_phase9_search_audit_integration.py -q
+Remove-Item Env:PHASE9_INTEGRATION
+Remove-Item Env:PHASE9_KAFKA_INTEGRATION
+Remove-Item Env:PHASE9_POSTGRES_INTEGRATION
+```
+
+macOS/Linux:
+
+```bash
+pytest tests -k phase9 -q
+PHASE9_INTEGRATION=1 PHASE9_KAFKA_INTEGRATION=1 PHASE9_POSTGRES_INTEGRATION=1 pytest tests/test_phase9_search_integration.py tests/test_phase9_search_kafka_integration.py tests/test_phase9_search_audit_integration.py -q
 ```
 
 Run the self-scoped patient portal integration suite against the same local

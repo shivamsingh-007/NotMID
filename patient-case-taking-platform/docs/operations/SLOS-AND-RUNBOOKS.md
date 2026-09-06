@@ -18,7 +18,8 @@ Final targets require pilot traffic measurements. Start by defining and measurin
 - Object-store recovery and accidental access exposure.
 - Kafka outage/outbox recovery, lag, poison message, dead-letter remediation and replay.
 - Mock summary failure, deterministic fallback and manual-workflow activation.
-- Elasticsearch outage, failed projection and full rebuild.
+- Elasticsearch outage, failed projection and scoped repair: follow
+  [`PHASE-9-SEARCH-RUNBOOK.md`](PHASE-9-SEARCH-RUNBOOK.md).
 - AI provider outage or unsafe-output spike.
 - ABDM credential/callback failure.
 - Notification provider outage.

@@ -51,7 +51,7 @@ Detailed ownership, admission control and implementation slices are defined in `
 | OCR | Real CPU PP-OCRv5 mobile worker; PaddleOCR-VL is an explicitly approved complex-layout option | Original documents remain immutable; every extraction retains page/region provenance and clinician review |
 | Clinical NLP | PyTorch inference services | Versioned entity, negation, temporality and classification outputs |
 | Rules | Versioned Python rules service first | Deterministic urgent-symptom and policy rules; consider Drools only for demonstrated authoring needs |
-| Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + Elasticsearch | Elasticsearch holds rebuildable search/analytics projections, never transactional truth |
+| Data | PostgreSQL + MongoDB + Redis + S3-compatible object storage + Elasticsearch 9.3 | Elasticsearch holds only rebuildable, human-reviewed search projections; PostgreSQL remains clinical truth |
 | Runtime | Docker Compose for local engineering | Shared pilot/production topology requires separate operational approval |
 
 ## Authentication and authorization flow
@@ -78,6 +78,28 @@ OCR or an unsigned clinical summary. Local synthetic tokens are demo-only.
 | Clinical record | Signed notes, allergies, medications, observations, provenance | Search indexes |
 | Document registry | Document metadata, patient/encounter association, processing status | Binary content |
 | Audit | Actor, action, purpose, target, time and outcome | Ordinary application logs |
+| Clinical search | Derived signed-summary/reviewed-fact documents, filters, facets and safe highlights | Raw OCR, unsigned drafts, authorization truth or canonical records |
+
+## Clinical search and longitudinal boundary
+
+Phase 9 adds a dedicated Kafka consumer for `clinical.summaries.v1` and
+`clinical.documents.v1`. It accepts only summary-signed, reviewed-facts-promoted
+and reviewed-facts-withdrawn events, re-reads PostgreSQL under tenant context,
+then idempotently updates Elasticsearch. Kafka payloads are notifications, not
+searchable clinical truth.
+
+Every clinician query is constrained by token-derived tenant and facility scope
+plus an explicit patient and treatment purpose. Patient access uses the
+self-scoped `/patient-portal/me/longitudinal-timeline` route. Search, timeline,
+FHIR search and CSV export write metadata-only rows to
+`clinical_search_audit`; query text is stored only as SHA-256 and returned
+narrative is never copied into audit rows. Nurses cannot export CSV.
+
+The chronological timeline reads canonical PostgreSQL directly, so patient
+signed reports and reviewed facts remain available when Elasticsearch is down.
+Tenant repair replaces only that tenant's derived records and reconciles opaque
+record IDs/counts. Whole-index versioned alias swaps are used only when the
+complete canonical corpus is present.
 
 ## Conversation boundary
 
@@ -114,7 +136,7 @@ Each produced assertion stores:
 | Live transcription | Degrade to manual text entry |
 | OCR and summary generation | Async, retryable, visible pending state |
 | Notifications | Async, at-least-once with deduplication |
-| Search | Optional derived capability; direct patient timeline remains available |
+| Search | Derived search may return 503; canonical patient reports/timeline remain available |
 | ABDM exchange | Async/callback-aware with reconciliation |
 
 ## Initial deployment
@@ -127,7 +149,9 @@ Each produced assertion stores:
 - Redis for ephemeral session/cache/rate-limit state only.
 - Kafka provides the MVP asynchronous backbone. PostgreSQL owns job state and the transactional outbox; a Kafka outage must not lose an accepted clinical workflow.
 - Redis is limited to cache, session, rate-limit and optional idempotency fast-path state; it is not the job or clinical source of truth.
-- Elasticsearch is introduced for derived clinical-document search, audit exploration and aggregate analytics. Optional vector search remains feature-gated and benchmarked on NotMID data.
+- Elasticsearch 9.3 is implemented for scoped lexical search over signed
+  summaries and active reviewed facts. Optional vector search, audit exploration
+  and aggregate analytics remain unimplemented and require separate evaluation.
 - No LLM/GPU service is part of the current deployment. CPU workers scale only
   where measured non-model workload requires it.
 - Central OpenTelemetry-compatible metrics, logs and traces with PHI redaction.

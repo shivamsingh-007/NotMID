@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Evidence-led review of the MediKiosk foundation and Phase 5–8 engineering candidates.">
-  <title>MediKiosk · Phase 5–8 Engineering Review Ledger</title>
+  <meta name="description" content="Evidence-led review of the MediKiosk foundation and Phase 5–9 engineering candidates.">
+  <title>MediKiosk · Phase 5–9 Engineering Review Ledger</title>
   <style>
     :root {
       --paper: #f4f0e8;
@@ -237,9 +237,9 @@
 <body>
   <a class="skip" href="#content">Skip to review</a>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">N</span> NotMID / Engineering Review</div>
+    <div class="brand"><span class="brand-mark">M</span> MediKiosk / Engineering Review</div>
     <nav class="topnav" aria-label="Report sections">
-      <a href="#verdict">Verdict</a><a href="#findings">Repairs</a><a href="#workflow">Workflow</a><a href="#technology">Technology</a><a href="#evidence">Evidence</a><a href="#phase7">Phase 7</a><a href="#phase8">Phase 8</a><a href="#patient">Patient</a><a href="#boundary">Boundary</a>
+      <a href="#verdict">Verdict</a><a href="#findings">Repairs</a><a href="#workflow">Workflow</a><a href="#technology">Technology</a><a href="#evidence">Evidence</a><a href="#phase7">Phase 7</a><a href="#phase8">Phase 8</a><a href="#patient">Patient</a><a href="#phase9">Phase 9</a><a href="#boundary">Boundary</a>
     </nav>
   </header>
 
@@ -247,9 +247,9 @@
     <section class="hero" id="verdict">
       <div class="hero-grid">
         <div>
-          <div class="eyebrow">Phase 5–8 engineering review · updated 5 September 2026</div>
-          <h1>Durable document flow.<br>Human verification.<br><em style="color:var(--green);font-style:italic">Approval still matters.</em></h1>
-          <p class="hero-copy">Phase 7 carries reviewed documents into provenance-linked facts. Phase 8 now turns clinician-confirmed intake, deterministic warning rules and those reviewed facts into an editable, rejectable and signable summary lineage using only the offline mock provider. This is a locally integration-tested engineering candidate—not clinical validation or production authorization.</p>
+          <div class="eyebrow">Phase 5–9 engineering review · updated 6 September 2026</div>
+          <h1>Reviewed evidence.<br>Scoped retrieval.<br><em style="color:var(--green);font-style:italic">Approval still matters.</em></h1>
+          <p class="hero-copy">Phase 7 uses real CPU PP-OCRv5 and promotes only clinician-reviewed document facts. Phase 8 turns confirmed context into editable, rejectable and signable mock-provider summaries. Phase 9 adds authorized lexical search and longitudinal context over those reviewed sources. This is a locally integration-tested engineering candidate—not clinical validation or production authorization.</p>
         </div>
         <aside class="verdict-card" aria-label="Review verdict">
           <div class="seal">✓</div>
@@ -262,10 +262,10 @@
 
     <section class="section reveal">
       <div class="metrics" aria-label="Review metrics">
-        <div class="metric"><span class="num">307</span><span class="label">API tests <em>passing</em></span></div>
-        <div class="metric"><span class="num">11</span><span class="label">Live Phase 7 integration tests</span></div>
+        <div class="metric"><span class="num">376</span><span class="label">API tests <em>passing</em></span></div>
+        <div class="metric"><span class="num">3</span><span class="label">Live Phase 9 integration tests</span></div>
         <div class="metric"><span class="num">3/3</span><span class="label">Web apps linted & built</span></div>
-        <div class="metric"><span class="num">5</span><span class="label">Live Phase 8 Postgres tests</span></div>
+        <div class="metric"><span class="num">4/4</span><span class="label">Search golden queries</span></div>
       </div>
     </section>
 
@@ -279,7 +279,7 @@
           <h3>Verified foundation</h3>
           <ul>
             <li>Patient, clinician, and admin Next.js shells compile on the current Active LTS line.</li>
-            <li>FastAPI passes Ruff, mypy across 146 source files, and 307 behavioral tests with 22 explicit provider/integration skips.</li>
+            <li>FastAPI passes Ruff, mypy across 160 source files, and 376 behavioral tests with 25 explicit provider/integration skips.</li>
             <li>Readiness checks real Postgres, MongoDB, and Redis connectivity and returns 503 when unavailable.</li>
             <li>The 20-service Compose topology parses without vLLM or a generative-model service; Postgres, MongoDB, Redis, MinIO and ClamAV have local integration evidence.</li>
             <li>Phase 7 has forced tenant RLS, private quarantine, bounded workers, immutable OCR/extraction artifacts, review history, reviewed-fact promotion and Kafka outbox delivery.</li>
@@ -392,16 +392,16 @@
           <tr><td data-label="Technology"><strong>Next.js 16 + React 19</strong></td><td data-label="Project use">Patient, clinician, administration web surfaces</td><td data-label="Current evidence">Three production builds; standalone container output</td><td data-label="Disposition"><span class="pill fixed">Verified shell</span></td></tr>
           <tr><td data-label="Technology"><strong>FastAPI + Pydantic</strong></td><td data-label="Project use">HTTP/WebSocket boundary, contracts, rules and durable workflows</td><td data-label="Current evidence">Ruff and mypy pass; full backend suite covers authorization, transitions and persistence</td><td data-label="Disposition"><span class="pill fixed">Engineering candidate</span></td></tr>
           <tr><td data-label="Technology"><strong>Clerk</strong></td><td data-label="Project use">Web authentication; internal identity mapping</td><td data-label="Current evidence">Configuration names and demo token sketch only</td><td data-label="Disposition"><span class="pill high">Not integrated</span></td></tr>
-          <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Documents, confirmed encounter context, versioned summaries, append-only actions and outboxes</td><td data-label="Current evidence">Thirteen repeatable migrations, forced tenant RLS, optimistic concurrency, signed-record immutability and live Phase 8 integration</td><td data-label="Disposition"><span class="pill fixed">Phase 7–8 source of truth</span></td></tr>
+          <tr><td data-label="Technology"><strong>Postgres</strong></td><td data-label="Project use">Documents, confirmed context, versioned summaries, append-only actions/outboxes and search-access audit</td><td data-label="Current evidence">Fourteen repeatable migrations, forced tenant RLS, optimistic concurrency, signed-record immutability and live Phase 8–9 integration</td><td data-label="Disposition"><span class="pill fixed">Clinical source of truth</span></td></tr>
           <tr><td data-label="Technology"><strong>MongoDB / Redis / MinIO</strong></td><td data-label="Project use">Immutable OCR/extraction artifacts, ephemeral state, private source/page objects</td><td data-label="Current evidence">Live Mongo and MinIO pipeline tests; exact-object short-lived grants; anonymous object denial</td><td data-label="Disposition"><span class="pill fixed">Phase 7 local evidence</span></td></tr>
-          <tr><td data-label="Technology"><strong>Kafka</strong></td><td data-label="Project use">Reference-only document and summary lifecycle transport</td><td data-label="Current evidence">Both outbox publishers use leases, at-least-once delivery, bounded retry and dead-letter state; summary events carry metadata only</td><td data-label="Disposition"><span class="pill medium">Local delivery candidate</span></td></tr>
+          <tr><td data-label="Technology"><strong>Kafka</strong></td><td data-label="Project use">Reference-only document/summary transport and search synchronization</td><td data-label="Current evidence">Outbox publishers use leases and bounded retry; the Phase 9 consumer re-reads canonical rows and commits offsets only after projection succeeds</td><td data-label="Disposition"><span class="pill fixed">Local delivery candidate</span></td></tr>
           <tr><td data-label="Technology"><strong>FHIR R4 / AYUSH models</strong></td><td data-label="Project use">Interoperability and domain contract exploration</td><td data-label="Current evidence">In-memory transformations and unit tests in demo surface</td><td data-label="Disposition"><span class="pill medium">Prototype</span></td></tr>
           <tr><td data-label="Technology"><strong>AI4Bharat ASR + Whisper small.en</strong></td><td data-label="Project use">Hindi and English voice intake with explicit language packs</td><td data-label="Current evidence">Hospital-noise Hindi proxy: 14.21% WER / 0.63 s warm p95. Spontaneous Indian English: 6.36% WER / 5.37 s warm p95 on CPU</td><td data-label="Disposition"><span class="pill fixed">Phase 4 verified locally</span></td></tr>
           <tr><td data-label="Technology"><strong>PP-OCRv5 + PaddleOCR-VL</strong></td><td data-label="Project use">Real routine OCR with an explicitly gated complex-layout provider</td><td data-label="Current evidence">Dedicated PaddlePaddle/PaddleOCR worker image, persistent model cache, real PP-OCRv5-mobile recognition check and durable page/region provenance; representative clinical evaluation remains pending</td><td data-label="Disposition"><span class="pill fixed">Real provider verified</span></td></tr>
           <tr><td data-label="Technology"><strong>Offline clinical mock</strong></td><td data-label="Project use">Adaptive SOCRATES questions and Phase 8 evidence-linked summary drafts</td><td data-label="Current evidence">Fail-closed schemas, server-assembled context, deterministic flags, clinician edits and connected patient/doctor UI; no network inference</td><td data-label="Disposition"><span class="pill fixed">Only approved provider</span></td></tr>
           <tr><td data-label="Technology"><strong>Versioned Python rules engine</strong></td><td data-label="Project use">Canonical deterministic warning evaluation and Phase 5 interruption</td><td data-label="Current evidence">Eight focused tests cover Hindi/English mapping, negation, rule ownership/versioning, no-match semantics, bounded API input and PHI-minimized audit</td><td data-label="Disposition"><span class="pill medium">Phase 6 prototype · durable alerts pending</span></td></tr>
           <tr><td data-label="Technology"><strong>External model serving</strong></td><td data-label="Project use">None</td><td data-label="Current evidence">ADR-008 excludes HiMed, vLLM and hosted model APIs; unsupported provider values fail closed</td><td data-label="Disposition"><span class="pill fixed">Excluded</span></td></tr>
-          <tr><td data-label="Technology"><strong>Elasticsearch</strong></td><td data-label="Project use">Derived document and audit search</td><td data-label="Current evidence">Canonical ADR only; no index or client</td><td data-label="Disposition"><span class="pill high">Deferred</span></td></tr>
+          <tr><td data-label="Technology"><strong>Elasticsearch 9.3</strong></td><td data-label="Project use">Derived lexical search over signed summaries and active reviewed facts</td><td data-label="Current evidence">Strict mapping, safe query builder, facets/highlights, event projection, tenant repair/reconciliation, FHIR/CSV APIs and real-container tests</td><td data-label="Disposition"><span class="pill fixed">Phase 9 engineering candidate</span></td></tr>
           <tr><td data-label="Technology"><strong>Docker Compose + GitHub Actions</strong></td><td data-label="Project use">Local topology and CI quality gates</td><td data-label="Current evidence">Compose parses and all local services start; API/frontends/workers build; live Phase 7 suite passes</td><td data-label="Disposition"><span class="pill fixed">Local topology verified</span></td></tr>
         </tbody>
       </table>
@@ -421,7 +421,7 @@
 <span class="prompt">$</span> npm run lint && npm run build <span class="note"># clinician</span>
 <span class="ok">✓ ESLint clean
 ✓ production build
-✓ 6 static + 1 dynamic product route</span>
+✓ clinical search route included</span>
 
 <span class="prompt">$</span> npm run lint && npm run build <span class="note"># admin</span>
 <span class="ok">✓ ESLint clean
@@ -432,10 +432,10 @@
 <span class="ok">All checks passed!</span>
 
 <span class="prompt">$</span> mypy app
-<span class="ok">Success: no issues found in 146 source files</span>
+<span class="ok">Success: no issues found in 160 source files</span>
 
 <span class="prompt">$</span> pytest apps/api/tests -q
-<span class="ok">307 passed · 22 provider/integration tests skipped by policy</span>
+<span class="ok">376 passed · 25 provider/integration tests skipped by policy</span>
 
 <span class="prompt">$</span> docker compose run --rm --no-deps document-ocr-worker python -m tools.verify_real_ocr
 <span class="ok">PASS provider=paddleocr_fast model=PP-OCRv5-mobile
@@ -446,6 +446,18 @@
 ✓ quarantine → scan → normalize → OCR
 ✓ manual source review → authoritative fact
 ✓ timeline + FHIR + search projection</span>
+
+<span class="prompt">$</span> docker compose run --rm search-index-worker python -m tools.verify_phase9_search ...
+<span class="ok">PASS · Elasticsearch 9.3.0
+✓ 250 visible + 1 cross-tenant control record
+✓ 4 / 4 English/Hindi golden queries
+✓ 250 canonical IDs = 250 indexed IDs</span>
+
+<span class="prompt">$</span> browser: doctor · nurse · patient
+<span class="ok">✓ reviewed-record search + canonical timeline
+✓ doctor export control · nurse denial message
+✓ bilingual patient self-scoped longitudinal view
+✓ no browser-console errors</span>
 
 <span class="prompt">$</span> python tools/evaluate_phase7_extraction.py ...
 <span class="ok">7 / 7 synthetic fixtures exact
@@ -460,14 +472,15 @@ accessibility sessions, load/security, backup/restore and staging rollback drill
           <div class="gate"><span class="check">✓</span><div><strong>Frontend dependency integrity</strong><small>Fresh locks and audits</small></div><code>0 findings × 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Frontend compilation</strong><small>Patient, clinician, admin</small></div><code>3 / 3</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Python packaging</strong><small>Editable project install</small></div><code>passed</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>146 app files</code></div>
-          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, dialogue, triage, document and summary contracts</small></div><code>307 passed</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Static quality</strong><small>Ruff and mypy</small></div><code>160 app files</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Behavioral tests</strong><small>Domain, voice, dialogue, triage, document, summary and search contracts</small></div><code>376 passed</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Phase 6 canonical evaluator</strong><small>Versions, ownership, evidence paths, negation and bounded demo API</small></div><code>8 focused tests</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Voice quality</strong><small>Hindi hospital proxy + spontaneous Indian English</small></div><code>14.21% · 6.36% WER</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Patient voice surface</strong><small>Fixed + adaptive assisted intake compile</small></div><code>9 routes</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Real OCR execution</strong><small>Official PP-OCRv5 mobile detector + recognizer in the worker image</small></div><code>METFORMIN 500</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Phase 7 live integration</strong><small>Four durable dependencies and end-to-end promotion</small></div><code>11 passed</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Phase 8 workflow</strong><small>Mock generation, role gates, evidence, lifecycle and outbox</small></div><code>15 focused · 5 live</code></div>
+          <div class="gate"><span class="check">✓</span><div><strong>Phase 9 search</strong><small>Reviewed-only projection, scope enforcement, audit, repair and longitudinal UI</small></div><code>4 golden · IDs match</code></div>
           <div class="gate"><span class="check">✓</span><div><strong>Browser review</strong><small>Semantic headings, status/live region, bilingual error state, clean console and responsive layout</small></div><code>passed</code></div>
           <div class="gate"><span class="check">!</span><div><strong>Controlled rollout</strong><small>Representative evidence and owner signatures</small></div><code>pending</code></div>
         </div>
@@ -560,13 +573,42 @@ accessibility sessions, load/security, backup/restore and staging rollback drill
       </div>
     </section>
 
+    <section class="section reveal" id="phase9">
+      <div class="section-head">
+        <div><span class="kicker">09 · Phase 9 ledger</span><h2>Search reviewed evidence, not model residue.</h2></div>
+        <p class="section-intro">The implemented slice is lexical retrieval and longitudinal context over canonical, human-reviewed sources. It is not RAG, diagnosis or production approval.</p>
+      </div>
+      <div class="truth-grid">
+        <article class="truth">
+          <h3>Engineering candidate</h3>
+          <ul>
+            <li>Only signed summaries and active reviewed facts enter a strict, rebuildable Elasticsearch projection; raw OCR and unsigned drafts are excluded.</li>
+            <li>Doctor/nurse search requires patient and treatment purpose; the patient timeline derives self-scope from the token.</li>
+            <li>Forced-RLS access audit stores scope, outcome, latency and a query hash—never raw query or returned narrative.</li>
+            <li>Kafka synchronization re-reads PostgreSQL and commits only after indexing; tenant repair reconciles opaque IDs and counts.</li>
+            <li>A disposable 250-record benchmark passed four English/Hindi golden queries and its cross-tenant control.</li>
+          </ul>
+        </article>
+        <article class="truth truth--dark">
+          <h3>Release gate remains closed</h3>
+          <ul>
+            <li>Production Clerk/SSO identity, care relationships and managed Elasticsearch security are not yet approved.</li>
+            <li>The synthetic benchmark is not representative clinical relevance, projected-scale load or a production SLO.</li>
+            <li>Vector retrieval and retrieval-assisted generation are not implemented or authorized.</li>
+            <li>Whole-index recovery, rollback, Kafka replay, backup/restore and outage drills remain staging gates.</li>
+            <li>Clinical safety, privacy/security, accessibility and facility owners must approve before patient use.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
     <section class="section reveal" id="boundary">
       <div class="section-head">
-        <div><span class="kicker">09 · Production boundary</span><h2>The next proof is operational and clinical.</h2></div>
-        <p class="section-intro">Phases 7 and 8 plus the patient completion slice have working engineering paths. They still need identity hardening, representative evaluation, owner review and staged recovery evidence. RAG is not required.</p>
+        <div><span class="kicker">10 · Production boundary</span><h2>The next proof is operational and clinical.</h2></div>
+        <p class="section-intro">Phases 7–9 plus the patient completion slice have working engineering paths. They still need identity hardening, representative evaluation, owner review and staged recovery evidence. RAG is not required.</p>
       </div>
       <div class="boundary">
-        <aside class="boundary-callout"><div class="huge">No RAG<br>for V1.</div><p>Structured intake, deterministic red-flag rules, document timelines, and clinician-edited summaries can ship without a retrieval-generation layer. Add semantic retrieval only after access-filtered search has a measured clinical use case and evaluation set.</p></aside>
+        <aside class="boundary-callout"><div class="huge">No RAG<br>for V1.</div><p>Phase 9 adds access-filtered lexical retrieval over reviewed records. It does not feed a generator. Semantic/vector retrieval requires a separate measured use case, evaluation set and safety decision.</p></aside>
         <div class="next-list">
           <div class="next"><div><strong>Clerk verification + internal identity</strong><span>JWT/JWKS validation, subject mapping, facility membership, caregiver relationships, signed webhooks, MFA and SSO policy.</span></div></div>
           <div class="next"><div><strong>Production data-service controls</strong><span>Separate worker/API roles, TLS, managed secrets, encryption policy, retention/legal hold, backup restoration and negative tenant-isolation evidence.</span></div></div>
@@ -581,7 +623,7 @@ accessibility sessions, load/security, backup/restore and staging rollback drill
 
   <footer>
     <div class="footer-inner">
-      <div><div class="signoff">Patient dashboard and service path built.<br>Controlled rollout remains gated.</div><small>Evidence snapshot · codex/patient-dashboard-services · 5 September 2026 · Asia/Kolkata</small></div>
+      <div><div class="signoff">Phase 9 reviewed-record search built.<br>Controlled rollout remains gated.</div><small>Evidence snapshot · codex/phase-9-search-retrieval · 6 September 2026 · Asia/Kolkata</small></div>
       <small>Source reviewed: <a href="https://opncd.ai/share/egsk269W">OpenCode shared session</a><br>Canonical decisions: <a href="../docs/architecture/decisions/">docs/architecture/decisions</a></small>
     </div>
   </footer>

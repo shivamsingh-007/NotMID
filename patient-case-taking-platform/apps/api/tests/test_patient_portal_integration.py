@@ -24,6 +24,8 @@ from app.patient_portal.intake_repository import (
     PostgresPatientIntakeRepository,
 )
 from app.patient_portal.service import PatientIdentity, PatientPortalService
+from app.search.contracts import SourceKind
+from app.search.projection import PostgresClinicalProjectionRepository
 from app.summary_workflow.contracts import SummaryContent, SummarySourceBundle
 from app.summary_workflow.repository import PostgresSummaryRepository
 from app.summary_workflow.service import SummaryWorkflowService
@@ -197,6 +199,18 @@ async def test_patient_portal_is_self_scoped_consent_gated_and_idempotent(reposi
         actor_role="doctor",
         expected_version=submitted.lock_version,
     )
+    search_records = await PostgresClinicalProjectionRepository(pool).list_patient_records(
+        tenant_id=tenant_id,
+        patient_id=patient_id,
+        facility_ids={facility_id},
+        source_kind=SourceKind.SIGNED_SUMMARY,
+    )
+    assert [record.source_id for record in search_records] == [signed.id]
+    assert search_records[0].security_labels == [
+        "clinician-signed",
+        "human-reviewed",
+        "restricted",
+    ]
     portal = PatientPortalService(summaries, _EmptyTimeline())
     reports = await portal.list_reports(identity)
     assert [item.id for item in reports] == [signed.id]

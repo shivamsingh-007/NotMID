@@ -17,8 +17,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 COPY --from=builder --chown=node:node /workspace/apps/clinician-console/.next/standalone ./
-COPY --from=builder --chown=node:node /workspace/apps/clinician-console/.next/static ./.next/static
+COPY --from=builder --chown=node:node /workspace/apps/clinician-console/.next/static ./apps/clinician-console/.next/static
 
 USER node
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "apps/clinician-console/server.js"]

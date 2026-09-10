@@ -44,5 +44,7 @@ apps/api/tests/test_audio.wav
 apps/api/tests/test_ocr_image.png
 
 # Build
+*.tsbuildinfo
+.npm-cache/
 *.tar.gz
 *.zip

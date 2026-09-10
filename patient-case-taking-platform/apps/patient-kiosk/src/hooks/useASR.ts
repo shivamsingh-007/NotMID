@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { readPatientSession } from "@/lib/patientPortal";
+import { patientAccessToken } from "@/lib/patientIdentity";
 
 interface UseASROptions {
   language?: string;
@@ -46,6 +48,7 @@ export function useASR(options: UseASROptions): UseASRReturn {
   const [error, setError] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const readyRef = useRef(false);
   const pendingRef = useRef<Array<Blob | string>>([]);
   const sendChainRef = useRef(Promise.resolve());
 
@@ -59,6 +62,11 @@ export function useASR(options: UseASROptions): UseASRReturn {
   const connect = useCallback(() => {
     try {
       setError(null);
+      const session = readPatientSession();
+      if (!session || session.tenantId !== context.tenantId) {
+        throw new Error("Sign in as the patient before using voice input");
+      }
+      readyRef.current = false;
       const defaultUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}/ws/asr`;
       const endpoint = wsUrl || process.env.NEXT_PUBLIC_ASR_WS_URL || defaultUrl;
       const query = new URLSearchParams({
@@ -72,11 +80,16 @@ export function useASR(options: UseASROptions): UseASRReturn {
       });
       const ws = new WebSocket(`${endpoint}?${query}`);
 
-      ws.onopen = () => {
-        setIsListening(true);
-        const queued = pendingRef.current;
-        pendingRef.current = [];
-        for (const message of queued) queueSend(ws, message);
+      ws.onopen = async () => {
+        try {
+          const token = await patientAccessToken(session);
+          if (ws.readyState === WebSocket.OPEN && wsRef.current === ws) {
+            ws.send(JSON.stringify({ type: "authenticate", access_token: token }));
+          }
+        } catch {
+          if (wsRef.current === ws) setError("Patient session unavailable. Sign in again before using voice input.");
+          ws.close();
+        }
       };
 
       ws.onmessage = (event) => {
@@ -88,7 +101,13 @@ export function useASR(options: UseASROptions): UseASRReturn {
           return;
         }
 
-        if (data.type === "transcript") {
+        if (data.type === "ready") {
+          readyRef.current = true;
+          setIsListening(true);
+          const queued = pendingRef.current;
+          pendingRef.current = [];
+          for (const message of queued) queueSend(ws, message);
+        } else if (data.type === "transcript") {
           if (data.is_final) {
             setTranscript(data.text);
             setInterimTranscript("");
@@ -118,6 +137,7 @@ export function useASR(options: UseASROptions): UseASRReturn {
       };
 
       ws.onclose = () => {
+        readyRef.current = false;
         setIsListening(false);
       };
 
@@ -133,22 +153,23 @@ export function useASR(options: UseASROptions): UseASRReturn {
       wsRef.current = null;
     }
     pendingRef.current = [];
+    readyRef.current = false;
     sendChainRef.current = Promise.resolve();
     setIsListening(false);
   }, []);
 
   const sendAudio = useCallback((chunk: Blob) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && readyRef.current) {
       queueSend(wsRef.current, chunk);
-    } else if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+    } else if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
       pendingRef.current.push(chunk);
     }
   }, [queueSend]);
 
   const endAudio = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN && readyRef.current) {
       queueSend(wsRef.current, JSON.stringify({ type: "end" }));
-    } else if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+    } else if (wsRef.current && wsRef.current.readyState <= WebSocket.OPEN) {
       pendingRef.current.push(JSON.stringify({ type: "end" }));
     }
   }, [queueSend]);

@@ -1,3 +1,5 @@
+import { clearPatientIdentity, currentPatientIdentity, patientAccessToken, patientClerkEnabled } from "./patientIdentity";
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export const DEMO_IDENTITY = {
@@ -123,6 +125,7 @@ export interface PatientConsent {
 const SESSION_KEY = "medikiosk-patient-session";
 
 export function readPatientSession(): PatientSession | null {
+  if (patientClerkEnabled) return currentPatientIdentity();
   const value = sessionStorage.getItem(SESSION_KEY);
   if (!value) return null;
   try {
@@ -134,12 +137,14 @@ export function readPatientSession(): PatientSession | null {
 }
 
 export function clearPatientSession(): void {
+  clearPatientIdentity();
   sessionStorage.removeItem(SESSION_KEY);
 }
 
 export async function createDemoPatientSession(
   identity = DEMO_IDENTITY,
 ): Promise<PatientSession> {
+  if (patientClerkEnabled) throw new Error("Use patient sign-in to access this application.");
   const query = new URLSearchParams({
     user_id: identity.patientId,
     email: "synthetic.patient@example.test",
@@ -169,10 +174,16 @@ async function patientFetch(
     ...init,
     headers: {
       ...init?.headers,
-      Authorization: `Bearer ${session.accessToken}`,
+      Authorization: `Bearer ${await patientAccessToken(session)}`,
     },
   });
-  if (response.status === 401) clearPatientSession();
+  if (response.status === 401) {
+    const current = readPatientSession();
+    // A delayed failure from the previous patient must not clear the new session.
+    if (current && (patientClerkEnabled ? current === session : current.accessToken === session.accessToken)) {
+      clearPatientSession();
+    }
+  }
   return response;
 }
 
@@ -187,6 +198,26 @@ async function patientJson<Response>(
 
 export function getPatientDashboard(session: PatientSession): Promise<PatientDashboard> {
   return patientJson(session, "/api/v1/patient-portal/me/dashboard");
+}
+
+export async function confirmPatientSafety(
+  session: PatientSession,
+  confirmation: {
+    encounter_id: string;
+    consent_id: string;
+    input_version: number;
+    chief_complaint: string;
+    confirmed_answers: Record<string, string>;
+  },
+): Promise<{ interrupt_required: boolean; durable_alert_count: number; staff_acknowledged: false }> {
+  const response = await patientFetch(session, "/api/v1/patient-portal/me/safety-confirmations", {
+    method: "POST",
+    signal: AbortSignal.timeout(15_000),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...confirmation, facility_id: session.facilityId, confirmed: true }),
+  });
+  if (!response.ok) throw new Error(`Safety confirmation failed (${response.status})`);
+  return response.json();
 }
 
 export function listPatientReports(

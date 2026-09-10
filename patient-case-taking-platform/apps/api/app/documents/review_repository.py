@@ -98,9 +98,9 @@ WHERE tenant_id = $1 AND idempotency_key = $2
 
 _UPDATE_CANDIDATE = """
 UPDATE document_extraction_candidate
-SET review_state = $5,
-    normalized_value = CASE WHEN $5 = 'corrected' THEN $6 ELSE normalized_value END,
-    unit = CASE WHEN $5 = 'corrected' THEN $7 ELSE unit END,
+SET review_state = $5::VARCHAR,
+    normalized_value = CASE WHEN $5::VARCHAR = 'corrected' THEN $6 ELSE normalized_value END,
+    unit = CASE WHEN $5::VARCHAR = 'corrected' THEN $7 ELSE unit END,
     version = version + 1
 WHERE tenant_id = $1 AND document_id = $2 AND candidate_id = $3 AND version = $4
 RETURNING candidate_id, entity_type, normalized_value, unit,
@@ -262,6 +262,11 @@ def _candidate(row: Any) -> ReviewCandidate:
         "source_polygon",
     ):
         values.setdefault(field, None)
+    # asyncpg returns JSONB as text unless a custom codec is installed.
+    # Decode before tuple conversion to preserve coordinates, not characters.
+    for field in ("source_bbox", "source_polygon"):
+        if isinstance(values[field], str):
+            values[field] = json.loads(values[field])
     if values["source_bbox"] is not None:
         values["source_bbox"] = tuple(values["source_bbox"])
     if values["source_polygon"] is not None:

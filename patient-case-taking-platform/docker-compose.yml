@@ -307,6 +307,53 @@ services:
       postgres: { condition: service_healthy }
       kafka: { condition: service_started }
 
+  triage-outbox-publisher:
+    profiles: ["triage"]
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.rules.alert_outbox", "forever"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    environment:
+      DATABASE_MAINTENANCE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      KAFKA_BROKERS: kafka:29092
+      TRIAGE_EVENT_TOPIC: ${TRIAGE_EVENT_TOPIC:-clinical.triage.v1}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      kafka: { condition: service_started }
+
+  triage-timer-worker:
+    profiles: ["triage-timers"]
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.rules.alert_timers", "forever", "--policy", "/policy/facility.json"]
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+    mem_limit: 256m
+    cpus: 0.5
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+    volumes:
+      - ${TRIAGE_TIMER_POLICY_FILE:-./services/alert-worker/policy.example.json}:/policy/facility.json:ro
+    environment:
+      DATABASE_URL: postgresql://notmid:${POSTGRES_PASSWORD:-notmid-local-only}@postgres:5432/notmid
+      TRIAGE_WORKFLOW_ENABLED: ${TRIAGE_WORKFLOW_ENABLED:-false}
+      ENABLE_DEMO_ROUTES: ${ENABLE_DEMO_ROUTES:-false}
+    depends_on:
+      api-migrate: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+
   summary-outbox-publisher:
     build:
       context: ./apps/api
@@ -366,6 +413,7 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+      target: ${API_BUILD_TARGET:-runtime}
     ports: ["8000:8000"]
     environment:
       APP_ENV: development
@@ -382,12 +430,30 @@ services:
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-notmid-local}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-notmid-local-only-change-me}
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-demo}
+      CLERK_APPLICATIONS_JSON: ${CLERK_APPLICATIONS_JSON:-[]}
       ENABLE_DEMO_ROUTES: ${ENABLE_DEMO_ROUTES:-false}
+      TRIAGE_WORKFLOW_ENABLED: ${TRIAGE_WORKFLOW_ENABLED:-false}
       DOCUMENT_WORKFLOW_ENABLED: ${DOCUMENT_WORKFLOW_ENABLED:-false}
       S3_SERVER_SIDE_ENCRYPTION: ${S3_SERVER_SIDE_ENCRYPTION:-}
       LLM_PROVIDER: mock
       TTS_PROVIDER: mock
       SUMMARY_WORKFLOW_ENABLED: ${SUMMARY_WORKFLOW_ENABLED:-false}
+      ASR_PROVIDER: ${ASR_PROVIDER:-mock}
+      OMP_NUM_THREADS: ${ASR_CPU_THREADS:-4}
+      MKL_NUM_THREADS: ${ASR_CPU_THREADS:-4}
+      ASR_MODEL_REVISION: ${ASR_MODEL_REVISION:-e9b71b369c048e2c6b634d4c131061c34e441179}
+      ASR_DECODING: ${ASR_DECODING:-ctc}
+      ASR_ENGLISH_PROVIDER: ${ASR_ENGLISH_PROVIDER:-whisper}
+      ASR_ENGLISH_MODEL: ${ASR_ENGLISH_MODEL:-openai/whisper-small.en}
+      HUGGINGFACE_TOKEN: ${HUGGINGFACE_TOKEN:-}
+      MODEL_WARMUP_ON_START: ${MODEL_WARMUP_ON_START:-false}
+      ASR_WARMUP_ON_START: ${ASR_WARMUP_ON_START:-false}
+      VOICE_REDIS_ENABLED: ${VOICE_REDIS_ENABLED:-false}
+      VOICE_KAFKA_ENABLED: ${VOICE_KAFKA_ENABLED:-false}
+      VOICE_CONTEXT_TTL_SECONDS: ${VOICE_CONTEXT_TTL_SECONDS:-1800}
+    volumes:
+      - asr-model-cache:/home/appuser/.cache/huggingface
     depends_on:
       api-migrate: { condition: service_completed_successfully }
       mongodb: { condition: service_healthy }
@@ -408,9 +474,16 @@ services:
     build:
       context: .
       dockerfile: apps/clinician-console/Dockerfile
+      args:
+        NEXT_PUBLIC_AUTH_PROVIDER: ${CLINICIAN_AUTH_PROVIDER:-demo}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${CLINICIAN_CLERK_PUBLISHABLE_KEY:-}
+        NEXT_PUBLIC_API_URL: ${CLINICIAN_API_URL:-http://localhost:8000}
     ports: ["3001:3000"]
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
+      CLERK_SECRET_KEY: ${CLINICIAN_CLERK_SECRET_KEY:-}
+      CLERK_AUDIENCE: ${CLINICIAN_CLERK_AUDIENCE:-clinician-app}
+      CLERK_AUTHORIZED_PARTIES: ${CLINICIAN_CLERK_AUTHORIZED_PARTIES:-http://localhost:3001}
 
   admin-console:
     build:
@@ -430,3 +503,4 @@ volumes:
   elasticsearchdata:
   ocr-model-cache:
   paddle-cache:
+  asr-model-cache:

@@ -8,6 +8,7 @@ from app.rules.engine import RuleResult, Severity, engine
 
 RESPIRATORY_TERMS = (
     "difficulty breathing",
+    "breathing difficulty",
     "cannot breathe",
     "shortness of breath",
     "breathless",
@@ -99,10 +100,12 @@ def _text_rule_result(
     severity: Severity,
     message: str,
     explanation_code: str,
+    rule_version: str = "1.0.0",
 ) -> RuleResult:
     evidence_paths = _matching_paths(answers, context, terms)
     return RuleResult(
         rule_id=rule_id,
+        rule_version=rule_version,
         rule_name=rule_name,
         triggered=bool(evidence_paths),
         severity=severity,
@@ -149,6 +152,7 @@ def difficulty_breathing_red_flag(answers: dict, context: dict) -> RuleResult:
         context=context,
         terms=RESPIRATORY_TERMS,
         rule_id="RF-RESP-001",
+        rule_version="1.0.1",
         rule_name="Reported Breathing Difficulty",
         severity=Severity.CRITICAL,
         message="Breathing difficulty reported — call clinical staff now",

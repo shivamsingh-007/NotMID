@@ -24,9 +24,11 @@ from app.patient_portal.intake_repository import (
     PostgresPatientIntakeRepository,
 )
 from app.patient_portal.service import PatientIdentity, PatientPortalService
+from app.patient_portal.worklist import PostgresIntakeWorklist
 from app.search.contracts import SourceKind
 from app.search.projection import PostgresClinicalProjectionRepository
-from app.summary_workflow.contracts import SummaryContent, SummarySourceBundle
+from app.summary_workflow.context import PostgresSummaryContextRepository
+from app.summary_workflow.contracts import ConfirmEncounterContextCommand, SummaryContent
 from app.summary_workflow.repository import PostgresSummaryRepository
 from app.summary_workflow.service import SummaryWorkflowService
 
@@ -170,15 +172,29 @@ async def test_patient_portal_is_self_scoped_consent_gated_and_idempotent(reposi
 
     summaries = PostgresSummaryRepository(pool)
     workflow = SummaryWorkflowService(summaries, LLMRouter(MockClinicalProvider()))
-    source = SummarySourceBundle(
-        tenant_id=tenant_id,
-        facility_id=facility_id,
-        patient_id=patient_id,
-        encounter_id=encounter_id,
-        chief_complaint="Chest discomfort",
-        confirmed_answers={"site": "central"},
-    )
     doctor_id = uuid4()
+    worklist = PostgresIntakeWorklist(pool)
+    accepted = await worklist.read(tenant_id, {facility_id})
+    assert [item.id for item in accepted] == [created.id]
+    assert await worklist.read(uuid4(), {facility_id}) == []
+    assert await worklist.read(tenant_id, {uuid4()}) == []
+    contexts = PostgresSummaryContextRepository(pool)
+    intake = accepted[0]
+    confirmed = await contexts.confirm(
+        tenant_id=tenant_id, actor_id=doctor_id,
+        command=ConfirmEncounterContextCommand(
+            **intake.model_dump(include={
+                "facility_id", "patient_id", "encounter_id", "language",
+                "chief_complaint", "confirmed_answers",
+            }),
+        ),
+    )
+    assert confirmed.version == 1
+    assert (await worklist.read(tenant_id, {facility_id}))[0].context_version == 1
+    source = await contexts.assemble(
+        tenant_id=tenant_id, facility_id=facility_id, patient_id=patient_id,
+        encounter_id=encounter_id, language="en",
+    )
     draft = await workflow.generate(
         source=source,
         actor_id=doctor_id,
@@ -225,3 +241,73 @@ async def test_patient_portal_is_self_scoped_consent_gated_and_idempotent(reposi
     download = await portal.render_report_download(identity, signed.id)
     assert "MEDIKIOSK SIGNED PATIENT REPORT" in download
     assert signed.signature_sha256 in download
+    await consents.revoke(identity, consent.id)
+    assert await worklist.read(tenant_id, {facility_id}) == []
+    assert [item.id for item in await portal.list_reports(identity)] == [signed.id]
+
+async def test_voice_consent_uses_durable_patient_scope(repositories, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from app.asr.authorization import authorize_voice
+    from app.auth.token import create_dev_token
+
+    pool, _ = repositories
+    tenant, patient, facility, encounter = (uuid4() for _ in range(4))
+    identity = PatientIdentity(tenant_id=tenant, patient_id=patient, facility_ids={facility})
+    repository = PostgresPatientConsentRepository(pool)
+    from app.auth.service import authenticate_token
+    from app.patient_portal.sessions import IntakeSessionRepository, session_owner
+
+    token = create_dev_token(str(patient), None, "patient", str(tenant), [str(facility)])
+    sessions = IntakeSessionRepository(pool)
+    session = await sessions.create(identity, session_owner(await authenticate_token(token)), facility, "hi", uuid4())
+    encounter = session["encounter_id"]
+    consent = await repository.create(identity, PatientConsentCreate(encounter_id=encounter, retain_audio=True))
+    monkeypatch.setattr("app.asr.authorization.get_postgres_pool", AsyncMock(return_value=pool))
+    assert await authorize_voice(token, tenant, encounter, consent.id, True, session_id=session["id"]) == patient
+    # The same patient's other login and a mismatched encounter cannot borrow this session.
+    another_login = create_dev_token(str(patient), "other@synthetic.example.test", "patient", str(tenant), [str(facility)])
+    with pytest.raises(HTTPException):
+        await authorize_voice(another_login, tenant, encounter, consent.id, session_id=session["id"])
+    with pytest.raises(HTTPException):
+        await authorize_voice(token, tenant, uuid4(), consent.id, session_id=session["id"])
+    other = create_dev_token(str(uuid4()), None, "patient", str(tenant), [str(facility)])
+    with pytest.raises(HTTPException):
+        await authorize_voice(other, tenant, encounter, consent.id, session_id=session["id"])
+    await repository.revoke(identity, consent.id)
+    with pytest.raises(HTTPException):
+        await authorize_voice(token, tenant, encounter, consent.id, session_id=session["id"])
+
+
+async def test_voice_rejects_ended_and_expired_sessions(repositories, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+
+    from app.asr.authorization import authorize_voice
+    from app.auth.service import authenticate_token
+    from app.auth.token import create_dev_token
+    from app.patient_portal.sessions import IntakeSessionRepository, session_owner
+
+    pool, _ = repositories
+    tenant, patient, facility = (uuid4() for _ in range(3))
+    identity = PatientIdentity(tenant, patient, {facility})
+    token = create_dev_token(str(patient), None, "patient", str(tenant), [str(facility)])
+    owner = session_owner(await authenticate_token(token))
+    sessions = IntakeSessionRepository(pool)
+    monkeypatch.setattr("app.asr.authorization.get_postgres_pool", AsyncMock(return_value=pool))
+    for action in ("end", "expire"):
+        session = await sessions.create(identity, owner, facility, "en", uuid4())
+        consent = await PostgresPatientConsentRepository(pool).create(identity, PatientConsentCreate(encounter_id=session["encounter_id"]))
+        assert await authorize_voice(token, tenant, session["encounter_id"], consent.id, session_id=session["id"]) == patient
+        if action == "end":
+            await sessions.access(identity, owner, session["id"], end=True)
+        else:
+            async with pool.acquire() as connection:
+                async with connection.transaction():
+                    await sessions.scope(connection, identity)
+                    await connection.execute("UPDATE patient_intake_session SET expires_at=CURRENT_TIMESTAMP-INTERVAL '1 second' WHERE id=$1", session["id"])
+        with pytest.raises(HTTPException, match="Active patient intake session required"):
+            await authorize_voice(token, tenant, session["encounter_id"], consent.id, session_id=session["id"])

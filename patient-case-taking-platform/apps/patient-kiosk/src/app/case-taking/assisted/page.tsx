@@ -12,7 +12,7 @@ import {
   generateClinicalSummary,
   getNextQuestion,
 } from "@/lib/clinicalAi";
-import { readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
+import { confirmPatientSafety, readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
 
 type Phase = "complaint" | "question" | "emergency" | "summary";
 type ReviewDecision = "editing" | "accepted" | "rejected";
@@ -26,7 +26,9 @@ const COPY = {
     complaintHelp: "For example: I have had stomach pain since yesterday.",
     continue: "Continue",
     thinking: "Choosing the next safe question…",
-    unavailable: "Assisted questions are unavailable. Your answers have not been sent.",
+    unavailable: "Assisted questions are unavailable. Some confirmed answers may already be saved. Please ask nearby staff for help.",
+    safetyUnavailable: "The safety check could not be completed. Please call a nearby nurse or doctor before continuing.",
+    safetySaved: "A warning was saved for clinician review. Staff have not yet acknowledged it. Please call a nearby nurse or doctor now.",
     manual: "Use the touch questionnaire",
     answer: "Type your answer",
     submitAnswer: "Confirm answer",
@@ -51,7 +53,9 @@ const COPY = {
     complaintHelp: "जैसे: कल से मेरे पेट में दर्द है।",
     continue: "आगे बढ़ें",
     thinking: "अगला सुरक्षित प्रश्न चुना जा रहा है…",
-    unavailable: "सहायक प्रश्न अभी उपलब्ध नहीं हैं। आपके उत्तर भेजे नहीं गए।",
+    unavailable: "सहायक प्रश्न अभी उपलब्ध नहीं हैं। कुछ पुष्ट उत्तर सहेजे जा चुके हो सकते हैं। पास के स्टाफ से मदद माँगें।",
+    safetyUnavailable: "सुरक्षा जाँच पूरी नहीं हो सकी। आगे बढ़ने से पहले पास की नर्स या डॉक्टर को बुलाएँ।",
+    safetySaved: "चेतावनी डॉक्टर की समीक्षा के लिए सहेजी गई है। स्टाफ ने अभी इसकी पुष्टि नहीं की है। पास की नर्स या डॉक्टर को अभी बुलाएँ।",
     manual: "टच प्रश्नावली का उपयोग करें",
     answer: "अपना उत्तर लिखें",
     submitAnswer: "उत्तर की पुष्टि करें",
@@ -84,6 +88,7 @@ export default function AssistedQuestionPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [safetySaved, setSafetySaved] = useState(false);
   const emergencyRef = useRef<HTMLElement>(null);
   const [context, setContext] = useState(() => ({
     tenantId: crypto.randomUUID(),
@@ -125,6 +130,27 @@ export default function AssistedQuestionPage() {
     setError("");
     setStatus(copy.thinking);
     try {
+      try {
+        const patient = readPatientSession();
+        if (!patient) throw new Error("Patient access required");
+        const safety = await confirmPatientSafety(patient, {
+          encounter_id: context.encounterId,
+          consent_id: context.consentId,
+          input_version: Object.keys(collectedAnswers).length + 1,
+          chief_complaint: complaint,
+          confirmed_answers: collectedAnswers,
+        });
+        if (safety.interrupt_required) {
+          setSafetySaved(true);
+          setPhase("emergency");
+          setStatus(copy.safetySaved);
+          return;
+        }
+      } catch {
+        setError(copy.safetyUnavailable);
+        setStatus(copy.safetyUnavailable);
+        return;
+      }
       const response = await getNextQuestion({
         tenantId: context.tenantId,
         sessionId: context.sessionId,
@@ -260,9 +286,9 @@ export default function AssistedQuestionPage() {
           </section>
         )}
 
-        {phase === "emergency" && question && (
+        {phase === "emergency" && (
           <section ref={emergencyRef} tabIndex={-1} className="rounded-3xl border-4 border-[var(--mk-danger)] bg-[var(--mk-danger-soft)] p-6 sm:p-10" role="alert" aria-live="assertive">
-            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><AudioPrompt text={`${copy.emergencyTitle}. ${copy.emergencyBody}`} language={language} autoPlay/><p className="mt-5 max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{question.question}</p><p className="mb-5 text-sm">Routine questions are paused · सामान्य प्रश्न रोक दिए गए हैं</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
+            <span className="mk-pill mk-pill--danger">Urgent safety message · तुरंत सहायता</span><h1 className="mk-display my-4 text-4xl text-[var(--mk-danger)] sm:text-6xl">{copy.emergencyTitle}</h1><AudioPrompt text={`${copy.emergencyTitle}. ${copy.emergencyBody}`} language={language} autoPlay/><p className="mt-5 max-w-2xl text-lg font-bold">{copy.emergencyBody}</p><p className="my-5 rounded-xl bg-white p-4">{safetySaved ? copy.safetySaved : question?.question}</p><p className="mb-5 text-sm">Routine questions are paused · सामान्य प्रश्न रोक दिए गए हैं</p><TouchButton variant="danger" size="large" onClick={() => setStatus(copy.calledStaff)}>{copy.calledStaff}</TouchButton>
           </section>
         )}
 

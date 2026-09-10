@@ -1,7 +1,8 @@
 """FastAPI authentication dependencies."""
 from fastapi import Depends, Header, HTTPException
 
-from app.auth.token import TokenPayload, validate_token
+from app.auth.service import authenticate_token
+from app.auth.token import TokenPayload
 
 
 async def get_current_user(authorization: str = Header(None)) -> TokenPayload:
@@ -9,11 +10,11 @@ async def get_current_user(authorization: str = Header(None)) -> TokenPayload:
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
 
-    token = authorization.replace("Bearer ", "")
-    payload = validate_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    return payload
+    scheme, separator, token = authorization.partition(" ")
+    if not separator or scheme.lower() != "bearer" or not token.strip():
+        raise HTTPException(status_code=401, detail="Bearer authorization required")
+    token = token.strip()
+    return await authenticate_token(token)
 
 
 async def require_admin(user: TokenPayload = Depends(get_current_user)) -> TokenPayload:

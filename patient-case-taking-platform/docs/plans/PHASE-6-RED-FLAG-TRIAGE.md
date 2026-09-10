@@ -13,8 +13,14 @@
   stable rule/ruleset versions, owner role, explanation code, and source paths.
 - A bounded demo endpoint exposes evaluation metadata and states explicitly that
   no durable alert was created.
-- Durable flags, authenticated ownership, acknowledgement, escalation, outbox
-  delivery, clinical approval, and validation remain unimplemented release gates.
+- Durable flags, authenticated ownership, acknowledgement, explicit doctor
+  resolution, transactional history/outbox and fenced Kafka publication are
+  implemented with local integration evidence recorded below.
+- Assisted and touch patient confirmation now persist triggered flags before
+  advancing. Prototype ruleset v2 / respiratory rule 1.0.1 recognizes the existing
+  bilingual touch-choice labels; readable selected answers retain source paths.
+- Governed staff handoff/override, policy timers, notification consumers,
+  clinical approval and measured clinical validation remain incomplete gates.
 
 ### Slice 6.1 implementation record
 
@@ -385,3 +391,87 @@ or **prototype only**—never “clinically validated,” “all targets met,”
 Keep each PR deployable behind a deny-by-default facility/ruleset feature flag.
 The flag may disable new evaluation or notification behavior, but it must never
 hide flags already accepted into the durable workflow.
+
+### Slice 6.2 continuation — 8 September 2026
+
+Implemented `apps/api/app/rules/alert_lifecycle.py`, the immutable transition
+boundary for acknowledge, handoff, policy-worker escalation, resolve and override.
+It enforces tenant/facility/role, optimistic version and transition time; separates
+receipt from disposition; requires verified handoff identity and recipient
+acknowledgement; prevents stale acknowledgement timers from escalating an
+acknowledged concern; and requires an owning doctor plus reason/protected rationale
+for disposition and an approval reference for override.
+
+Ten focused tests pass and mypy passes. This module is not yet wired to a public
+endpoint or durable repository. An approval reference is required input here;
+its authenticity must be checked by the future governance adapter. Do not claim
+live alert delivery, approved rules, persistence or completed Slice 6.2 from
+these pure transition tests. Atomic PostgreSQL projection/history/outbox storage,
+authenticated input sourcing and staff UI remain the next implementation work.
+
+### Durable alert repository — 8 September 2026
+
+Migration 0015 adds `triage_flag`, append-only `triage_flag_history` and
+`triage_outbox`, each with forced tenant RLS. The repository deduplicates raised
+flags by encounter/input/rule/evidence version, serializes commands with a row
+lock, checks expected versions, and replays matching idempotency keys. Current
+state, protected history and metadata-only outbox rows commit or roll back together.
+
+Live PostgreSQL tests pass for concurrent raise/acknowledgement, replay/conflict,
+facility and tenant denial, RLS without superuser bypass, append-only history,
+and rollback after a simulated transaction failure. Migration applies once in
+an isolated schema and the second run applies zero changes. Full API regression:
+421 passed, 28 skipped; Ruff and mypy (182 source files) pass.
+
+This persistence layer is not yet connected to confirmed-intake evaluation or
+public staff commands. Outbox transport, facility escalation policy, verified
+workforce/approval adapters and UI remain open. Do not claim delivery from the
+presence of an outbox row. Migration tested in disposable schemas only; apply
+through the existing migration runner when enabling the workflow. Rollback must
+export/retain alert history before using 0015's down migration; ordinary rollback
+should disable new alert commands and retain data.
+
+### Staff API and queue integration — 8 September
+
+The authenticated API and staff queue now consume the durable repository. Staff
+can explicitly review a consented accepted intake and evaluate its stored source
+fields, then acknowledge/take ownership and resolve as owning doctor. The Alerts
+page reads PostgreSQL through treatment-scoped APIs and retains a closed-state
+view. Prototype rule creation remains demo-gated. See
+[ALERT-API.md](../contracts/ALERT-API.md) for exact contracts and open boundaries.
+
+Patient interruption-time alert creation, timed escalation/outbox publication,
+verified workforce handoff, governance-approved override and a full authenticated
+browser walkthrough remain open. Source/API/database integration tests do not
+prove those missing paths or clinical approval.
+
+### Alert outbox publication — 8 September
+
+Migration 0016 and the optional `triage-outbox-publisher` Compose service now
+publish reference-only alert envelopes to Kafka. Events retain stable identity,
+serialize by alert version and use leased claims with UUID fencing. Broker outage
+retries are bounded; exhausted events remain in dead-letter state and block later
+alert events until maintenance replay. Queue delivery status is distinct from
+staff acknowledgement. Five live database tests plus a separate real Kafka
+receipt test pass. Operator replay currently requires maintenance access and
+recording in the operations log; governed replay audit remains open.
+
+Consumer notification workflow, facility-approved timers, patient interruption
+persistence and governed staff handoff/override are still incomplete. A broker
+receipt is not proof that any clinician has seen or responded to an alert.
+
+### Patient interruption and policy registry — 9 September
+
+Assisted and touch intake persist triggered flags before advancing questions;
+both paths were verified in the browser with synthetic inputs. Timed escalation
+uses an explicit facility ladder, immutable policy snapshots, stable step keys
+and the existing transactional history/outbox. Migration 0017 adds a single
+active policy per facility, immutable policy versions and activation history.
+Expected activation revisions prevent lost updates; shared policy locks fence
+old workers through alert commit when a policy is replaced/deactivated.
+
+Maintenance CLI activation records an operator attribution and reason. Production
+operator identity verification and clinical approval remain open; the runtime is
+still prototype-only and demo-gated. No timer resolves alerts or treats broker
+publication as staff acknowledgement. See services/alert-worker/README.md for
+activation, pause, replacement and recovery procedures.

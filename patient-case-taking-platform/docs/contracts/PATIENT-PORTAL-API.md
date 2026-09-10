@@ -33,6 +33,55 @@ clinical environment.
 
 ## Intake truth boundary
 
+### Authenticated intake sessions
+
+`POST /api/v1/patient-portal/me/sessions` accepts `facility_id` and `language`
+(`hi` or `en`) plus a UUID `Idempotency-Key` header. Patient and tenant come from
+the authenticated internal identity. The response contains server-generated
+`id`, `encounter_id`, permitted `facility_id`, `language`, `expires_at` and
+`hard_expires_at`. Replaying the same active request returns the same identifiers;
+changing its input or replaying an expired/ended session returns 409. A facility
+outside the patient's grant returns 403.
+
+`POST /sessions/{id}/touch` renews an active session's five-minute idle expiry,
+bounded by its thirty-minute hard expiry. `POST /sessions/{id}/end` ends it.
+Both paths are relative to `/api/v1/patient-portal/me`. Wrong patient, tenant,
+facility or login-session ownership and inactive IDs produce the same 404.
+Expiry cannot be renewed after it occurs. Responses are private/no-store.
+
+Migration 0019 stores session ownership as a hash of verified provider/session
+identity, with tenant/patient RLS and immutable creation/end history. Clerk token
+refresh retains ownership; a different login or application does not. Demo
+credentials without a stable session ID are bound to that exact token. Consent
+and clinical content are not stored in this table. The down migration removes
+session/history metadata and requires an appropriate backup before use outside
+disposable tests.
+
+The patient start flow uses this endpoint. ASR requires its server-issued
+`session_id`: a query field on `/ws/asr` and a required multipart form field on
+`POST /api/v1/asr/transcribe`. Both paths verify active session ownership and
+matching encounter before inference and before returning transcripts. Expired,
+ended, wrong-login or mismatched sessions receive 403 (WebSocket access-denied
+error and close 1008). Processing does not renew session activity automatically.
+Intake actions and automatic activity/end handling remain pending integration.
+
+Staff handoff uses `GET /api/v1/intake-worklist?purpose=treatment` with a doctor
+or nurse token. Results are paged with `limit` (1–100) and `offset` (0–10000),
+restricted to the token's tenant/facilities, accepted intake decisions and active
+matching treatment consent. Rejected or revoked-consent intakes are excluded.
+Responses are private/no-store and preserve patient-confirmed answers.
+
+`POST /api/v1/intake-worklist/{id}/confirm` requires `reviewed: true` and an
+optional `expected_version`. It rechecks visibility and loads the intake from
+PostgreSQL, then records the clinician-confirmed Phase 8 context. Stale versions
+return 409; inaccessible/revoked entries return 404. It does not copy the
+patient's proposed summary into a signed record or sign anything automatically.
+The existing `/summary-workflows/generate` endpoint then assembles the confirmed
+context and reviewed document facts. The worklist uses a stable intake-based
+idempotency key and reopens an existing generation after an interrupted response.
+Read/confirmation audits use the existing metadata-only audit emitter; durable
+central audit persistence remains a separate unresolved platform gap.
+
 An accepted or rejected summary draft is stored as the patient's confirmed
 submission, not as a signed clinical record. A clinician must assemble the
 confirmed context, review evidence, edit as needed and sign through the Phase 8

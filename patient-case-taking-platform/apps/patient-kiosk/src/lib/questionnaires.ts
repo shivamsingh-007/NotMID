@@ -22,6 +22,20 @@ export interface Questionnaire {
   sections: QuestionnaireSection[];
 }
 
+/** Preserve the meaning of confirmed choices rather than submitting opaque option codes. */
+export function describeAnswers(
+  questionnaire: Questionnaire | null,
+  answers: Record<string, string | string[]>,
+  language: "en" | "hi",
+): Record<string, string> {
+  const questions = questionnaire?.sections.flatMap((section) => section.questions) || [];
+  return Object.fromEntries(Object.entries(answers).map(([key, value]) => {
+    const question = questions.find((item) => item.id === key);
+    const describe = (answer: string) => question?.options?.find((option) => option.value === answer)?.label[language] || answer;
+    return [key, Array.isArray(value) ? value.map(describe).join(", ") : describe(value)];
+  }));
+}
+
 export const ALLOPATHIC_HISTORY: Questionnaire = {
   id: "allopathic_history",
   type: "allopathic",

@@ -52,7 +52,7 @@ export default function LoginPage() {
       <section className="mk-card dev-login-card" aria-labelledby="login-title">
         <span className="mk-eyebrow">Local engineering access</span>
         <h1 id="login-title" className="mk-display">MediKiosk clinician console</h1>
-        <p>This demo-gated sign-in is for synthetic local testing only. Production Clerk/SSO integration remains pending.</p>
+        <p>This local sign-in is for synthetic testing only. Use your organization’s configured sign-in for clinical access.</p>
 
         {error && <p className="dev-login-error" role="alert">{error}</p>}
         <form onSubmit={handleLogin}>

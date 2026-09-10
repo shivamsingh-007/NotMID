@@ -101,3 +101,26 @@ def test_manual_entry_requires_supported_type_and_source_verification() -> None:
             source_page_number=1,
             source_verified=False,
         ).validate()
+
+@pytest.mark.parametrize("encoded", [True, False])
+def test_postgres_candidate_geometry_survives_response_serialization(encoded):
+    import json
+
+    from app.documents.review_repository import _candidate
+    from app.schemas.document_review import ReviewCandidateResponse
+
+    bbox = [10, 20, 300, 60]
+    polygon = [[10, 20], [300, 20], [300, 60], [10, 60]]
+    row = {
+        "candidate_id": uuid4(), "entity_type": "medication", "normalized_value": "Metformin",
+        "unit": None, "source_page_artifact_id": uuid4(), "source_ocr_artifact_id": uuid4(),
+        "source_region_id": uuid4(), "source_page_number": 1, "parser_signal": "matched",
+        "negated": False, "temporality": "unknown", "subject": "patient", "uncertainty": None,
+        "document_statement": True, "clinician_confirmed_current": False,
+        "review_state": "unreviewed", "version": 1,
+        "source_bbox": json.dumps(bbox) if encoded else bbox,
+        "source_polygon": json.dumps(polygon) if encoded else polygon,
+    }
+    result = ReviewCandidateResponse.model_validate(_candidate(row)).model_dump(mode="json")
+    assert result["source_bbox"] == bbox
+    assert result["source_polygon"] == polygon

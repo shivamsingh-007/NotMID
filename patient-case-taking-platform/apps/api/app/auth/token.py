@@ -1,7 +1,7 @@
-"""Token validation abstraction.
-In production, validates Clerk JWTs against pinned JWKS.
-For development, uses a simplified token scheme."""
+"""Demo token storage and shared internal authorization payload.
+External verification and mapping live in the authentication service."""
 import hashlib
+import secrets
 import time
 from dataclasses import dataclass
 
@@ -18,18 +18,22 @@ class TokenPayload:
     token_hash: str
     mfa_verified: bool = False  # MFA-ready: False until MFA challenge completed
     session_id: str | None = None  # links to session for rotation tracking
+    external_issuer: str | None = None
+    external_audience: str | None = None
+    external_subject: str | None = None
 
 
 # Dev token store
 _tokens: dict[str, TokenPayload] = {}
-_token_counter: int = 0
 
 
 def create_dev_token(user_id: str, email: str | None, role: str, tenant_id: str, facility_ids: list[str], ttl_seconds: int = 3600, mfa_verified: bool = False, session_id: str | None = None) -> str:
     """Create a dev-only token. In production, Clerk issues tokens."""
-    global _token_counter
-    _token_counter += 1
-    token = f"dev_token_{user_id}_{_token_counter}"
+    now = time.time()
+    for expired_hash, existing in list(_tokens.items()):
+        if existing.expires_at <= now:
+            _tokens.pop(expired_hash, None)
+    token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(token.encode()).hexdigest()
     payload = TokenPayload(
         user_id=user_id,
@@ -53,7 +57,7 @@ def validate_token(token: str) -> TokenPayload | None:
     payload = _tokens.get(token_hash)
     if not payload:
         return None
-    if time.time() > payload.expires_at:
+    if time.time() >= payload.expires_at:
         del _tokens[token_hash]
         return None
     return payload
@@ -79,5 +83,6 @@ def rotate_token(old_token: str, new_role: str | None = None) -> str | None:
         new_role or old_payload.role,
         old_payload.tenant_id, old_payload.facility_ids,
         mfa_verified=old_payload.mfa_verified,
+        session_id=old_payload.session_id,
     )
     return new_token

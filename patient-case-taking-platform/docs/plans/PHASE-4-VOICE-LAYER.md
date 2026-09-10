@@ -77,3 +77,26 @@ $env:ASR_PROVIDER='ai4bharat'
 ```
 
 On Windows, very deep OneDrive paths can exceed legacy path limits while installing Torch license files. Use Docker/WSL or a short virtual-environment path; the production Linux container layout is not affected.
+
+## Authenticated voice transport (7 September 2026)
+
+WebSocket `/ws/asr` still receives language, tenant/session/encounter/consent IDs
+and retention preferences as query parameters. Those IDs alone do not authorize
+speech. The first frame must be JSON `{"type":"authenticate","access_token":"..."}`
+within ten seconds. Wait for `ready` before sending PCM16 audio. Credentials must
+never be included in a URL. The kiosk obtains the token from its patient session.
+
+The API verifies the patient role and tenant, then reads the consent under
+PostgreSQL tenant RLS. Patient, encounter, treatment purpose, granted status and
+expiry must match. Retention additionally requires the stored `audio_retention`
+grant; client flags cannot grant permission. Checks repeat before partial/final
+inference and after final inference before retention or result delivery. Denial
+returns `voice_access_denied` with touch fallback. A database failure fails closed.
+
+REST `POST /api/v1/asr/transcribe` requires Bearer authorization and multipart
+`tenant_id`, `encounter_id`, `consent_id`, `language`, and `file`. It applies the
+same patient/consent checks before inference and before returning the result.
+
+This closes the stored-consent validation gap. The current identity adapter is
+still local demo authentication, and the client session ID is correlation metadata;
+server-issued durable voice sessions and external identity remain open gates.

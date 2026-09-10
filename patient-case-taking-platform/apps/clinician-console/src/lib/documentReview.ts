@@ -1,3 +1,5 @@
+import { clinicalAccessToken } from "./clinicalSession";
+
 export type ReviewState =
   | "unreviewed"
   | "accepted"
@@ -85,23 +87,13 @@ export class ReviewApiError extends Error {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-function accessToken(): string {
-  const token = window.sessionStorage.getItem("medikiosk.access_token");
-  if (!token) {
-    throw new ReviewApiError(
-      "Clinical session unavailable. Sign in again to review documents.",
-      401,
-    );
-  }
-  return token;
-}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiUrl}/api/v1/document-reviews${path}`, {
     ...init,
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${accessToken()}`,
+      Authorization: `Bearer ${await clinicalAccessToken()}`,
       "Content-Type": "application/json",
       ...init?.headers,
     },

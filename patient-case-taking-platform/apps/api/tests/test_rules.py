@@ -23,7 +23,7 @@ def test_difficulty_breathing_red_flag():
     assert len(results) == 1
     assert results[0].rule_id == "RF-RESP-001"
     assert results[0].severity == Severity.CRITICAL
-    assert results[0].ruleset_version == "phase6.prototype.v1"
+    assert results[0].ruleset_version == "phase6.prototype.v2"
 
 
 def test_fever_with_rash_red_flag():

@@ -4,6 +4,8 @@ import asyncio
 import base64
 import json
 import os
+import time
+from collections import deque
 from dataclasses import asdict, dataclass
 from typing import Any
 from uuid import UUID
@@ -35,14 +37,31 @@ class VoiceRuntime:
     """Infrastructure adapter with memory fallbacks for deterministic development."""
 
     def __init__(self) -> None:
-        self.contexts: dict[str, dict[str, Any]] = {}
-        self.events: list[tuple[str, dict[str, Any]]] = []
-        self.retained_audio: dict[str, bytes] = {}
+        self._contexts: dict[str, dict[str, Any]] = {}
+        self._expires: dict[str, float] = {}
+        self.events: deque[tuple[str, dict[str, Any]]] = deque(maxlen=128)
+
+    @property
+    def contexts(self) -> dict[str, dict[str, Any]]:
+        """Local test/development state, lazily expired and bounded on insertion."""
+        now = time.monotonic()
+        for key, deadline in list(self._expires.items()):
+            if deadline <= now or key not in self._contexts:
+                self._contexts.pop(key, None)
+                self._expires.pop(key, None)
+        return self._contexts
 
     async def save_context(self, context: VoiceTurnContext, **state: Any) -> None:
         payload = {**context.metadata(), **state}
-        self.contexts[str(context.turn_id)] = payload
         if not settings.VOICE_REDIS_ENABLED:
+            contexts = self.contexts
+            key = str(context.turn_id)
+            if key not in contexts and len(contexts) >= 128:
+                oldest = next(iter(contexts))
+                contexts.pop(oldest)
+                self._expires.pop(oldest, None)
+            contexts[key] = payload
+            self._expires[key] = time.monotonic() + settings.VOICE_CONTEXT_TTL_SECONDS
             return
         import redis.asyncio as redis
 
@@ -57,8 +76,8 @@ class VoiceRuntime:
             await client.aclose()
 
     async def publish(self, topic: str, payload: dict[str, Any]) -> None:
-        self.events.append((topic, payload))
         if not settings.VOICE_KAFKA_ENABLED:
+            self.events.append((topic, payload))
             return
         from aiokafka import AIOKafkaProducer
 
@@ -92,7 +111,6 @@ class VoiceRuntime:
         object_key = (
             f"voice/{context.tenant_id}/{context.encounter_id}/{context.turn_id}.aesgcm"
         )
-        self.retained_audio[object_key] = ciphertext
 
         import boto3
 
@@ -102,14 +120,17 @@ class VoiceRuntime:
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
         )
-        await asyncio.to_thread(
-            client.put_object,
-            Bucket=settings.S3_BUCKET,
-            Key=object_key,
-            Body=ciphertext,
-            ContentType="application/octet-stream",
-            Metadata={"encryption": "AES-256-GCM", "retention-class": "consented-audio"},
-        )
+        try:
+            await asyncio.to_thread(
+                client.put_object,
+                Bucket=settings.S3_BUCKET,
+                Key=object_key,
+                Body=ciphertext,
+                ContentType="application/octet-stream",
+                Metadata={"encryption": "AES-256-GCM", "retention-class": "consented-audio"},
+            )
+        finally:
+            client.close()
         return object_key
 
 

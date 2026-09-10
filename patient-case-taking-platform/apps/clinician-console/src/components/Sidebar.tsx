@@ -34,7 +34,7 @@ export function Sidebar() {
           );
         })}
       </nav>
-      <div className="sidebar-shift"><span>Shift handoff</span><strong>12:30 · 48 min</strong><span>3 handoffs still open</span></div>
+      <div className="sidebar-shift"><span>Patient intake</span><strong>Review before signing</strong><span>Open the worklist for current submissions</span></div>
     </aside>
   );
 }

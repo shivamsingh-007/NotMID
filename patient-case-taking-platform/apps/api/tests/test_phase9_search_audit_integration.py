@@ -36,7 +36,7 @@ async def audit_database() -> AsyncIterator[tuple[asyncpg.Pool, str]]:
     try:
         await admin.execute(f'CREATE SCHEMA "{schema}"')
         await admin.execute(f'SET search_path TO "{schema}"')
-        assert await apply_migrations(admin) == 14
+        assert await apply_migrations(admin) == 19
         await admin.execute(f'CREATE ROLE "{role}" NOLOGIN NOSUPERUSER NOBYPASSRLS')
         await admin.execute(f'GRANT USAGE ON SCHEMA "{schema}" TO "{role}"')
         await admin.execute(

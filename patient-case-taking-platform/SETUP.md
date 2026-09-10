@@ -412,6 +412,45 @@ cache volumes on first start. When running that worker directly, install
 `.[dev,ai-ocr-fast]`; a Hugging Face credential is not required because the
 documented local configuration uses Paddle's public BOS model source.
 
+### Enable real Hindi and English ASR in Docker
+
+The default lightweight API image uses mock speech. For real transcription, set
+these values in the repository `.env` before rebuilding the API:
+
+```dotenv
+API_BUILD_TARGET=asr
+ASR_PROVIDER=ai4bharat
+ASR_CPU_THREADS=4
+ASR_DECODING=ctc
+ASR_ENGLISH_PROVIDER=whisper
+ASR_ENGLISH_MODEL=openai/whisper-small.en
+VOICE_REDIS_ENABLED=true
+VOICE_KAFKA_ENABLED=true
+```
+
+If the Hindi model requires access approval, accept its access conditions and
+set `HUGGINGFACE_TOKEN` locally. Keep the token out of Git. Run
+`docker compose up -d --build api`; the selected image installs the speech
+dependencies and preserves downloaded models in `asr-model-cache`. Hindi uses
+the pinned Indic Conformer revision and English uses Whisper small.en. First
+use includes model download/loading time. `ASR_WARMUP_ON_START=true` moves
+speech loading to startup without loading OCR in the API (OCR has its own worker).
+A missing dependency or unavailable model must remain a
+visible failure with manual entry available; it is not a successful transcript.
+
+The Redis and Kafka switches enable the existing voice context and metadata
+adapters. They do not enable audio retention. This setup does not install TTS
+or HiMed 8B. Verify with synthetic speech in both languages before a showcase.
+
+`ASR_CPU_THREADS` bounds OpenMP/MKL threads in the API container. For local
+Python runs, set `OMP_NUM_THREADS` and `MKL_NUM_THREADS` before starting Python.
+Measure on your machine with other heavy builds stopped; increasing thread
+counts can worsen latency through CPU contention. Local voice fallback history
+is capped at 128 turns/events, and contexts expire lazily on access after the
+configured TTL. With Redis/Kafka enabled, the adapter does not also retain local
+copies. Encrypted audio is uploaded to object storage without a persistent
+in-process copy.
+
 ## 7. How to use the prototype
 
 ### Patient
@@ -431,11 +470,35 @@ Browser microphone permission is needed only when exercising real recording comp
 
 ### Nurse
 
-1. Open <http://localhost:3001>.
-2. Review the deterministic urgency summary and live triage queue.
-3. Filter the queue to urgent patients.
-4. Review vitals, rule-owned alerts and handoff status.
-5. Choose **Open handoff** to move into the doctor review workflow.
+1. Sign in at <http://localhost:3001/login> as a synthetic nurse or doctor with
+   the same tenant and facility used by the patient session.
+2. Open <http://localhost:3001> or `/worklist`, confirm treatment purpose and
+   choose **Load worklist**. Accepted, consent-authorized patient submissions
+   load from PostgreSQL; there are no hardcoded patients or shift counts.
+3. Choose **Review intake**, inspect the complaint and patient-confirmed answers,
+   then explicitly confirm that you reviewed them.
+4. Choose **Prepare handoff** to confirm the authoritative context and generate
+   a draft. Retry reopens an existing generation. No signing happens here.
+5. Choose **Open clinician review**, then **Load summary**. Doctors can edit,
+   submit and sign; nurses retain their restricted Phase 8 permissions.
+
+The worklist requires DOCUMENT_WORKFLOW_ENABLED and SUMMARY_WORKFLOW_ENABLED.
+No database migration is needed for this projection. To roll back the UI/API
+change, redeploy the preceding version; stored intake and summary history remain
+intact. This worklist does not claim to provide Phase 6 durable alert escalation.
+
+To create a synthetic intake for a walkthrough, run from `apps/api`:
+
+```bash
+python -m tools.seed_showcase
+```
+
+The helper requires the demo routes and durable workflows to be enabled. It
+calls only a localhost API, creates a new synthetic tenant/patient/encounter,
+grants 24-hour treatment consent and submits an accepted intake. It prints the
+tenant, facility and doctor UUIDs to enter at the clinical sign-in screen; it
+does not print credentials. Each run creates a separate sample. This verifies
+the handoff without requiring a microphone, and does not replace ASR/OCR tests.
 
 ### Doctor
 
@@ -604,9 +667,10 @@ Stop the development server, remove the affected app's `.next` directory, and ru
 - Phase 5 intentionally has no vLLM integration. Any generative provider requires separate clinical, privacy, licensing and rollback approval.
 - Mock TTS emits a deterministic acknowledgement WAV, not intelligible speech.
   Production bilingual TTS needs separate accessibility, privacy and quality approval.
-- Phase 6 Slice 6.1 provides a canonical prototype evaluator only. Durable flags,
-  staff ownership, acknowledgement, escalation, outbox delivery, clinical
-  approval and measured validation are not implemented.
+- Phase 6 provides prototype evaluation, durable patient-triggered flags, staff
+  ownership, acknowledgement, explicit resolution and Kafka outbox publication.
+  Governed handoff/override, timed escalation, notification consumers, clinical
+  approval and measured clinical validation remain incomplete.
 - Phase 7 is an engineering candidate for prescription documents. Durable
   registry/quarantine, scan/normalization/OCR/extraction workers, source-adjacent
   review, reviewed-fact promotion and an outbox publisher are implemented and
@@ -617,3 +681,97 @@ Stop the development server, remove the affected app's `.next` directory, and ru
 - Production deployment requires managed secrets, TLS, authenticated data services, backups, monitoring and reviewed clinical-safety controls.
 
 For product behavior see [`PRODUCT.md`](PRODUCT.md). For the visual system see [`DESIGN.md`](DESIGN.md). For architecture and safety constraints start with [`CONTEXT-GRAPH.md`](CONTEXT-GRAPH.md) and [`AGENTS.md`](AGENTS.md).
+
+## Full synthetic OCR pipeline check
+
+After starting the documented local demo configuration and document workers,
+run from `apps/api`:
+
+```powershell
+.\.venv\Scripts\python.exe -m tools.verify_document_pipeline
+```
+
+This uploads a generated prescription via the patient API and MinIO grant,
+waits for scanning/normalization/real OCR/extraction, and checks exact expected
+source-linked candidates. It verifies that unreviewed OCR is absent from the
+patient timeline, then makes explicit simulated clinician review decisions for
+that known synthetic fixture and verifies document-stated timeline facts.
+It never signs a summary. It creates synthetic records in a new tenant each run.
+Linux callers must pass `--font /path/to/font.ttf`.
+
+## Durable prototype alerts
+
+Apply current migrations and set `TRIAGE_WORKFLOW_ENABLED=true` alongside
+`ENABLE_DEMO_ROUTES=true` and `DOCUMENT_WORKFLOW_ENABLED=true` for the local demo.
+After reviewing a consented accepted intake in Worklist, choose **Check confirmed
+intake for alerts**, then open **Alerts**. Confirm treatment purpose and refresh.
+Acknowledge explicitly; acknowledgement records ownership but does not resolve
+the concern. The owning doctor can record a separate resolution with rationale.
+Resolved alerts remain available with **Include resolved alerts**.
+
+Assisted and touch intake also evaluate each confirmed answer and save any triggered
+flags before requesting the next AI question. The first complaint can immediately
+pause questions and ask the patient to call nearby staff. A failed safety check
+shows a manual assistance message and prevents the next AI request.
+
+This is a prototype workflow, not clinically approved automatic triage.
+Governed handoff/override and external
+notification remain pending. Do not infer delivery from a stored alert. Existing alerts are
+not deleted when prototype evaluation is disabled.
+
+## Alert event delivery
+
+Migration 0016 adds delivery fencing and dead-letter state. Start the optional
+publisher with `docker compose --profile triage up -d --build triage-outbox-publisher`.
+It uses `DATABASE_MAINTENANCE_URL` for the alert-owned outbox and publishes
+metadata-only events to `TRIAGE_EVENT_TOPIC` (default `clinical.triage.v1`).
+
+The queue distinguishes pending, failed and broker-published events. Broker
+publication is not a notification-provider delivery receipt or staff acknowledgement.
+After five failed/crashed attempts, an event stays available for operator review;
+later events for that alert wait behind it. Correct the outage, inspect the exact
+failed event ID, then use the maintenance-only command:
+
+```powershell
+python -m app.rules.alert_outbox replay --event-id <failed-event-uuid>
+```
+
+Replay preserves the event ID; consumers must deduplicate it. This command needs
+the maintenance database environment and does not resolve or acknowledge an alert.
+It is not a staff/public API. Record the replay in the facility's operations log.
+To stop delivery while preserving alerts, stop the publisher container. Do not
+run the down migration to handle an outage; retain queued events and history.
+
+## Prototype alert escalation timers
+
+For the synthetic demo tenant only, apply migration 0017 and enable
+`TRIAGE_WORKFLOW_ENABLED=true` and `ENABLE_DEMO_ROUTES=true`. From `apps/api`,
+set `DATABASE_MAINTENANCE_URL` to the local maintenance connection, then run:
+
+```powershell
+python -m app.rules.alert_timers status --policy ../../services/alert-worker/policy.example.json
+python -m app.rules.alert_timers activate --policy ../../services/alert-worker/policy.example.json --operator-id <operator-uuid> --expected-revision 0 --reason-code initial_activation
+```
+
+Use the revision returned by `status`; zero applies only to the first activation.
+From the repository root, start the worker:
+
+```powershell
+docker compose --profile triage-timers up -d --build triage-timer-worker
+```
+
+`TRIAGE_TIMER_POLICY_FILE` optionally selects a different policy JSON file. The
+default example in `services/alert-worker/policy.example.json` uses 30- and
+120-second showcase deadlines; these are not clinically approved response times.
+Each due step moves an unacknowledged alert to doctor escalation and records an
+outbox event. Acknowledged/resolved alerts do not expire on this timer. Repeated
+scans and restarts retain completed steps. Kafka publication remains separate;
+run the triage outbox publisher when demonstrating broker delivery.
+
+Stop `triage-timer-worker` to pause scheduling. Restart catches up overdue steps.
+Use the `deactivate` command with operator ID, current revision and reason to pause
+scheduling centrally. Old policy workers cannot write after replacement or
+deactivation commits. Version and review policy changes: replacements apply to
+outstanding alerts using their original creation times. Operator identity and
+clinical approval still require production governance.
+No policy or timer can resolve an alert. See `services/alert-worker/README.md`.

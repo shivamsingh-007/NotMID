@@ -134,3 +134,14 @@ def test_missing_route_duration_and_instruction_are_not_invented() -> None:
     fields = _by_type(draft)
 
     assert set(fields) == {"medication_statement", "strength"}
+
+
+def test_unprefixed_name_strength_stays_uncertain_and_instruction_is_not_a_drug():
+    artifact = _artifact("METFORMIN 500 MG", "TAKE ONE TABLET DAILY")
+    draft = PrescriptionRulesExtractor().extract([artifact])
+    fields = _by_type(draft)
+    assert [item.normalized_value for item in fields["medication_statement"]] == ["METFORMIN"]
+    assert fields["strength"][0].normalized_value == "500"
+    assert fields["medication_statement"][0].uncertainty == "medication_name_requires_verification"
+    assert "standalone_instruction_requires_review" in draft.warnings
+    assert fields["medication_statement"][0].source.region_id == artifact.regions[0].region_id

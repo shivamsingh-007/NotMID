@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TouchButton } from "@/components/TouchButton";
 import { IconCard } from "@/components/IconCard";
@@ -10,9 +10,10 @@ import { ProgressBar } from "@/components/ProgressBar";
 import { AccessibilityControls } from "@/components/AccessibilityControls";
 import {
   getQuestionnaire,
+  describeAnswers,
   Question,
 } from "@/lib/questionnaires";
-import { readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
+import { confirmPatientSafety, readPatientSession, submitPatientIntake } from "@/lib/patientPortal";
 
 type Step =
   | { type: "choose_type" }
@@ -20,6 +21,7 @@ type Step =
   | { type: "question"; sectionIndex: number; questionIndex: number }
   | { type: "review" }
   | { type: "submitting" }
+  | { type: "emergency" }
   | { type: "done" };
 
 export default function CaseTakingPage() {
@@ -37,6 +39,13 @@ export default function CaseTakingPage() {
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [selectedType, setSelectedType] = useState<"allopathic" | "ayush" | null>(null);
   const [submitError, setSubmitError] = useState("");
+  const [checkingSafety, setCheckingSafety] = useState(false);
+  const safetyInFlight = useRef(false);
+  const emergencyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (step.type === "emergency") emergencyRef.current?.focus();
+  }, [step.type]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -75,9 +84,28 @@ export default function CaseTakingPage() {
     .reduce((acc, s) => acc + s.questions.length, 0)
     + (step.type === "question" ? step.questionIndex : 0);
 
-  const handleAnswer = useCallback(
-    (questionId: string, answer: string | string[]) => {
-      setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  async function handleAnswer(questionId: string, answer: string | string[]) {
+      if (safetyInFlight.current) return;
+      safetyInFlight.current = true;
+      setCheckingSafety(true);
+      setSubmitError("");
+      const nextAnswers = { ...answers, [questionId]: answer };
+      setAnswers(nextAnswers);
+      try {
+        const patient = readPatientSession();
+        if (!patient) throw new Error("Patient access required");
+        const confirmedAnswers = describeAnswers(questionnaire, nextAnswers, lang);
+        const safety = await confirmPatientSafety(patient, {
+          encounter_id: voiceContext.encounterId,
+          consent_id: voiceContext.consentId,
+          input_version: Object.keys(nextAnswers).length,
+          chief_complaint: "",
+          confirmed_answers: confirmedAnswers,
+        });
+        if (safety.interrupt_required) {
+          setStep({ type: "emergency" });
+          return;
+        }
 
       // Advance to next question
       if (step.type === "question" && currentSection) {
@@ -89,9 +117,15 @@ export default function CaseTakingPage() {
           setStep({ type: "review" });
         }
       }
-    },
-    [step, currentSection, sections.length]
-  );
+      } catch {
+        setSubmitError(lang === "hi"
+          ? "सुरक्षा जाँच पूरी नहीं हो सकी। आगे बढ़ने से पहले पास की नर्स या डॉक्टर को बुलाएँ।"
+          : "The safety check could not be completed. Please call a nearby nurse or doctor before continuing.");
+      } finally {
+        safetyInFlight.current = false;
+        setCheckingSafety(false);
+      }
+  }
 
   async function submitCase() {
     const patient = readPatientSession();
@@ -99,9 +133,7 @@ export default function CaseTakingPage() {
       setSubmitError(lang === "hi" ? "सुरक्षित रोगी सत्र नहीं मिला।" : "Secure patient session not found.");
       return;
     }
-    const confirmedAnswers = Object.fromEntries(
-      Object.entries(answers).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : value]),
-    );
+    const confirmedAnswers = describeAnswers(questionnaire, answers, lang);
     const history = Object.entries(confirmedAnswers).map(([key, value]) => `${key.replaceAll("_", " ")}: ${value}`);
     if (history.length === 0) {
       setSubmitError(lang === "hi" ? "जमा करने से पहले कम से कम एक उत्तर दें।" : "Answer at least one question before submitting.");
@@ -133,6 +165,18 @@ export default function CaseTakingPage() {
       setSubmitError(caught instanceof Error ? caught.message : "Intake could not be saved");
       setStep({ type: "review" });
     }
+  }
+
+  if (step.type === "emergency") {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6">
+        <AccessibilityControls />
+        <div ref={emergencyRef} tabIndex={-1} role="alert" className="max-w-2xl rounded-3xl border-4 border-red-600 bg-red-50 p-8">
+          <h1 className="text-3xl font-bold text-red-800">{lang === "hi" ? "अभी स्टाफ को बुलाइए" : "Please call a staff member now"}</h1>
+          <p className="mt-5 text-xl">{lang === "hi" ? "चेतावनी समीक्षा के लिए सहेजी गई है। स्टाफ ने अभी इसकी पुष्टि नहीं की है। सामान्य प्रश्न रोक दिए गए हैं। पास की नर्स या डॉक्टर को अभी बुलाएँ।" : "A warning was saved for clinician review. Staff have not yet acknowledged it. Routine questions are paused. Please call a nearby nurse or doctor now."}</p>
+        </div>
+      </main>
+    );
   }
 
   // --- Choose type ---
@@ -182,12 +226,16 @@ export default function CaseTakingPage() {
         <ProgressBar currentStep={questionsDone} totalSteps={totalSteps} />
         <AudioPrompt text={currentQuestion.audio[lang]} language={lang} />
         <h2 className="text-2xl font-bold text-primary text-center max-w-2xl">{currentQuestion.label[lang]}</h2>
+        {submitError && <p role="alert" className="max-w-2xl rounded-xl bg-red-50 p-4 font-bold text-red-700">{submitError}</p>}
+        {checkingSafety && <p role="status">{lang === "hi" ? "सुरक्षा जाँच जारी है…" : "Checking confirmed answer…"}</p>}
+        <fieldset disabled={checkingSafety} className="contents">
 
         {/* Voice input */}
         <VoiceInput
           key={currentQuestion.id}
           language={lang}
           context={voiceContext}
+          disabled={checkingSafety}
           onTranscription={(text) => {
             handleAnswer(currentQuestion.id, text);
           }}
@@ -224,12 +272,13 @@ export default function CaseTakingPage() {
         )}
 
         {currentQuestion.type === "multi_select" && currentQuestion.options && (
-          <MultiSelectQuestion question={currentQuestion} lang={lang} onConfirm={(vals) => handleAnswer(currentQuestion.id, vals)} />
+          <MultiSelectQuestion key={currentQuestion.id} question={currentQuestion} lang={lang} onConfirm={(vals) => handleAnswer(currentQuestion.id, vals)} />
         )}
 
         {currentQuestion.type === "scale" && (
-          <ScaleQuestion lang={lang} onConfirm={(val) => handleAnswer(currentQuestion.id, val)} />
+          <ScaleQuestion key={currentQuestion.id} lang={lang} onConfirm={(val) => handleAnswer(currentQuestion.id, val)} />
         )}
+        </fieldset>
       </main>
     );
   }

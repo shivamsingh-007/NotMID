@@ -92,12 +92,24 @@ class WhisperEnglishASRProvider(ASRProvider):
         processor = self._processor
         if model is None or processor is None:
             raise RuntimeError("Whisper model is not initialized")
-        features = processor(audio, sampling_rate=TARGET_SAMPLE_RATE, return_tensors="pt")
+        long_form = len(audio) > 30 * TARGET_SAMPLE_RATE
+        features = processor(
+            audio, sampling_rate=TARGET_SAMPLE_RATE, return_tensors="pt",
+            truncation=False, return_attention_mask=True,
+        )
         inputs = features.input_features.to(self.device, dtype=model.dtype)
         with self._inference_lock, torch.inference_mode():
             # The configured ``.en`` checkpoint is English-only. Passing the
             # multilingual language/task controls raises in Transformers 5.x.
-            generated = model.generate(inputs)
+            generation_options = {}
+            if long_form:
+                # Whisper's native long-form decoder requires timestamps and
+                # all feature frames; the extractor otherwise truncates at 30s.
+                generation_options = {
+                    "return_timestamps": True,
+                    "attention_mask": features.attention_mask.to(self.device),
+                }
+            generated = model.generate(inputs, **generation_options)
         return processor.batch_decode(generated, skip_special_tokens=True)[0].strip()
 
     async def transcribe_stream(

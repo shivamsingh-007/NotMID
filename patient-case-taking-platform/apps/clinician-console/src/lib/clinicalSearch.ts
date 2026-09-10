@@ -1,3 +1,5 @@
+import { clinicalAccessToken, clinicalRole } from "./clinicalSession";
+
 export type ClinicalSourceKind = "signed_summary" | "reviewed_fact";
 
 export type ClinicalSearchHighlight = {
@@ -79,22 +81,8 @@ export class ClinicalSearchApiError extends Error {
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-function accessToken(): string {
-  const token = window.sessionStorage.getItem("medikiosk.access_token");
-  if (!token) {
-    throw new ClinicalSearchApiError(
-      "Clinical session unavailable. Sign in again to search reviewed records.",
-      401,
-    );
-  }
-  return token;
-}
 
-export function clinicianRole(): "doctor" | "nurse" | null {
-  if (typeof window === "undefined") return null;
-  const role = window.sessionStorage.getItem("medikiosk.clinician_role");
-  return role === "doctor" || role === "nurse" ? role : null;
-}
+export const clinicianRole = clinicalRole;
 
 function parameters(filters: ClinicalSearchFilters): URLSearchParams {
   const query = new URLSearchParams({
@@ -124,7 +112,7 @@ export async function searchClinicalRecords(
   query.set("page_size", "20");
   const response = await fetch(`${apiUrl}/api/v1/clinical-search?${query}`, {
     cache: "no-store",
-    headers: { Authorization: `Bearer ${accessToken()}` },
+    headers: { Authorization: `Bearer ${await clinicalAccessToken()}` },
   });
   if (!response.ok) {
     throw await errorFrom(response, "Reviewed-record search is unavailable.");
@@ -144,7 +132,7 @@ export async function getClinicalTimeline(
     `${apiUrl}/api/v1/clinical-search/timeline/${encodeURIComponent(filters.patientId)}?${query}`,
     {
       cache: "no-store",
-      headers: { Authorization: `Bearer ${accessToken()}` },
+      headers: { Authorization: `Bearer ${await clinicalAccessToken()}` },
     },
   );
   if (!response.ok) {
@@ -160,7 +148,7 @@ export async function downloadClinicalSearchCsv(
   query.delete("cursor");
   const response = await fetch(`${apiUrl}/api/v1/clinical-search/export.csv?${query}`, {
     cache: "no-store",
-    headers: { Authorization: `Bearer ${accessToken()}` },
+    headers: { Authorization: `Bearer ${await clinicalAccessToken()}` },
   });
   if (!response.ok) {
     throw await errorFrom(response, "Clinical export is unavailable.");

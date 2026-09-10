@@ -84,16 +84,9 @@ class AI4BharatASRProvider(ASRProvider):
         if audio_data.size == 0 or orig_sr <= 0:
             raise ValueError("Audio file is empty")
 
-        # Convert to tensor
-        if isinstance(audio_data, list):
-            import numpy as np
-            audio_data = np.array(audio_data)
-
         if audio_data.ndim > 1:
             # Mix to mono
             audio_data = audio_data.mean(axis=1)
-
-        tensor = torch.tensor(audio_data, dtype=torch.float32).unsqueeze(0)
 
         # Resample if needed (simple linear interpolation — avoids torchaudio/FFmpeg dependency)
         if orig_sr != TARGET_SAMPLE_RATE:
@@ -102,11 +95,7 @@ class AI4BharatASRProvider(ASRProvider):
             target_len = int(duration * TARGET_SAMPLE_RATE)
             indices = np.linspace(0, len(audio_data) - 1, target_len)
             audio_data = np.interp(indices, np.arange(len(audio_data)), audio_data)
-            tensor = torch.tensor(audio_data, dtype=torch.float32).unsqueeze(0)
-        else:
-            tensor = torch.tensor(audio_data, dtype=torch.float32).unsqueeze(0)
-
-        return tensor
+        return torch.tensor(audio_data, dtype=torch.float32).unsqueeze(0)
 
     async def transcribe_stream(
         self,

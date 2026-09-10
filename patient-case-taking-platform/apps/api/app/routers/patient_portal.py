@@ -57,6 +57,7 @@ from app.patient_portal.service import (
     PatientPortalService,
     PatientReportNotFound,
 )
+from app.rules.patient_safety import PatientSafetyConfirmation, PatientSafetyService
 from app.schemas.document import (
     DocumentFinalizeRequest,
     DocumentResponse,
@@ -420,3 +421,21 @@ async def cancel_document(
         )
     except (ConcurrentDocumentUpdate, InvalidDocumentTransition) as exc:
         raise HTTPException(status_code=409, detail="Document state conflict") from exc
+
+
+async def get_patient_safety_service():
+    from app.database import get_postgres_pool
+    if not settings.TRIAGE_WORKFLOW_ENABLED or not settings.ENABLE_DEMO_ROUTES:
+        raise HTTPException(503, "Prototype patient safety workflow is not enabled")
+    return PatientSafetyService(await get_postgres_pool())
+
+
+@router.post("/safety-confirmations")
+async def confirm_patient_safety(
+    body: PatientSafetyConfirmation,
+    response: Response,
+    identity: PatientIdentity = Depends(patient_identity),
+    service: PatientSafetyService = Depends(get_patient_safety_service),
+):
+    response.headers["Cache-Control"] = "private, no-store"
+    return await service.confirm(identity, body)

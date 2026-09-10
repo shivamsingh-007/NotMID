@@ -1,11 +1,11 @@
 """Authentication, session management, and audit-linked endpoints."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from app.audit.emitter import audit_emitter, safe_uuid
 from app.auth.dependencies import get_current_user
-from app.auth.token import TokenPayload, create_dev_token
+from app.auth.token import TokenPayload, create_dev_token, revoke_token, rotate_token
 from app.models.device import deactivate_device, register_device
 from app.sessions.state_machine import SessionType, session_manager
 
@@ -29,9 +29,14 @@ async def create_token(
 async def rotate_my_token(
     new_role: str | None = Query(None),
     user: TokenPayload = Depends(get_current_user),
+    authorization: str = Header(...),
 ):
-    """Rotate token on privilege elevation. Old token is revoked."""
-    token = create_dev_token(user.user_id, user.email, new_role or user.role, user.tenant_id, user.facility_ids)
+    """Replace the current credential without changing its role. Revoke the old token."""
+    if new_role is not None and new_role != user.role:
+        raise HTTPException(status_code=403, detail="Token rotation cannot change clinical role")
+    token = rotate_token(authorization.partition(" ")[2].strip())
+    if token is None:
+        raise HTTPException(status_code=401, detail="Session is no longer valid")
     audit_emitter.emit(
         tenant_id=safe_uuid(user.tenant_id) or UUID(int=0),
         actor_id=safe_uuid(user.user_id),
@@ -47,8 +52,11 @@ async def rotate_my_token(
 
 
 @router.post("/revoke")
-async def revoke_my_token(user: TokenPayload = Depends(get_current_user)):
+async def revoke_my_token(
+    user: TokenPayload = Depends(get_current_user), authorization: str = Header(...),
+):
     """Revoke current token."""
+    revoke_token(authorization.partition(" ")[2].strip())
     audit_emitter.emit(
         tenant_id=safe_uuid(user.tenant_id) or UUID(int=0),
         actor_id=safe_uuid(user.user_id),

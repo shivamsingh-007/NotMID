@@ -3,6 +3,8 @@
 import base64
 import io
 import wave
+from unittest.mock import AsyncMock
+from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -40,7 +42,8 @@ def test_asr_transcribes_the_uploaded_file() -> None:
     response = client.post(
         "/api/v1/asr/transcribe",
         files={"file": ("sample.wav", _silent_wav(), "audio/wav")},
-        data={"language": "hi"},
+        data={"language": "hi", "session_id": str(uuid4()), "tenant_id": str(uuid4()), "encounter_id": str(uuid4()), "consent_id": str(uuid4())},
+        headers={"Authorization": "Bearer test"},
     )
     assert response.status_code == 200
     assert response.json()["provider"] == "mock"
@@ -51,7 +54,8 @@ def test_asr_rejects_empty_upload() -> None:
     response = client.post(
         "/api/v1/asr/transcribe",
         files={"file": ("empty.wav", b"", "audio/wav")},
-        data={"language": "hi"},
+        data={"language": "hi", "session_id": str(uuid4()), "tenant_id": str(uuid4()), "encounter_id": str(uuid4()), "consent_id": str(uuid4())},
+        headers={"Authorization": "Bearer test"},
     )
     assert response.status_code == 400
 
@@ -80,3 +84,8 @@ def test_ocr_base64_accepts_bounded_input() -> None:
         params={"image": encoded, "mime_type": "image/png"},
     )
     assert response.status_code == 200
+
+
+@pytest.fixture(autouse=True)
+def authorized_speech_contract(monkeypatch):
+    monkeypatch.setattr(asr, "authorize_voice", AsyncMock(return_value=uuid4()))

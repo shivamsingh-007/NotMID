@@ -7,6 +7,12 @@ COPY apps/clinician-console/package-lock.json ./
 RUN npm ci
 
 FROM base AS builder
+ARG NEXT_PUBLIC_AUTH_PROVIDER=demo
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ENV NEXT_PUBLIC_AUTH_PROVIDER=$NEXT_PUBLIC_AUTH_PROVIDER
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 COPY --from=deps /workspace/apps/clinician-console/node_modules ./node_modules
 COPY apps/clinician-console ./
 COPY packages/ui-system /workspace/packages/ui-system

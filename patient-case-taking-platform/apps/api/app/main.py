@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import close_postgres_pool
 from app.routers import (
+    alerts,
     asr,
     audit,
     auth,
@@ -25,10 +26,13 @@ from app.routers import (
     fhir,
     fhir_search,
     health,
+    identity_session,
     intake_sessions,
+    intake_worklist,
     llm,
     ocr,
     patient_portal,
+    patient_sessions,
     patients,
     reviewed_documents,
     summary_workflows,
@@ -46,7 +50,7 @@ async def _warm_provider(get_provider: Callable):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    if settings.MODEL_WARMUP_ON_START:
+    if settings.MODEL_WARMUP_ON_START or settings.ASR_WARMUP_ON_START:
         from app.asr.registry import get_active_provider as get_asr_provider
         from app.asr.registry import get_provider_for_language
         from app.ocr.registry import get_active_provider as get_ocr_provider
@@ -54,10 +58,9 @@ async def lifespan(_app: FastAPI):
         # Run independent model initialization concurrently. When enabled, a
         # failed warmup deliberately fails readiness instead of moving the cold
         # start or dependency error into a patient's request.
-        warmups = [
-            _warm_provider(get_asr_provider),
-            _warm_provider(get_ocr_provider),
-        ]
+        warmups = [_warm_provider(get_asr_provider)]
+        if settings.MODEL_WARMUP_ON_START:
+            warmups.append(_warm_provider(get_ocr_provider))
         if settings.ASR_PROVIDER != "mock":
             warmups.append(_warm_provider(lambda: get_provider_for_language("en")))
         await asyncio.gather(*warmups)
@@ -106,6 +109,8 @@ async def correlation_id_header(request: Request, call_next):
     return response
 
 app.include_router(health.router)
+app.include_router(identity_session.router)
+app.include_router(patient_sessions.router)
 app.include_router(asr.router)  # ASR always available (not behind demo gate)
 app.include_router(documents.router)  # Fails closed unless durable workflow is enabled.
 app.include_router(document_reviews.router)
@@ -114,6 +119,8 @@ app.include_router(document_operations.router)
 app.include_router(summary_workflows.router)  # Durable; fails closed unless enabled.
 app.include_router(tts.router)  # Offline deterministic mock; unsupported providers fail closed.
 app.include_router(patient_portal.router)  # Authenticated patient-self projections only.
+app.include_router(intake_worklist.router)
+app.include_router(alerts.router)
 app.include_router(clinical_search.router)  # Token-scoped, audited reviewed-record retrieval.
 app.include_router(fhir_search.router)  # Bounded FHIR search over canonical reviewed records.
 
@@ -121,7 +128,7 @@ app.include_router(fhir_search.router)  # Bounded FHIR search over canonical rev
 # not yet provide Clerk verification, durable persistence, tenant isolation, or
 # a compliance-grade audit trail. Fail closed unless a developer explicitly
 # enables the demo surface.
-if settings.ENABLE_DEMO_ROUTES:
+if settings.ENABLE_DEMO_ROUTES and settings.APP_ENV in {"development", "test"}:
     app.include_router(auth.router)
     app.include_router(patients.router)
     app.include_router(facilities.router)

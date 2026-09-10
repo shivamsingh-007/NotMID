@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import time
+from uuid import uuid4
 
 import pytest
 
@@ -12,6 +13,7 @@ if os.getenv("RUN_SERVER_SMOKE_TESTS") != "1":
 # Set env vars for child process
 env = os.environ.copy()
 env["ENABLE_DEMO_ROUTES"] = "true"
+env["DOCUMENT_WORKFLOW_ENABLED"] = "true"
 env["ASR_PROVIDER"] = os.getenv("ASR_PROVIDER", "mock")
 env["OCR_PROVIDER"] = os.getenv("OCR_PROVIDER", "mock")
 
@@ -48,13 +50,32 @@ try:
 
     BASE = "http://127.0.0.1:8004"
 
+    # Requires migrated local PostgreSQL: speech never bypasses stored consent.
+    tenant, patient, facility, encounter = (str(uuid4()) for _ in range(4))
+    access = requests.post(f"{BASE}/api/v1/auth/token", params={
+        "user_id": patient, "email": "patient@smoke.example.test", "role": "patient",
+        "tenant_id": tenant, "facility_ids": facility,
+    }, timeout=10)
+    access.raise_for_status()
+    headers = {"Authorization": f"Bearer {access.json()['token']}"}
+    session = requests.post(f"{BASE}/api/v1/patient-portal/me/sessions",
+                            headers={**headers, "Idempotency-Key": str(uuid4())},
+                            json={"facility_id": facility, "language": "hi"}, timeout=15)
+    session.raise_for_status()
+    encounter = session.json()["encounter_id"]
+    consent = requests.post(f"{BASE}/api/v1/patient-portal/me/consents", headers=headers,
+                            json={"encounter_id": encounter}, timeout=15)
+    consent.raise_for_status()
+
     # Test ASR
     print("\n=== ASR Transcribe ===")
     audio_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_audio.wav")
     with open(audio_path, "rb") as f:
         r = requests.post(f"{BASE}/api/v1/asr/transcribe",
                          files={"file": ("test.wav", f, "audio/wav")},
-                         data={"language": "hi"},
+                         data={"language": "hi", "tenant_id": tenant, "session_id": session.json()["id"],
+                               "encounter_id": encounter, "consent_id": consent.json()["id"]},
+                         headers=headers,
                          timeout=120)
     print(f"Status: {r.status_code}")
     data = r.json()

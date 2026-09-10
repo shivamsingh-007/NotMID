@@ -84,7 +84,9 @@
 .evidence-card { border-bottom: 1px solid var(--mk-border); padding: .85rem 0; }
 .evidence-card:last-child { border-bottom: 0; }
 .evidence-card q { display: block; font-size: .82rem; line-height: 1.45; margin: .4rem 0; }
-.evidence-card span { color: var(--mk-ink-muted); font-size: .68rem; }
+.evidence-card span { display: block; color: var(--mk-ink-muted); font-size: .68rem; margin-bottom: .35rem; }
+.evidence-card strong { display: block; overflow-wrap: anywhere; }
+.mk-button:disabled { cursor: not-allowed; opacity: .45; box-shadow: none; }
 .evidence-card p { color: var(--mk-ink-muted); font-size: .72rem; overflow-wrap: anywhere; }
 .summary-loader { align-items: end; display: grid; gap: .7rem; grid-template-columns: minmax(16rem, 1fr) auto; margin-bottom: 1.5rem; padding: 1rem; }
 .summary-loader label { color: var(--mk-ink-muted); font-size: .72rem; font-weight: 800; grid-column: 1 / -1; text-transform: uppercase; }
@@ -261,3 +263,18 @@ body:has(.dev-login) .clinician-main { padding: 0; }
   .view-switch { display: grid; grid-template-columns: 1fr 1fr; }
   .search-result > header { flex-direction: column; }
 }
+.alert-workspace { display: grid; gap: 1rem; max-width: 1200px; margin: auto; }
+.alert-workspace h1 { font: 2rem var(--mk-font-display); }
+.alert-workspace label { display: block; }
+.alert-workspace input[type=checkbox] { margin-right: .6rem; }
+.alert-workspace button { min-height: 44px; cursor: pointer; }
+.alert-workspace button:disabled { opacity: .5; cursor: not-allowed; }
+.alert-workspace button:focus-visible, .alert-workspace textarea:focus-visible { outline: 3px solid #2563eb; outline-offset: 3px; }
+.alert-button { border: 1px solid #b8c6c3; border-radius: 8px; padding: .7rem 1rem; background: #fff; width: fit-content; }
+.alert-grid { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(300px, 1.4fr); gap: 1rem; align-items: start; }
+.alert-card { display: grid; width: 100%; gap: .7rem; border: 1px solid #cbd5d1; border-radius: 12px; padding: 1.2rem; margin-bottom: .7rem; background: white; text-align: left; overflow-wrap: anywhere; }
+.alert-card textarea { display: block; width: 100%; min-height: 120px; border: 1px solid #94a3b8; border-radius: 6px; padding: .7rem; margin-block: .5rem; }
+.alert-card a { text-decoration: underline; }
+@media (max-width: 800px) { .alert-grid { grid-template-columns: 1fr; } }
+/* Session controls remain available even when internal access is denied. */
+.clinical-session-controls { display: flex; align-items: center; justify-content: flex-end; gap: 1rem; padding: .75rem 1.5rem; border-bottom: 1px solid #dce3e1; background: #fff; }

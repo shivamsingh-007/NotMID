@@ -1,8 +1,10 @@
 """Phase 4 voice contract and acoustic quality tests."""
 
 from array import array
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -18,7 +20,6 @@ client = TestClient(app)
 def setup_function() -> None:
     voice_runtime.contexts.clear()
     voice_runtime.events.clear()
-    voice_runtime.retained_audio.clear()
 
 
 def _speech_pcm(seconds: int = 3) -> bytes:
@@ -120,3 +121,11 @@ async def test_retention_requires_explicit_consent(monkeypatch) -> None:
         assert "consent" in str(exc).lower()
     else:
         raise AssertionError("Retention must fail without explicit consent")
+
+
+# Speech mechanics are isolated from access control; real denial cases live in
+# test_voice_authorization.py. No runtime bypass exists.
+@pytest.fixture(autouse=True)
+def authorized_speech_contract(monkeypatch):
+    monkeypatch.setattr("app.routers.asr._authenticate_socket", AsyncMock(return_value="test"))
+    monkeypatch.setattr("app.routers.asr.authorize_voice", AsyncMock(return_value=uuid4()))

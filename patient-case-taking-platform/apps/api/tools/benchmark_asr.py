@@ -104,4 +104,6 @@ if __name__ == "__main__":
     parser.add_argument("manifest", type=Path)
     parser.add_argument("--output", type=Path, default=Path("asr-benchmark-results.json"))
     arguments = parser.parse_args()
-    print(json.dumps(asyncio.run(run(arguments.manifest, arguments.output)), ensure_ascii=False))
+    # ASCII-safe console JSON also works in Windows legacy-codepage terminals;
+    # the output artifact above preserves the original UTF-8 text.
+    print(json.dumps(asyncio.run(run(arguments.manifest, arguments.output)), ensure_ascii=True))

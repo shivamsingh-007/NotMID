@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,8 +25,12 @@ class Settings(BaseSettings):
     S3_SERVER_SIDE_ENCRYPTION: str = ""
     CLERK_SECRET_KEY: str = ""
     CLERK_PUBLISHABLE_KEY: str = ""
+    AUTH_PROVIDER: Literal["demo", "clerk"] = "demo"
+    CLERK_APPLICATIONS_JSON: str = "[]"
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:3002"
     ENABLE_DEMO_ROUTES: bool = False
+    TRIAGE_WORKFLOW_ENABLED: bool = False
+    TRIAGE_EVENT_TOPIC: str = "clinical.triage.v1"
     DOCUMENT_WORKFLOW_ENABLED: bool = False
     DOCUMENT_UPLOAD_GRANT_TTL_SECONDS: int = 300
     DOCUMENT_PREVIEW_GRANT_TTL_SECONDS: int = 300
@@ -95,6 +101,7 @@ class Settings(BaseSettings):
     SUMMARY_EVENT_TOPIC: str = "clinical.summaries.v1"
     SEARCH_CONSUMER_GROUP: str = "medikiosk-clinical-search-v1"
     MODEL_WARMUP_ON_START: bool = False
+    ASR_WARMUP_ON_START: bool = False
     LLM_PROVIDER: str = "mock"
     SUMMARY_WORKFLOW_ENABLED: bool = False
 

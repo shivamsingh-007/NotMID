@@ -33,7 +33,7 @@ Rule = Callable[[dict, dict], RuleResult]
 
 
 class RulesEngine:
-    def __init__(self, version: str = "phase6.prototype.v1"):
+    def __init__(self, version: str = "phase6.prototype.v2"):
         self.version = version
         self._rules: list[Rule] = []
 

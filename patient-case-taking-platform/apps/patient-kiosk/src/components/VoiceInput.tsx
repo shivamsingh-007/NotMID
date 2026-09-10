@@ -127,11 +127,12 @@ export function VoiceInput({
   useEffect(() => {
     if (error) {
       queueMicrotask(() => {
+        cancelRecording();
         setMode("idle");
         disconnect();
       });
     }
-  }, [disconnect, error]);
+  }, [cancelRecording, disconnect, error]);
 
   const handleStart = async () => {
     reset();

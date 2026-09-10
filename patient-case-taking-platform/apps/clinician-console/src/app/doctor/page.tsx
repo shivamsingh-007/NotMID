@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { Suspense, useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   listSummaries,
@@ -24,13 +25,19 @@ const labels: Record<ListField, string> = {
 };
 
 export default function DoctorReviewPage() {
-  const [encounterId, setEncounterId] = useState("");
+  return <Suspense fallback={<p role="status">Loading encounter…</p>}><DoctorReviewContent /></Suspense>;
+}
+
+function DoctorReviewContent() {
+  const searchParams = useSearchParams();
+  const [encounterId, setEncounterId] = useState(searchParams.get("encounter_id") ?? "");
   const [summaries, setSummaries] = useState<SummaryRecord[]>([]);
   const [selected, setSelected] = useState<SummaryRecord | null>(null);
   const [content, setContent] = useState<SummaryContent | null>(null);
   const [reason, setReason] = useState("");
   const [status, setStatus] = useState("Enter an encounter ID to load its summaries.");
   const [busy, setBusy] = useState(false);
+
 
   const choose = useCallback((summary: SummaryRecord) => {
     setSelected(summary);
@@ -109,7 +116,7 @@ export default function DoctorReviewPage() {
       {!selected || !content ? (
         <section className="mk-card summary-empty">
           <h2>No clinical summary selected</h2>
-          <p>A nurse can confirm intake context and generate a draft through the Phase 8 API. Nothing is signed automatically.</p>
+          <p>Open the worklist to review an accepted patient intake and prepare a draft. Nothing is signed automatically.</p>
         </section>
       ) : (
         <div className="review-layout mk-enter">
@@ -152,27 +159,28 @@ export default function DoctorReviewPage() {
                 {field === "red_flags" && <span className="source-link">Safety flags are read-only and cannot be removed.</span>}
               </div>)}
 
-              <div className="summary-reject">
+              {selected.status !== "signed" && <div className="summary-reject">
                 <label htmlFor="reject-reason">Rejection reason</label>
                 <input id="reject-reason" value={reason} onChange={(event) => setReason(event.target.value)}
-                  disabled={busy || selected.status === "signed"} />
-              </div>
+                  disabled={busy} />
+              </div>}
               <div className="signoff">
-                <div><strong>Clinician decision required</strong><p>Save edits, submit for review, then sign—or reject and regenerate a separate version.</p></div>
-                <div className="summary-actions">
+                <div><strong>{selected.status === "signed" ? "Signed and locked" : "Clinician decision required"}</strong>
+                  <p>{selected.status === "signed" ? "This version is immutable and available in the patient’s reports." : "Save edits, submit for review, then sign—or reject and regenerate a separate version."}</p></div>
+                {selected.status !== "signed" && <div className="summary-actions">
                   <button className="mk-button mk-button--soft" disabled={!editable}
                     onClick={() => act("Saving draft", () => saveDraft(selected, content))}>Save draft</button>
                   <button className="mk-button mk-button--primary" disabled={!editable}
                     onClick={() => act("Submitting for review", () => submitForReview(selected))}>Submit review</button>
                   <button className="mk-button mk-button--danger"
-                    disabled={busy || selected.status === "signed" || selected.status === "superseded" || !reason.trim()}
+                    disabled={busy || selected.status === "superseded" || !reason.trim()}
                     onClick={() => act("Rejecting draft", () => rejectSummary(selected, reason))}>Reject</button>
                   <button className="mk-button mk-button--soft"
                     disabled={busy || !["draft", "rejected"].includes(selected.status)}
                     onClick={() => act("Regenerating draft", () => regenerateSummary(selected))}>Regenerate</button>
                   <button className="mk-button mk-button--success" disabled={busy || selected.status !== "in_review"}
                     onClick={() => act("Signing summary", () => signSummary(selected))}>Sign & lock</button>
-                </div>
+                </div>}
               </div>
             </div>
           </section>
@@ -182,7 +190,7 @@ export default function DoctorReviewPage() {
             {selected.evidence.length === 0 ? <p className="patient-meta">No evidence links were supplied. Review manually.</p>
               : selected.evidence.map((item, index) => <article className="evidence-card"
                 key={`${item.output_path}-${index}`}><span>{item.source_type.replace("_", " ")}</span>
-                <strong>{item.output_path}</strong><p>{item.source_path}</p></article>)}
+                <strong>{item.output_path.replaceAll("_", " ")}</strong><p>{item.source_path.replaceAll("_", " ")}</p></article>)}
             {content.uncertainties.map((item) => <article className="evidence-card" key={item}>
               <span>Unresolved</span><p>{item}</p></article>)}
           </aside>

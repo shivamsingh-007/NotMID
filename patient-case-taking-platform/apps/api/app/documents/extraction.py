@@ -214,10 +214,20 @@ class PrescriptionRulesExtractor:
                     "explicit_date_label",
                 )
 
+        # A dosage instruction may contain "tablet" without naming any drug.
+        if re.match(r"(?i)^(?:take|use|administer|apply)\b", line):
+            warnings.append("standalone_instruction_requires_review")
+            return
         prefix = _MEDICATION_PREFIX.search(line)
         if prefix is None:
-            return
-        medication_tail = line[prefix.end() :].strip()
+            # Printed prescriptions also use NAME + numeric strength without
+            # a dosage-form prefix. Keep these explicitly uncertain for review.
+            strength = _STRENGTH.search(line)
+            if strength is None or not re.fullmatch(r"[A-Za-z][A-Za-z .+/-]{1,79}", line[:strength.start()].strip()):
+                return
+            medication_tail = line
+        else:
+            medication_tail = line[prefix.end() :].strip()
         strength_match = _STRENGTH.search(medication_tail)
         stop_at = strength_match.start() if strength_match else len(medication_tail)
         if strength_match is None:
@@ -234,6 +244,8 @@ class PrescriptionRulesExtractor:
             return
 
         negated, temporality, subject, uncertainty = _line_context(line)
+        if prefix is None:
+            uncertainty = uncertainty or "medication_name_requires_verification"
         context = (negated, temporality, subject, uncertainty)
         self._append(
             candidates,
@@ -243,7 +255,7 @@ class PrescriptionRulesExtractor:
             "medication_statement",
             medication,
             None,
-            "explicit_medication_form_prefix",
+            "explicit_medication_form_prefix" if prefix else "name_and_strength_requires_review",
             context,
         )
         if strength_match:

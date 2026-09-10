@@ -1,4 +1,5 @@
-import { createDemoPatientSession } from "./patientPortal";
+import { createDemoPatientSession, readPatientSession } from "./patientPortal";
+import { patientAccessToken, patientClerkEnabled } from "./patientIdentity";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -11,23 +12,23 @@ export interface KioskSession {
 export async function startLocalKioskSession(
   language: "hi" | "en",
 ): Promise<KioskSession> {
-  const patient = await createDemoPatientSession();
-  const query = new URLSearchParams({
-    facility_id: patient.facilityId,
-    device_id: "medikiosk-local-browser",
-    language,
-  });
-  const response = await fetch(`${API_URL}/api/v1/auth/kiosk/session?${query}`, {
+  const patient = patientClerkEnabled ? readPatientSession() : await createDemoPatientSession();
+  if (!patient) throw new Error("Patient sign-in is required before starting an intake.");
+  const response = await fetch(`${API_URL}/api/v1/patient-portal/me/sessions`, {
     method: "POST",
+    cache: "no-store",
+    headers: { Authorization: `Bearer ${await patientAccessToken(patient)}`,
+      "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    body: JSON.stringify({ facility_id: patient.facilityId, language }),
   });
   if (!response.ok) {
-    throw new Error("Kiosk session is unavailable. Enable local demo routes.");
+    throw new Error("Patient intake session is unavailable. Please retry or ask staff for help.");
   }
-  const payload = (await response.json()) as { session_id?: string };
-  if (!payload.session_id) throw new Error("Kiosk session returned no identifier");
+  const payload = (await response.json()) as { id?: string; encounter_id?: string };
+  if (!payload.id || !payload.encounter_id) throw new Error("Patient session returned incomplete identifiers");
   const session = {
-    sessionId: payload.session_id,
-    encounterId: crypto.randomUUID(),
+    sessionId: payload.id,
+    encounterId: payload.encounter_id,
     language,
   };
   localStorage.setItem("notmid-kiosk-session-id", session.sessionId);

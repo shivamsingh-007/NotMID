@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useSyncExternalStore } from "react";
+import { useState, useRef, useCallback, useSyncExternalStore, useEffect } from "react";
 
 const subscribeToRecorderSupport = () => () => undefined;
 const getServerRecorderSupport = () => false;
@@ -43,8 +43,11 @@ export function useVoiceRecorder(
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const operationRef = useRef(0);
 
   const startRecording = useCallback(async () => {
+    const operation = ++operationRef.current;
     if (!isSupported) {
       setError("Microphone access is not supported in this browser");
       return;
@@ -64,6 +67,11 @@ export function useVoiceRecorder(
         },
       });
 
+      if (operation !== operationRef.current) {
+        mediaStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = mediaStream;
       setStream(mediaStream);
 
       const preferredType = "audio/webm;codecs=opus";
@@ -82,6 +90,9 @@ export function useVoiceRecorder(
       mediaRecorder.start(chunkSize);
       setIsRecording(true);
     } catch (err) {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+      setStream(null);
       const message = err instanceof Error ? err.message : "Failed to start recording";
       setError(message);
       throw new Error(message);
@@ -103,7 +114,8 @@ export function useVoiceRecorder(
         chunksRef.current = [];
         setIsRecording(false);
 
-        stream?.getTracks().forEach((t) => t.stop());
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         setStream(null);
 
         resolve(blob);
@@ -111,18 +123,22 @@ export function useVoiceRecorder(
 
       recorder.stop();
     });
-  }, [stream]);
+  }, []);
 
   const cancelRecording = useCallback(() => {
+    ++operationRef.current;
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
       recorder.stop();
     }
     chunksRef.current = [];
     setIsRecording(false);
-    stream?.getTracks().forEach((t) => t.stop());
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
     setStream(null);
-  }, [stream]);
+  }, []);
+
+  useEffect(() => cancelRecording, [cancelRecording]);
 
   return {
     isRecording,

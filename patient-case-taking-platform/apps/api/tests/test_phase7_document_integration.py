@@ -85,7 +85,7 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             schema,
         )
 
-        assert first_count == 14
+        assert first_count == 19
         assert second_count == 0
         assert {row["tablename"] for row in tables} == {
             "document_registry",
@@ -112,6 +112,9 @@ async def test_migration_runner_applies_once_in_an_isolated_schema() -> None:
             "patient_intake_submission",
             "clinical_search_audit",
             "schema_migration",
+            "triage_flag", "triage_flag_history", "triage_outbox",
+            "triage_policy_artifact", "triage_active_policy", "triage_policy_activation_history",
+            "auth_identity_binding", "auth_identity_history", "auth_revoked_session",
         }
     finally:
         await connection.execute("SET search_path TO public")

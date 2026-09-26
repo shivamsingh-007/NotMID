@@ -1,9 +1,4 @@
-<div align="center">
-
-![Phase](https://img.shields.io/badge/Phase-0%20Discovery-blue)
-![License](https://img.shields.io/badge/License-Apache%202.0-green)
-![SIH](https://img.shields.io/badge/SIH-2026-orange)
-![Status](https://img.shields.io/badge/Status-Planning-yellow)
+<
 
 </div>
 
